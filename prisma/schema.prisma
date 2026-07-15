@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// A contractor company workspace. All data is scoped to an org (multi-tenant).
+model Organization {
+  id          String  @id @default(cuid())
+  name        String
+  shortName   String?
+  ssmNumber   String?
+  cidbNumber  String?
+  email       String?
+  phone       String?
+  website     String?
+  description String?
+
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  postcode     String?
+  state        String?
+  country      String  @default("Malaysia")
+
+  currency String  @default("MYR")
+  timezone String  @default("Asia/Kuching")
+  logoUrl  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  OrgMember[]
+  projects Project[]
+
+  @@map("organizations")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  PROJECT_MANAGER
+  SITE_SUPERVISOR
+  ENGINEER
+  QUANTITY_SURVEYOR
+  SAFETY_OFFICER
+  STOREKEEPER
+  FINANCE
+  VIEWER
+}
+
+/// Membership of a Supabase-authenticated user in an org, with their role.
+/// userId references auth.users.id managed by Supabase Auth (not a local FK).
+model OrgMember {
+  id     String       @id @default(cuid())
+  orgId  String
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId String
+
+  name   String
+  email  String
+  role   Role
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, userId])
+  @@index([userId])
+  @@map("org_members")
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  orgId         String
+  org           Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name          String
+  client        String?
+  siteAddress   String?
+  contractValue Decimal?      @db.Decimal(14, 2)
+  startDate     DateTime?     @db.Date
+  endDate       DateTime?     @db.Date
+  status        ProjectStatus @default(PLANNING)
+  progressPct   Int           @default(0)
+  plannedPct    Int           @default(0)
+  managerName   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workers      Worker[]
+  dailyReports DailyReport[]
+  attendance   AttendanceRecord[]
+
+  @@index([orgId])
+  @@map("projects")
+}
+
+model Worker {
+  id         String   @id @default(cuid())
+  orgId      String
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name       String
+  trade      String?
+  dailyRate  Decimal? @db.Decimal(10, 2)
+  icNumber   String?
+  cidbNumber String?
+  cidbExpiry DateTime? @db.Date
+  active     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendance AttendanceRecord[]
+
+  @@index([projectId])
+  @@index([orgId])
+  @@map("workers")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  HALF_DAY
+  ABSENT
+}
+
+model AttendanceRecord {
+  id        String   @id @default(cuid())
+  orgId     String
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  status    AttendanceStatus
+  timeIn    String?
+  timeOut   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([workerId, date])
+  @@index([projectId, date])
+  @@index([orgId])
+  @@map("attendance_records")
+}
+
+enum ReportStatus {
+  SUBMITTED
+  REVIEWED
+}
+
+model DailyReport {
+  id              String       @id @default(cuid())
+  orgId           String
+  projectId       String
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date            DateTime     @db.Date
+  weather         String?
+  manpower        Json?
+  workCompleted   String?
+  delays          String?
+  notes           String?
+  photos          Json?
+  status          ReportStatus @default(SUBMITTED)
+  submittedById   String
+  submittedByName String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId, date])
+  @@index([orgId])
+  @@map("daily_reports")
+}

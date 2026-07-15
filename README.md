@@ -1,0 +1,98 @@
+# BinaWorks
+
+Construction & contractor site management for Sarawak-based contractors — daily
+reports, attendance, and project tracking, scoped per-company with role-based
+access.
+
+This started as a static HTML/CSS/JS design prototype and is being rebuilt as
+a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
+
+## Stack
+
+- **Next.js 16** (App Router, TypeScript, Turbopack)
+- **Supabase** — Postgres database + Auth (email/password)
+- **Prisma 7** (via `@prisma/adapter-pg`) — schema, migrations, queries
+- Plain CSS design system ported from the original prototype (no Tailwind)
+- Local-disk file storage for uploaded photos/logos (Phase 1 — see below)
+
+## Phase 1 scope
+
+The current build covers the core daily-use loop end to end:
+
+- Sign up (creates a company workspace, you become Owner) / sign in
+- Multi-tenant orgs with role-based permissions (`lib/permissions.ts`)
+- Projects — create/edit/delete, worker roster per project
+- Daily reports — weather, manpower by trade, work completed, site photos
+- Attendance — daily check-in grid (Present/Half/Absent), CIDB Green Card
+  expiry flags
+
+Not yet built (from the original design): materials/procurement, calendar,
+team invitations UI, company settings UI, notifications, global search, help
+center. The data model and permission system are already set up to extend
+into these.
+
+## Setup
+
+### 1. Create a Supabase project
+
+1. Go to [supabase.com](https://supabase.com) → **New Project**.
+2. Set a strong database password (save it) and pick a nearby region.
+3. Once ready, go to **Project Settings → API** and copy the **Project URL**,
+   **anon public key**, and **service_role key**.
+4. Go to **Project Settings → Database → Connection string** and copy the
+   **URI** (pooler mode is fine).
+5. Under **Authentication → Sign In / Providers → Email**, consider turning
+   **off** "Confirm email" for local development so sign-up immediately
+   returns a session (the app still works either way — see
+   `app/signup/page.tsx`).
+
+### 2. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Fill in `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, and `DATABASE_URL` from step 1.
+
+### 3. Push the database schema
+
+```bash
+npx prisma generate
+npx prisma migrate dev --name init
+```
+
+### 4. Run the app
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) — you'll land on
+`/login`. Use "Create one" to sign up and set up your company workspace.
+
+## File uploads
+
+Daily report photos are stored on local disk under `UPLOADS_DIR` (default
+`./uploads`, gitignored) and served back through `app/api/uploads/[...path]`,
+scoped per-org. This requires a **persistent, writable filesystem** — it
+works on a self-hosted Node server, VM, or container with a mounted volume,
+but **will not persist on ephemeral/serverless hosts like Vercel**. Swap for
+S3-compatible storage (e.g. Supabase Storage) later if you deploy serverless.
+
+## Project structure
+
+```
+app/
+  (app)/            authenticated routes (dashboard, projects, reports, attendance)
+  api/               REST route handlers (the "backend")
+  login/, signup/    auth pages
+lib/
+  supabase/          browser/server/admin Supabase clients
+  prisma.ts          Prisma client (pg driver adapter)
+  auth.ts            getCurrentMember() / requireMember() for route handlers
+  permissions.ts      role → permission matrix
+prisma/schema.prisma  data model
+proxy.ts               session refresh + route guarding (Next 16's renamed middleware)
+```
