@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { getWorkerById, updateWorker, deleteWorker } from "@/lib/db/workers";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const updateSchema = z.object({
@@ -20,16 +20,13 @@ export async function PATCH(
   try {
     const member = await requireMember("manageWorkers");
     const { id } = await params;
-    const existing = await prisma.worker.findFirst({ where: { id, orgId: member.orgId } });
+    const existing = await getWorkerById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Worker not found");
 
     const body = updateSchema.parse(await request.json());
-    const worker = await prisma.worker.update({
-      where: { id },
-      data: {
-        ...body,
-        cidbExpiry: body.cidbExpiry ? new Date(body.cidbExpiry) : undefined,
-      },
+    const worker = await updateWorker(member.orgId, id, {
+      ...body,
+      cidbExpiry: body.cidbExpiry || undefined,
     });
     return NextResponse.json({ worker });
   } catch (err) {
@@ -47,9 +44,9 @@ export async function DELETE(
   try {
     const member = await requireMember("manageWorkers");
     const { id } = await params;
-    const existing = await prisma.worker.findFirst({ where: { id, orgId: member.orgId } });
+    const existing = await getWorkerById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Worker not found");
-    await prisma.worker.delete({ where: { id } });
+    await deleteWorker(member.orgId, id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

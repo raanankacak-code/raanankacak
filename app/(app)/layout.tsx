@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getOrganizationById } from "@/lib/db/organizations";
 import AppShell from "@/components/app/AppShell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const member = await getCurrentMember();
   if (!member) redirect("/signup/company");
 
-  const org = await prisma.organization.findUnique({ where: { id: member.orgId } });
+  const org = await getOrganizationById(member.orgId);
   if (!org) redirect("/signup/company");
 
   return (

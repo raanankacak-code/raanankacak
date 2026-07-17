@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { listProjectsForOrg, createProject } from "@/lib/db/projects";
 import { requireMember, apiErrorResponse } from "@/lib/auth";
 
 const projectSchema = z.object({
@@ -17,11 +17,7 @@ const projectSchema = z.object({
 export async function GET() {
   try {
     const member = await requireMember();
-    const projects = await prisma.project.findMany({
-      where: { orgId: member.orgId },
-      orderBy: { createdAt: "desc" },
-      include: { _count: { select: { workers: true } } },
-    });
+    const projects = await listProjectsForOrg(member.orgId);
     return NextResponse.json({ projects });
   } catch (err) {
     return apiErrorResponse(err);
@@ -33,18 +29,15 @@ export async function POST(request: Request) {
     const member = await requireMember("manageProjects");
     const body = projectSchema.parse(await request.json());
 
-    const project = await prisma.project.create({
-      data: {
-        orgId: member.orgId,
-        name: body.name,
-        client: body.client,
-        siteAddress: body.siteAddress,
-        contractValue: body.contractValue,
-        startDate: body.startDate ? new Date(body.startDate) : undefined,
-        endDate: body.endDate ? new Date(body.endDate) : undefined,
-        status: body.status ?? "PLANNING",
-        managerName: body.managerName,
-      },
+    const project = await createProject(member.orgId, {
+      name: body.name,
+      client: body.client,
+      siteAddress: body.siteAddress,
+      contractValue: body.contractValue,
+      startDate: body.startDate || undefined,
+      endDate: body.endDate || undefined,
+      status: body.status ?? "PLANNING",
+      managerName: body.managerName,
     });
     return NextResponse.json({ project }, { status: 201 });
   } catch (err) {

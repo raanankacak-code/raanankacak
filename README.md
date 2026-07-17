@@ -11,7 +11,7 @@ a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
 
 - **Next.js 16** (App Router, TypeScript, Turbopack)
 - **Supabase** — Postgres database + Auth (email/password)
-- **Prisma 7** (via `@prisma/adapter-pg`) — schema, migrations, queries
+- **supabase-js** (service-role client, server-only) — all data access; no ORM
 - Plain CSS design system ported from the original prototype (no Tailwind)
 - Local-disk file storage for uploaded photos/logos (Phase 1 — see below)
 
@@ -52,15 +52,17 @@ into these.
 cp .env.example .env
 ```
 
-Fill in `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`, and `DATABASE_URL` from step 1.
+Fill in `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
+`SUPABASE_SERVICE_ROLE_KEY` from step 1.
 
-### 3. Push the database schema
+### 3. Create the database schema
 
-```bash
-npx prisma generate
-npx prisma migrate dev --name init
-```
+Open `supabase/schema.sql` and run its contents in the Supabase SQL Editor
+(Project → SQL Editor → New query). This creates the tables, enums, and
+indexes the app expects, with RLS enabled and no public policies — all data
+access goes through the server-only service-role client (`lib/supabase/admin.ts`),
+which bypasses RLS, so the app's own auth/permission checks in `lib/auth.ts`
+and `lib/permissions.ts` are what actually gate access.
 
 ### 4. Run the app
 
@@ -90,9 +92,9 @@ app/
   login/, signup/    auth pages
 lib/
   supabase/          browser/server/admin Supabase clients
-  prisma.ts          Prisma client (pg driver adapter)
+  db/                 data-access modules (supabase-js queries + row mappers)
   auth.ts            getCurrentMember() / requireMember() for route handlers
   permissions.ts      role → permission matrix
-prisma/schema.prisma  data model
+supabase/schema.sql   data model (run once in the Supabase SQL Editor)
 proxy.ts               session refresh + route guarding (Next 16's renamed middleware)
 ```

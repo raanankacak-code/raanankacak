@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_LABELS } from "@/lib/permissions";
-import type { Role } from "@/app/generated/prisma/enums";
+import type { Role } from "@/lib/db/types";
 
 type NavItem = { href: string; label: string; icon: string };
 

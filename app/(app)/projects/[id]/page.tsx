@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getProjectWithWorkers } from "@/lib/db/projects";
+import { getLatestReportForProject, countReportsForProject } from "@/lib/db/reports";
 import { can } from "@/lib/permissions";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import RemoveWorkerButton from "@/components/app/RemoveWorkerButton";
@@ -28,18 +29,12 @@ export default async function ProjectDetailPage({
   const { id } = await params;
   const { tab = "overview" } = await searchParams;
 
-  const project = await prisma.project.findFirst({
-    where: { id, orgId: member.orgId },
-    include: { workers: { orderBy: { name: "asc" } } },
-  });
+  const project = await getProjectWithWorkers(member.orgId, id);
   if (!project) notFound();
 
   const [latestReport, reportCount] = await Promise.all([
-    prisma.dailyReport.findFirst({
-      where: { projectId: id },
-      orderBy: { date: "desc" },
-    }),
-    prisma.dailyReport.count({ where: { projectId: id } }),
+    getLatestReportForProject(id),
+    countReportsForProject(id),
   ]);
 
   const tabs = [

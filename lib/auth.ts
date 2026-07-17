@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
+import { getMemberByUserId } from "@/lib/db/organizations";
 import { can, type Permission } from "@/lib/permissions";
-import type { OrgMember } from "@/app/generated/prisma/client";
+import type { OrgMember } from "@/lib/db/types";
 
 export type CurrentMember = OrgMember;
 
@@ -14,9 +14,7 @@ export async function getCurrentMember(): Promise<CurrentMember | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  return prisma.orgMember.findFirst({
-    where: { userId: user.id, active: true },
-  });
+  return getMemberByUserId(user.id, { activeOnly: true });
 }
 
 export class ApiError extends Error {

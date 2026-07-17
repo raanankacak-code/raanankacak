@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
+import { getMemberByUserId, createOrganizationWithOwner } from "@/lib/db/organizations";
 import { apiErrorResponse, ApiError } from "@/lib/auth";
 
 const createOrgSchema = z.object({
@@ -29,40 +29,27 @@ export async function POST(request: Request) {
       throw new ApiError(401, "Not signed in");
     }
 
-    const existing = await prisma.orgMember.findFirst({
-      where: { userId: user.id },
-    });
+    const existing = await getMemberByUserId(user.id);
     if (existing) {
       throw new ApiError(409, "This account already belongs to a company workspace");
     }
 
     const body = createOrgSchema.parse(await request.json());
 
-    const org = await prisma.$transaction(async (tx) => {
-      const created = await tx.organization.create({
-        data: {
-          name: body.name,
-          shortName: body.shortName,
-          ssmNumber: body.ssmNumber,
-          cidbNumber: body.cidbNumber,
-          email: body.email,
-          phone: body.phone,
-          addressLine1: body.addressLine1,
-          city: body.city,
-          state: body.state,
-          postcode: body.postcode,
-        },
-      });
-      await tx.orgMember.create({
-        data: {
-          orgId: created.id,
-          userId: user.id,
-          name: body.ownerName,
-          email: user.email!,
-          role: "OWNER",
-        },
-      });
-      return created;
+    const { org } = await createOrganizationWithOwner({
+      name: body.name,
+      shortName: body.shortName,
+      ssmNumber: body.ssmNumber,
+      cidbNumber: body.cidbNumber,
+      email: body.email,
+      phone: body.phone,
+      addressLine1: body.addressLine1,
+      city: body.city,
+      state: body.state,
+      postcode: body.postcode,
+      ownerUserId: user.id,
+      ownerEmail: user.email!,
+      ownerName: body.ownerName,
     });
 
     return NextResponse.json({ org }, { status: 201 });

@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getOrganizationById } from "@/lib/db/organizations";
+import { listProjectsForOrg } from "@/lib/db/projects";
+import { countActiveWorkersForOrg } from "@/lib/db/workers";
+import { listAttendanceForOrgDate } from "@/lib/db/attendance";
+import { listRecentReportsForOrg } from "@/lib/db/reports";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 
 function todayISO() {
@@ -12,22 +16,11 @@ export default async function DashboardPage() {
   if (!member) return null;
 
   const [org, projects, workerCount, todaysAttendance, recentReports] = await Promise.all([
-    prisma.organization.findUnique({ where: { id: member.orgId } }),
-    prisma.project.findMany({
-      where: { orgId: member.orgId },
-      orderBy: { createdAt: "desc" },
-      include: { _count: { select: { workers: true } } },
-    }),
-    prisma.worker.count({ where: { orgId: member.orgId, active: true } }),
-    prisma.attendanceRecord.findMany({
-      where: { orgId: member.orgId, date: new Date(todayISO()) },
-    }),
-    prisma.dailyReport.findMany({
-      where: { orgId: member.orgId },
-      orderBy: { date: "desc" },
-      take: 6,
-      include: { project: { select: { name: true } } },
-    }),
+    getOrganizationById(member.orgId),
+    listProjectsForOrg(member.orgId),
+    countActiveWorkersForOrg(member.orgId),
+    listAttendanceForOrgDate(member.orgId, todayISO()),
+    listRecentReportsForOrg(member.orgId, 6),
   ]);
 
   const activeProjects = projects.filter((p) => p.status === "ACTIVE").length;

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getProjectById } from "@/lib/db/projects";
 import EditProjectForm from "./EditProjectForm";
 
 export default async function EditProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -8,7 +8,7 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
   if (!member) return null;
 
   const { id } = await params;
-  const project = await prisma.project.findFirst({ where: { id, orgId: member.orgId } });
+  const project = await getProjectById(member.orgId, id);
   if (!project) notFound();
 
   return (

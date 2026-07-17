@@ -1,4 +1,4 @@
-import { Role } from "@/app/generated/prisma/enums";
+import { Role } from "@/lib/db/types";
 
 export const ROLE_LABELS: Record<Role, string> = {
   OWNER: "Owner",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { getProjectById } from "@/lib/db/projects";
+import { createWorker } from "@/lib/db/workers";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const workerSchema = z.object({
@@ -19,23 +20,17 @@ export async function POST(
   try {
     const member = await requireMember("manageWorkers");
     const { id: projectId } = await params;
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, orgId: member.orgId },
-    });
+    const project = await getProjectById(member.orgId, projectId);
     if (!project) throw new ApiError(404, "Project not found");
 
     const body = workerSchema.parse(await request.json());
-    const worker = await prisma.worker.create({
-      data: {
-        orgId: member.orgId,
-        projectId,
-        name: body.name,
-        trade: body.trade,
-        dailyRate: body.dailyRate,
-        icNumber: body.icNumber,
-        cidbNumber: body.cidbNumber,
-        cidbExpiry: body.cidbExpiry ? new Date(body.cidbExpiry) : undefined,
-      },
+    const worker = await createWorker(member.orgId, projectId, {
+      name: body.name,
+      trade: body.trade,
+      dailyRate: body.dailyRate,
+      icNumber: body.icNumber,
+      cidbNumber: body.cidbNumber,
+      cidbExpiry: body.cidbExpiry || undefined,
     });
     return NextResponse.json({ worker }, { status: 201 });
   } catch (err) {

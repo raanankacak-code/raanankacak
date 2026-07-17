@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { getProjectById } from "@/lib/db/projects";
+import { listActiveWorkersForProject } from "@/lib/db/workers";
+import { listAttendanceForProjectDate, upsertAttendanceRecords } from "@/lib/db/attendance";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const upsertSchema = z.object({
@@ -26,19 +28,12 @@ export async function GET(request: Request) {
       throw new ApiError(400, "projectId and date are required");
     }
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, orgId: member.orgId },
-    });
+    const project = await getProjectById(member.orgId, projectId);
     if (!project) throw new ApiError(404, "Project not found");
 
     const [workers, records] = await Promise.all([
-      prisma.worker.findMany({
-        where: { projectId, active: true },
-        orderBy: { name: "asc" },
-      }),
-      prisma.attendanceRecord.findMany({
-        where: { projectId, date: new Date(date) },
-      }),
+      listActiveWorkersForProject(projectId),
+      listAttendanceForProjectDate(projectId, date),
     ]);
 
     return NextResponse.json({ workers, records });
@@ -52,37 +47,10 @@ export async function PUT(request: Request) {
     const member = await requireMember("takeAttendance");
     const body = upsertSchema.parse(await request.json());
 
-    const project = await prisma.project.findFirst({
-      where: { id: body.projectId, orgId: member.orgId },
-    });
+    const project = await getProjectById(member.orgId, body.projectId);
     if (!project) throw new ApiError(404, "Project not found");
 
-    const date = new Date(body.date);
-    await prisma.$transaction(
-      body.records.map((r) =>
-        prisma.attendanceRecord.upsert({
-          where: { workerId_date: { workerId: r.workerId, date } },
-          create: {
-            orgId: member.orgId,
-            projectId: body.projectId,
-            workerId: r.workerId,
-            date,
-            status: r.status,
-            timeIn: r.timeIn,
-            timeOut: r.timeOut,
-          },
-          update: {
-            status: r.status,
-            timeIn: r.timeIn,
-            timeOut: r.timeOut,
-          },
-        }),
-      ),
-    );
-
-    const records = await prisma.attendanceRecord.findMany({
-      where: { projectId: body.projectId, date },
-    });
+    const records = await upsertAttendanceRecords(member.orgId, body.projectId, body.date, body.records);
     return NextResponse.json({ records });
   } catch (err) {
     if (err instanceof z.ZodError) {

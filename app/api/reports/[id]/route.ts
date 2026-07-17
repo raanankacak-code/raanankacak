@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { getReportById, updateReportStatus, deleteReport } from "@/lib/db/reports";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const updateSchema = z.object({
@@ -14,10 +14,7 @@ export async function GET(
   try {
     const member = await requireMember();
     const { id } = await params;
-    const report = await prisma.dailyReport.findFirst({
-      where: { id, orgId: member.orgId },
-      include: { project: { select: { id: true, name: true } } },
-    });
+    const report = await getReportById(member.orgId, id);
     if (!report) throw new ApiError(404, "Report not found");
     return NextResponse.json({ report });
   } catch (err) {
@@ -32,11 +29,13 @@ export async function PATCH(
   try {
     const member = await requireMember("reviewReports");
     const { id } = await params;
-    const existing = await prisma.dailyReport.findFirst({ where: { id, orgId: member.orgId } });
+    const existing = await getReportById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Report not found");
 
     const body = updateSchema.parse(await request.json());
-    const report = await prisma.dailyReport.update({ where: { id }, data: body });
+    const report = body.status
+      ? await updateReportStatus(member.orgId, id, body.status)
+      : existing;
     return NextResponse.json({ report });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -53,9 +52,9 @@ export async function DELETE(
   try {
     const member = await requireMember("reviewReports");
     const { id } = await params;
-    const existing = await prisma.dailyReport.findFirst({ where: { id, orgId: member.orgId } });
+    const existing = await getReportById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Report not found");
-    await prisma.dailyReport.delete({ where: { id } });
+    await deleteReport(member.orgId, id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

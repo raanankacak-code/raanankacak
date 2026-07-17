@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { getProjectById, getProjectWithWorkers, updateProject, deleteProject } from "@/lib/db/projects";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const updateSchema = z.object({
@@ -17,7 +17,7 @@ const updateSchema = z.object({
 });
 
 async function loadProjectOrThrow(orgId: string, id: string) {
-  const project = await prisma.project.findFirst({ where: { id, orgId } });
+  const project = await getProjectById(orgId, id);
   if (!project) throw new ApiError(404, "Project not found");
   return project;
 }
@@ -29,15 +29,9 @@ export async function GET(
   try {
     const member = await requireMember();
     const { id } = await params;
-    const project = await prisma.project.findFirst({
-      where: { id, orgId: member.orgId },
-      include: {
-        workers: { orderBy: { name: "asc" } },
-        _count: { select: { workers: true } },
-      },
-    });
+    const project = await getProjectWithWorkers(member.orgId, id);
     if (!project) throw new ApiError(404, "Project not found");
-    return NextResponse.json({ project });
+    return NextResponse.json({ project: { ...project, _count: { workers: project.workers.length } } });
   } catch (err) {
     return apiErrorResponse(err);
   }
@@ -53,13 +47,10 @@ export async function PATCH(
     await loadProjectOrThrow(member.orgId, id);
     const body = updateSchema.parse(await request.json());
 
-    const project = await prisma.project.update({
-      where: { id },
-      data: {
-        ...body,
-        startDate: body.startDate ? new Date(body.startDate) : undefined,
-        endDate: body.endDate ? new Date(body.endDate) : undefined,
-      },
+    const project = await updateProject(member.orgId, id, {
+      ...body,
+      startDate: body.startDate || undefined,
+      endDate: body.endDate || undefined,
     });
     return NextResponse.json({ project });
   } catch (err) {
@@ -78,7 +69,7 @@ export async function DELETE(
     const member = await requireMember("deleteProjects");
     const { id } = await params;
     await loadProjectOrThrow(member.orgId, id);
-    await prisma.project.delete({ where: { id } });
+    await deleteProject(member.orgId, id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

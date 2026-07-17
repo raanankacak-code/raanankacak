@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { getProjectById } from "@/lib/db/projects";
+import { listReports, createReport } from "@/lib/db/reports";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const reportSchema = z.object({
@@ -22,17 +23,10 @@ export async function GET(request: Request) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    const reports = await prisma.dailyReport.findMany({
-      where: {
-        orgId: member.orgId,
-        projectId: projectId || undefined,
-        date: {
-          gte: from ? new Date(from) : undefined,
-          lte: to ? new Date(to) : undefined,
-        },
-      },
-      include: { project: { select: { id: true, name: true } } },
-      orderBy: { date: "desc" },
+    const reports = await listReports(member.orgId, {
+      projectId: projectId || undefined,
+      from: from || undefined,
+      to: to || undefined,
     });
     return NextResponse.json({ reports });
   } catch (err) {
@@ -45,25 +39,20 @@ export async function POST(request: Request) {
     const member = await requireMember("submitReports");
     const body = reportSchema.parse(await request.json());
 
-    const project = await prisma.project.findFirst({
-      where: { id: body.projectId, orgId: member.orgId },
-    });
+    const project = await getProjectById(member.orgId, body.projectId);
     if (!project) throw new ApiError(404, "Project not found");
 
-    const report = await prisma.dailyReport.create({
-      data: {
-        orgId: member.orgId,
-        projectId: body.projectId,
-        date: new Date(body.date),
-        weather: body.weather,
-        manpower: body.manpower,
-        workCompleted: body.workCompleted,
-        delays: body.delays,
-        notes: body.notes,
-        photos: body.photos,
-        submittedById: member.userId,
-        submittedByName: member.name,
-      },
+    const report = await createReport(member.orgId, {
+      projectId: body.projectId,
+      date: body.date,
+      weather: body.weather,
+      manpower: body.manpower,
+      workCompleted: body.workCompleted,
+      delays: body.delays,
+      notes: body.notes,
+      photos: body.photos,
+      submittedById: member.userId,
+      submittedByName: member.name,
     });
     return NextResponse.json({ report }, { status: 201 });
   } catch (err) {

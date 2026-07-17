@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getOrganizationById } from "@/lib/db/organizations";
+import { listProjectsForOrg } from "@/lib/db/projects";
 import { can } from "@/lib/permissions";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 
@@ -9,12 +10,8 @@ export default async function ProjectsPage() {
   if (!member) return null;
 
   const [org, projects] = await Promise.all([
-    prisma.organization.findUnique({ where: { id: member.orgId } }),
-    prisma.project.findMany({
-      where: { orgId: member.orgId },
-      orderBy: { createdAt: "desc" },
-      include: { _count: { select: { workers: true } } },
-    }),
+    getOrganizationById(member.orgId),
+    listProjectsForOrg(member.orgId),
   ]);
 
   const totalValue = projects.reduce((s, p) => s + (p.contractValue ? Number(p.contractValue) : 0), 0);

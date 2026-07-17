@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getReportById } from "@/lib/db/reports";
 import { can } from "@/lib/permissions";
 import { formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import ReportActions from "@/components/app/ReportActions";
@@ -11,10 +11,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   if (!member) return null;
 
   const { id } = await params;
-  const report = await prisma.dailyReport.findFirst({
-    where: { id, orgId: member.orgId },
-    include: { project: { select: { id: true, name: true } } },
-  });
+  const report = await getReportById(member.orgId, id);
   if (!report) notFound();
 
   const manpower = (report.manpower as Record<string, number> | null) ?? {};

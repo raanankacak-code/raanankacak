@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { listReports } from "@/lib/db/reports";
+import { listProjectNamesForOrg } from "@/lib/db/projects";
 import { can } from "@/lib/permissions";
 import { formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import ProjectFilterSelect from "@/components/app/ProjectFilterSelect";
@@ -16,12 +17,8 @@ export default async function ReportsPage({
   const { projectId } = await searchParams;
 
   const [reports, projects] = await Promise.all([
-    prisma.dailyReport.findMany({
-      where: { orgId: member.orgId, projectId: projectId || undefined },
-      orderBy: { date: "desc" },
-      include: { project: { select: { id: true, name: true } } },
-    }),
-    prisma.project.findMany({ where: { orgId: member.orgId }, select: { id: true, name: true } }),
+    listReports(member.orgId, { projectId: projectId || undefined }),
+    listProjectNamesForOrg(member.orgId),
   ]);
 
   const filteredProject = projects.find((p) => p.id === projectId);
