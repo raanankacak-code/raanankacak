@@ -36,6 +36,22 @@ export async function listAttendanceForProjectDate(projectId: string, date: stri
   return (data ?? []).map(mapAttendanceRecord);
 }
 
+/** Total wages accrued to date across an org's records (present = full day, half-day = 0.5). */
+export async function sumLaborCostForOrg(orgId: string): Promise<number> {
+  const { data, error } = await createAdminClient()
+    .from("attendance_records")
+    .select("status, workers(daily_rate)")
+    .eq("org_id", orgId)
+    .neq("status", "ABSENT");
+  if (error) throw error;
+  return (data ?? []).reduce((sum, row) => {
+    const worker = row.workers as unknown as { daily_rate: number | string | null } | null;
+    const rate = worker?.daily_rate ? Number(worker.daily_rate) : 0;
+    const fraction = row.status === "HALF_DAY" ? 0.5 : 1;
+    return sum + rate * fraction;
+  }, 0);
+}
+
 export async function upsertAttendanceRecords(
   orgId: string,
   projectId: string,

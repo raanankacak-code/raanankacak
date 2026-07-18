@@ -1,22 +1,62 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthShell from "@/components/auth/AuthShell";
 import { createClient } from "@/lib/supabase/client";
+import { apiFetch, ApiClientError } from "@/lib/api-client";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const presetInvite = searchParams.get("invite") || "";
+
+  const [mode, setMode] = useState<"new" | "join">(presetInvite ? "join" : "new");
+
+  // new company
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+
+  // join with invitation
+  const [inviteCode, setInviteCode] = useState(presetInvite);
+  const [inviteInfo, setInviteInfo] = useState<{ name: string; email: string; role: string; orgName: string } | null>(null);
+  const [inviteChecked, setInviteChecked] = useState("");
+  const [joinName, setJoinName] = useState("");
+  const [joinEmail, setJoinEmail] = useState("");
+  const [joinPassword, setJoinPassword] = useState("");
+  const [joinPassword2, setJoinPassword2] = useState("");
+  const [joinShowPw, setJoinShowPw] = useState(false);
+
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  useEffect(() => {
+    if (presetInvite) checkInvite(presetInvite);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function checkInvite(codeOrLink: string) {
+    const token = codeOrLink.trim().split("invite=").pop()?.split("/").pop()?.trim() || "";
+    if (!token || token === inviteChecked) return;
+    setInviteChecked(token);
+    try {
+      const data = await apiFetch<{ invite: { name: string; email: string; role: string }; org: { name: string } | null }>(
+        `/api/invites/${encodeURIComponent(token)}`,
+      );
+      setInviteInfo({ ...data.invite, orgName: data.org?.name ?? "your company" });
+      setJoinName(data.invite.name);
+      setJoinEmail(data.invite.email);
+      setError("");
+    } catch {
+      setInviteInfo(null);
+    }
+  }
+
+  async function handleNewCompany(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setInfo("");
@@ -50,6 +90,54 @@ export default function SignupPage() {
     );
   }
 
+  async function handleJoin(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    const token = inviteCode.trim().split("invite=").pop()?.split("/").pop()?.trim() || "";
+    if (!token) {
+      setError("Paste your invitation link or code.");
+      return;
+    }
+    if (!joinName.trim()) {
+      setError("Your full name is required.");
+      return;
+    }
+    if (!joinEmail || !joinPassword) {
+      setError("Enter your email and a password.");
+      return;
+    }
+    if (joinPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (joinPassword !== joinPassword2) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: joinEmail,
+        password: joinPassword,
+        options: { data: { full_name: joinName } },
+      });
+      if (signUpError) throw new Error(signUpError.message);
+      if (!data.session) {
+        setInfo("Account created — check your email to confirm it, then sign in to finish joining the workspace.");
+        setLoading(false);
+        return;
+      }
+      await apiFetch(`/api/invites/${encodeURIComponent(token)}/accept`, { method: "POST" });
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiClientError || err instanceof Error ? err.message : "Failed to accept invitation.");
+      setLoading(false);
+    }
+  }
+
   return (
     <AuthShell>
       <div className="auth-tabs">
@@ -63,7 +151,18 @@ export default function SignupPage() {
         </button>
       </div>
       <h2>Create your account</h2>
-      <p className="a-sub">Step 1 of 2 — you&rsquo;ll set up your company next.</p>
+      <p className="a-sub">Register a new company, or join yours with an invitation.</p>
+
+      <div className="fld">
+        <div className="seg">
+          <button type="button" className={mode === "new" ? "on" : ""} onClick={() => setMode("new")}>
+            New company
+          </button>
+          <button type="button" className={mode === "join" ? "on" : ""} onClick={() => setMode("join")}>
+            I was invited
+          </button>
+        </div>
+      </div>
 
       {error && <div className="auth-err">{error}</div>}
       {info && (
@@ -72,44 +171,124 @@ export default function SignupPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <div className="fld">
-          <label htmlFor="name">Your name</label>
-          <input id="name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-        </div>
-        <div className="fld">
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            placeholder="you@company.my"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-        </div>
-        <div className="fld">
-          <label htmlFor="password">Password</label>
-          <div className="pw-wrap">
-            <input
-              id="password"
-              type={showPw ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-            />
-            <button type="button" className="pw-eye" onClick={() => setShowPw((s) => !s)}>
-              {showPw ? "Hide" : "Show"}
-            </button>
+      {mode === "join" ? (
+        <form onSubmit={handleJoin}>
+          <div className="fld">
+            <label htmlFor="join-name">Full name</label>
+            <input id="join-name" value={joinName} onChange={(e) => setJoinName(e.target.value)} placeholder="e.g. Nurul Aina" />
           </div>
-        </div>
-        <button className="btn btn-amber auth-submit" type="submit" disabled={loading}>
-          {loading ? "Creating account…" : "Continue"}
-        </button>
-      </form>
+          <div className="fld">
+            <label htmlFor="join-code">Invitation link</label>
+            <input
+              id="join-code"
+              className="mono"
+              value={inviteCode}
+              onChange={(e) => {
+                setInviteCode(e.target.value);
+                checkInvite(e.target.value);
+              }}
+              onBlur={(e) => checkInvite(e.target.value)}
+              placeholder="Paste your invitation link or code"
+            />
+            <div className="small faint" style={{ marginTop: 5 }}>
+              {inviteInfo
+                ? `Joining ${inviteInfo.orgName} as ${inviteInfo.role.replace(/_/g, " ")}.`
+                : "Your role, projects and company come from the invitation."}
+            </div>
+          </div>
+          <div className="fld">
+            <label htmlFor="join-email">Email</label>
+            <input
+              id="join-email"
+              type="email"
+              autoComplete="email"
+              value={joinEmail}
+              onChange={(e) => setJoinEmail(e.target.value)}
+              placeholder="you@company.my"
+            />
+          </div>
+          <div className="fld fld-2">
+            <div>
+              <label htmlFor="join-pw">Password</label>
+              <div className="pw-wrap">
+                <input
+                  id="join-pw"
+                  type={joinShowPw ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={joinPassword}
+                  onChange={(e) => setJoinPassword(e.target.value)}
+                  placeholder="Min. 8 characters"
+                />
+                <button type="button" className="pw-eye" onClick={() => setJoinShowPw((s) => !s)}>
+                  {joinShowPw ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="join-pw2">Confirm</label>
+              <input
+                id="join-pw2"
+                type={joinShowPw ? "text" : "password"}
+                autoComplete="new-password"
+                value={joinPassword2}
+                onChange={(e) => setJoinPassword2(e.target.value)}
+                placeholder="Repeat password"
+              />
+            </div>
+          </div>
+          <button className="btn btn-amber auth-submit" type="submit" disabled={loading}>
+            {loading ? "Joining…" : "Accept invitation & join"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleNewCompany}>
+          <div className="fld">
+            <label htmlFor="name">Your name</label>
+            <input id="name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+          </div>
+          <div className="fld">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="you@company.my"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+          </div>
+          <div className="fld">
+            <label htmlFor="password">Password</label>
+            <div className="pw-wrap">
+              <input
+                id="password"
+                type={showPw ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              <button type="button" className="pw-eye" onClick={() => setShowPw((s) => !s)}>
+                {showPw ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+          <button className="btn btn-amber auth-submit" type="submit" disabled={loading}>
+            {loading ? "Creating account…" : "Continue"}
+          </button>
+        </form>
+      )}
+
       <p className="a-note">
         Already have a workspace? <Link href="/login">Sign in</Link>.
       </p>
     </AuthShell>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupForm />
+    </Suspense>
   );
 }

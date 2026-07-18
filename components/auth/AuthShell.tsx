@@ -21,8 +21,8 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           </p>
           <ul className="lg-points">
             <li>Daily reports with site photos, filed from the field in minutes</li>
-            <li>Attendance and wages, calculated for you</li>
-            <li>Everything scoped to your company, with role-based access</li>
+            <li>Attendance and wages in RM, calculated for you</li>
+            <li>Material requests approved from anywhere, with a full audit trail</li>
           </ul>
         </div>
       </section>
