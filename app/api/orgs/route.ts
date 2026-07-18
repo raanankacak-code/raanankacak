@@ -75,6 +75,9 @@ const updateOrgSchema = z.object({
   city: z.string().max(100).nullable().optional(),
   state: z.string().max(100).nullable().optional(),
   postcode: z.string().max(20).nullable().optional(),
+  country: z.string().max(60).optional(),
+  currency: z.string().max(10).optional(),
+  timezone: z.string().max(60).optional(),
   logoUrl: z.string().max(500).nullable().optional(),
 });
 

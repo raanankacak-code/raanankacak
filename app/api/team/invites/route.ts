@@ -3,6 +3,7 @@ import { z } from "zod";
 import { listInvitesForOrg, createInvite } from "@/lib/db/team";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, apiErrorResponse } from "@/lib/auth";
+import { ROLE_LABELS } from "@/lib/permissions";
 
 const ROLES = [
   "OWNER",
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Only the Owner can invite another Owner" }, { status: 403 });
     }
     const invite = await createInvite(member.orgId, { ...body, invitedByName: member.name });
-    await notify(member.orgId, "invite", "User Invited", `${body.email} invited as ${body.role.replace(/_/g, " ")} by ${member.name}.`);
+    await notify(member.orgId, "invite", "User Invited", `${body.email} invited as ${ROLE_LABELS[body.role]} by ${member.name}.`);
     return NextResponse.json({ invite }, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {

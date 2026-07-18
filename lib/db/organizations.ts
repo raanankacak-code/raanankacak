@@ -66,6 +66,9 @@ export async function updateOrganization(
     city: string | null;
     postcode: string | null;
     state: string | null;
+    country: string;
+    currency: string;
+    timezone: string;
     logoUrl: string | null;
   }>,
 ): Promise<Organization> {
@@ -80,6 +83,9 @@ export async function updateOrganization(
       phone: input.phone,
       website: input.website,
       description: input.description,
+      country: input.country,
+      currency: input.currency,
+      timezone: input.timezone,
       address_line1: input.addressLine1,
       address_line2: input.addressLine2,
       city: input.city,

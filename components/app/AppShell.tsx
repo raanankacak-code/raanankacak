@@ -18,6 +18,7 @@ import {
 } from "@/components/app/icons";
 import NotificationBell from "@/components/app/NotificationBell";
 import GlobalSearch from "@/components/app/GlobalSearch";
+import KeyboardShortcuts from "@/components/app/KeyboardShortcuts";
 
 type NavItem = {
   href: string;
@@ -96,6 +97,7 @@ export default function AppShell({
 
   return (
     <div className="shell">
+      <KeyboardShortcuts />
       <aside className="side">
         <div className="brand">
           {orgLogoUrl ? (
