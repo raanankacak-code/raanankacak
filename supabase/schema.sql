@@ -205,3 +205,186 @@ create trigger daily_reports_set_updated_at
   for each row execute function set_updated_at();
 
 alter table daily_reports enable row level security;
+
+-- ===========================================================================
+-- Phase 2 — team invites, materials, documents, calendar, notifications
+-- ===========================================================================
+
+create type invite_status as enum (
+  'PENDING',
+  'ACCEPTED',
+  'EXPIRED',
+  'CANCELLED'
+);
+
+create type material_request_status as enum (
+  'DRAFT',
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+  'ORDERED',
+  'DELIVERED'
+);
+
+create type calendar_event_type as enum (
+  'DEADLINE',
+  'DELIVERY',
+  'INSPECTION',
+  'MEETING',
+  'LEAVE',
+  'HOLIDAY'
+);
+
+create type calendar_event_priority as enum (
+  'LOW',
+  'MEDIUM',
+  'HIGH'
+);
+
+create type calendar_event_status as enum (
+  'SCHEDULED',
+  'COMPLETED',
+  'CANCELLED'
+);
+
+-- org_invites --------------------------------------------------------------
+
+create table org_invites (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  token text not null unique,
+  name text not null,
+  email text not null,
+  role role not null,
+  phone text,
+  department text,
+  project_ids uuid[] not null default '{}',
+  status invite_status not null default 'PENDING',
+  invited_by_name text not null,
+  invited_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index org_invites_org_id_idx on org_invites (org_id);
+
+create trigger org_invites_set_updated_at
+  before update on org_invites
+  for each row execute function set_updated_at();
+
+alter table org_invites enable row level security;
+
+-- material_requests ----------------------------------------------------------
+
+create table material_requests (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid not null references projects(id) on delete cascade,
+  code text not null,
+  material text not null,
+  qty numeric(12, 2) not null,
+  unit text not null,
+  needed_by date,
+  justification text,
+  status material_request_status not null default 'SUBMITTED',
+  received_qty numeric(12, 2),
+  requested_by_id uuid not null,
+  requested_by_name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (org_id, code)
+);
+
+create index material_requests_project_id_idx on material_requests (project_id);
+create index material_requests_org_id_idx on material_requests (org_id);
+
+create trigger material_requests_set_updated_at
+  before update on material_requests
+  for each row execute function set_updated_at();
+
+alter table material_requests enable row level security;
+
+-- material_request_events (approval timeline) ---------------------------------
+
+create table material_request_events (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references material_requests(id) on delete cascade,
+  state material_request_status not null,
+  comment text,
+  actor_name text not null,
+  created_at timestamptz not null default now()
+);
+
+create index material_request_events_request_id_idx on material_request_events (request_id);
+
+alter table material_request_events enable row level security;
+
+-- documents ------------------------------------------------------------------
+
+create table documents (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid not null references projects(id) on delete cascade,
+  folder text not null default 'Other',
+  name text not null,
+  url text not null,
+  size_bytes bigint not null,
+  mime_type text,
+  uploaded_by_id uuid not null,
+  uploaded_by_name text not null,
+  created_at timestamptz not null default now()
+);
+
+create index documents_project_id_idx on documents (project_id);
+create index documents_org_id_idx on documents (org_id);
+
+alter table documents enable row level security;
+
+-- calendar_events --------------------------------------------------------------
+
+create table calendar_events (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid references projects(id) on delete set null,
+  type calendar_event_type not null,
+  title text not null,
+  date date not null,
+  time text,
+  end_time text,
+  priority calendar_event_priority not null default 'MEDIUM',
+  status calendar_event_status not null default 'SCHEDULED',
+  location text,
+  with_who text,
+  description text,
+  created_by_name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index calendar_events_org_id_date_idx on calendar_events (org_id, date);
+create index calendar_events_project_id_idx on calendar_events (project_id);
+
+create trigger calendar_events_set_updated_at
+  before update on calendar_events
+  for each row execute function set_updated_at();
+
+alter table calendar_events enable row level security;
+
+-- notifications ------------------------------------------------------------------
+-- Org-wide feed (shared read state), matching the design prototype.
+
+create table notifications (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  type text not null,
+  title text not null,
+  description text,
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index notifications_org_id_created_idx on notifications (org_id, created_at desc);
+
+alter table notifications enable row level security;

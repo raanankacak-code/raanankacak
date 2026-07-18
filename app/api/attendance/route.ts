@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
 import { listActiveWorkersForProject } from "@/lib/db/workers";
 import { listAttendanceForProjectDate, upsertAttendanceRecords } from "@/lib/db/attendance";
+import { notify } from "@/lib/db/notifications";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const upsertSchema = z.object({
@@ -51,6 +52,13 @@ export async function PUT(request: Request) {
     if (!project) throw new ApiError(404, "Project not found");
 
     const records = await upsertAttendanceRecords(member.orgId, body.projectId, body.date, body.records);
+    const present = body.records.filter((r) => r.status === "PRESENT" || r.status === "HALF_DAY").length;
+    await notify(
+      member.orgId,
+      "attendance",
+      "Attendance Completed",
+      `${present} of ${body.records.length} workers checked in at ${project.name} for ${body.date}.`,
+    );
     return NextResponse.json({ records });
   } catch (err) {
     if (err instanceof z.ZodError) {

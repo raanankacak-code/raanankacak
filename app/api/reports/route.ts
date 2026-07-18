@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
 import { listReports, createReport } from "@/lib/db/reports";
+import { notify } from "@/lib/db/notifications";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const reportSchema = z.object({
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       submittedById: member.userId,
       submittedByName: member.name,
     });
+    await notify(member.orgId, "report", "Daily Report Submitted", `${member.name} filed a report for ${project.name}.`);
     return NextResponse.json({ report }, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {

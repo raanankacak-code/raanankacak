@@ -50,6 +50,50 @@ export async function getOrganizationById(id: string): Promise<Organization | nu
   return data ? mapOrganization(data) : null;
 }
 
+export async function updateOrganization(
+  id: string,
+  input: Partial<{
+    name: string;
+    shortName: string | null;
+    ssmNumber: string | null;
+    cidbNumber: string | null;
+    email: string | null;
+    phone: string | null;
+    website: string | null;
+    description: string | null;
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    postcode: string | null;
+    state: string | null;
+    logoUrl: string | null;
+  }>,
+): Promise<Organization> {
+  const { data, error } = await createAdminClient()
+    .from("organizations")
+    .update({
+      name: input.name,
+      short_name: input.shortName,
+      ssm_number: input.ssmNumber,
+      cidb_number: input.cidbNumber,
+      email: input.email,
+      phone: input.phone,
+      website: input.website,
+      description: input.description,
+      address_line1: input.addressLine1,
+      address_line2: input.addressLine2,
+      city: input.city,
+      postcode: input.postcode,
+      state: input.state,
+      logo_url: input.logoUrl,
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapOrganization(data);
+}
+
 export async function getMemberByUserId(
   userId: string,
   { activeOnly = false }: { activeOnly?: boolean } = {},

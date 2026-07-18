@@ -5,8 +5,19 @@ import path from "node:path";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { uploadsRoot } from "@/lib/uploads";
 
-const MAX_BYTES = 8 * 1024 * 1024; // 8MB
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MAX_BYTES = 20 * 1024 * 1024; // 20MB
+const ALLOWED_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+]);
 
 /**
  * Local-disk file storage (Phase 1). Requires a persistent, writable
@@ -29,7 +40,19 @@ export async function POST(request: Request) {
       throw new ApiError(400, "File too large (max 8MB)");
     }
 
-    const ext = file.type.split("/")[1] || "bin";
+    const EXT_BY_TYPE: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "application/pdf": "pdf",
+      "application/msword": "doc",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+      "application/vnd.ms-excel": "xls",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+      "text/plain": "txt",
+    };
+    const ext = EXT_BY_TYPE[file.type] || "bin";
     const filename = `${randomUUID()}.${ext}`;
     const orgDir = path.join(uploadsRoot(), member.orgId);
     await mkdir(orgDir, { recursive: true });

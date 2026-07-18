@@ -19,38 +19,86 @@ export type Permission =
   | "manageWorkers"
   | "submitReports"
   | "reviewReports"
+  | "viewReports"
   | "takeAttendance"
   | "manageOrg"
-  | "manageUsers";
+  | "manageUsers"
+  | "updateProgress"
+  | "approveRequests"
+  | "submitRequests"
+  | "viewMaterials"
+  | "uploadDocs"
+  | "manageDocs"
+  | "costReports";
 
-/** Baseline role -> permission matrix for the core site-ops workflow (Phase 1). */
+/** Role -> permission matrix, mirroring the BinaWorks design prototype's ROLE_PERMS. */
 const MATRIX: Record<Role, Permission[]> = {
   OWNER: [
+    "manageUsers",
     "manageProjects",
     "deleteProjects",
-    "manageWorkers",
+    "updateProgress",
+    "approveRequests",
+    "submitRequests",
     "submitReports",
     "reviewReports",
+    "viewReports",
     "takeAttendance",
+    "manageWorkers",
+    "viewMaterials",
+    "manageDocs",
+    "uploadDocs",
+    "costReports",
     "manageOrg",
-    "manageUsers",
   ],
-  ADMIN: ["manageProjects", "manageWorkers", "manageOrg", "manageUsers"],
+  ADMIN: ["manageUsers", "manageProjects", "updateProgress", "viewReports", "manageDocs", "uploadDocs", "manageOrg"],
   PROJECT_MANAGER: [
     "manageProjects",
-    "manageWorkers",
-    "submitReports",
+    "updateProgress",
+    "approveRequests",
     "reviewReports",
-    "takeAttendance",
+    "viewReports",
+    "manageWorkers",
+    "viewMaterials",
   ],
-  SITE_SUPERVISOR: ["submitReports", "takeAttendance"],
-  ENGINEER: ["submitReports"],
-  QUANTITY_SURVEYOR: [],
-  SAFETY_OFFICER: ["submitReports"],
-  STOREKEEPER: [],
-  FINANCE: [],
-  VIEWER: [],
+  SITE_SUPERVISOR: ["submitReports", "takeAttendance", "submitRequests", "viewReports", "viewMaterials"],
+  ENGINEER: ["viewReports", "submitReports", "uploadDocs", "updateProgress"],
+  QUANTITY_SURVEYOR: ["viewMaterials", "costReports"],
+  SAFETY_OFFICER: ["viewReports", "submitReports"],
+  STOREKEEPER: ["viewMaterials", "submitRequests"],
+  FINANCE: ["viewMaterials", "costReports"],
+  VIEWER: ["viewReports", "viewMaterials"],
 };
+
+export const ROLE_META: Record<Role, { icon: string; badgeClass: string; desc: string; resp: string[] }> = {
+  OWNER: { icon: "👑", badgeClass: "b-amber", desc: "The company account holder — unrestricted access to every module and setting.", resp: ["Oversee the whole company workspace", "Manage users, roles and invitations", "Create and delete projects", "Final say on approvals and costs"] },
+  ADMIN: { icon: "🛡️", badgeClass: "b-purple", desc: "Back-office administrator who runs the workspace day to day on behalf of the Owner.", resp: ["Manage users and invitations", "Set up and maintain projects", "Keep company documents in order", "Review reporting across sites"] },
+  PROJECT_MANAGER: { icon: "📋", badgeClass: "b-info", desc: "Runs one or more projects end to end — schedule, people and materials.", resp: ["Manage project setup and progress", "Approve or reject material requests", "Assign and manage workers", "Review daily site reports"] },
+  SITE_SUPERVISOR: { icon: "👷", badgeClass: "b-ok", desc: "The eyes and hands on site — files the daily record from the field.", resp: ["Submit daily reports with photos", "Take worker attendance", "Raise material requests", "Flag delays and site issues"] },
+  ENGINEER: { icon: "🛠", badgeClass: "b-teal", desc: "Monitors technical progress and keeps drawings and records current.", resp: ["Monitor site progress", "Submit reports", "View drawings", "Upload technical documents"] },
+  QUANTITY_SURVEYOR: { icon: "📐", badgeClass: "b-purple", desc: "Keeps the numbers honest — quantities, materials and cost.", resp: ["Generate cost reports", "Track material movement", "Monitor budget vs progress"] },
+  SAFETY_OFFICER: { icon: "🦺", badgeClass: "b-amber", desc: "Owns site safety compliance and record-keeping.", resp: ["Conduct safety inspections", "File incident reports", "Run toolbox meetings"] },
+  STOREKEEPER: { icon: "📦", badgeClass: "b-mut", desc: "Controls the store — what comes in, what goes out.", resp: ["Maintain inventory", "Raise and receive material requests", "Watch stock levels"] },
+  FINANCE: { icon: "💰", badgeClass: "b-ok", desc: "Looks after budgets, payments and the cost picture.", resp: ["Monitor budgets", "Process payments", "Review cost reports"] },
+  VIEWER: { icon: "👁️", badgeClass: "b-mut", desc: "Read-only access for clients, consultants or auditors.", resp: ["View dashboards and reports", "No editing rights"] },
+};
+
+export const PERM_LABELS: [Permission, string][] = [
+  ["manageUsers", "Manage Users"],
+  ["manageProjects", "Manage Projects"],
+  ["deleteProjects", "Delete Projects"],
+  ["updateProgress", "Update Progress"],
+  ["approveRequests", "Approve Material Requests"],
+  ["submitRequests", "Submit Material Requests"],
+  ["viewMaterials", "Track Materials"],
+  ["submitReports", "Submit Daily Reports"],
+  ["viewReports", "View Reports"],
+  ["takeAttendance", "Take Attendance"],
+  ["manageWorkers", "Manage Workers"],
+  ["uploadDocs", "Upload Documents"],
+  ["manageDocs", "Manage Documents"],
+  ["costReports", "Cost Reports"],
+];
 
 export function can(role: Role, permission: Permission): boolean {
   return MATRIX[role]?.includes(permission) ?? false;

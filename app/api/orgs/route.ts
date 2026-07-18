@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { getMemberByUserId, createOrganizationWithOwner } from "@/lib/db/organizations";
-import { apiErrorResponse, ApiError } from "@/lib/auth";
+import { getMemberByUserId, createOrganizationWithOwner, updateOrganization } from "@/lib/db/organizations";
+import { apiErrorResponse, ApiError, requireMember } from "@/lib/auth";
 
 const createOrgSchema = z.object({
   name: z.string().min(2).max(200),
@@ -53,6 +53,38 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ org }, { status: 201 });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    return apiErrorResponse(err);
+  }
+}
+
+const updateOrgSchema = z.object({
+  name: z.string().min(2).max(200).optional(),
+  shortName: z.string().max(80).nullable().optional(),
+  ssmNumber: z.string().max(80).nullable().optional(),
+  cidbNumber: z.string().max(80).nullable().optional(),
+  email: z.string().email().nullable().optional(),
+  phone: z.string().max(40).nullable().optional(),
+  website: z.string().max(200).nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
+  addressLine1: z.string().max(200).nullable().optional(),
+  addressLine2: z.string().max(200).nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  state: z.string().max(100).nullable().optional(),
+  postcode: z.string().max(20).nullable().optional(),
+  logoUrl: z.string().max(500).nullable().optional(),
+});
+
+/** Updates the signed-in member's company profile (Company Settings page). */
+export async function PATCH(request: Request) {
+  try {
+    const member = await requireMember("manageOrg");
+    const body = updateOrgSchema.parse(await request.json());
+    const org = await updateOrganization(member.orgId, body);
+    return NextResponse.json({ org });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0]?.message ?? "Invalid input" }, { status: 400 });
