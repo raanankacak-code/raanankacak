@@ -205,7 +205,8 @@ export interface CalendarEvent {
   projectId: string | null;
   type: CalendarEventType;
   title: string;
-  date: Date;
+  /** Plain YYYY-MM-DD (not a Date) — calendar grid logic compares/sorts these as strings. */
+  date: string;
   time: string | null;
   endTime: string | null;
   priority: CalendarEventPriority;

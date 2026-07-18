@@ -13,7 +13,7 @@ function mapEvent(row: Record<string, unknown>): CalendarEvent {
     projectId: row.project_id as string | null,
     type: row.type as CalendarEventType,
     title: row.title as string,
-    date: new Date(row.date as string),
+    date: row.date as string,
     time: row.time as string | null,
     endTime: row.end_time as string | null,
     priority: row.priority as CalendarEventPriority,

@@ -40,6 +40,20 @@ export function statusBadgeClass(status: string) {
       return "b-amber";
     case "ABSENT":
       return "b-bad";
+    case "PENDING":
+    case "DRAFT":
+      return "b-mut";
+    case "ACCEPTED":
+    case "APPROVED":
+    case "DELIVERED":
+    case "SCHEDULED":
+      return "b-ok";
+    case "REJECTED":
+    case "CANCELLED":
+    case "EXPIRED":
+      return "b-bad";
+    case "ORDERED":
+      return "b-info";
     default:
       return "b-mut";
   }

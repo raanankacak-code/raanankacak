@@ -7,6 +7,7 @@ import { can } from "@/lib/permissions";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import RemoveWorkerButton from "@/components/app/RemoveWorkerButton";
 import DeleteProjectButton from "@/components/app/DeleteProjectButton";
+import DocumentsPanel from "@/components/app/project/DocumentsPanel";
 
 function cidbBadge(expiry: Date | null) {
   if (!expiry) return null;
@@ -40,6 +41,7 @@ export default async function ProjectDetailPage({
   const tabs = [
     { key: "overview", label: "Overview" },
     { key: "workers", label: "Workers" },
+    { key: "documents", label: "Documents" },
   ];
 
   return (
@@ -77,9 +79,12 @@ export default async function ProjectDetailPage({
         ))}
         <Link href={`/reports?projectId=${project.id}`}>Daily Reports</Link>
         <Link href={`/attendance?projectId=${project.id}`}>Attendance</Link>
+        {can(member.role, "viewMaterials") && <Link href={`/materials?projectId=${project.id}`}>Material Requests</Link>}
       </div>
 
-      {tab === "workers" ? (
+      {tab === "documents" ? (
+        <DocumentsPanel projectId={project.id} canUpload={can(member.role, "uploadDocs") || can(member.role, "manageDocs")} />
+      ) : tab === "workers" ? (
         <div className="card">
           <div className="card-h">
             <h3>Worker Roster</h3>
