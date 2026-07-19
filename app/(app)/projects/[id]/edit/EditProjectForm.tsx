@@ -119,6 +119,7 @@ export default function EditProjectForm({ project }: { project: ProjectFormData 
               max="100"
               value={form.progressPct}
               onChange={(e) => set("progressPct", Number(e.target.value))}
+              onFocus={(e) => e.target.select()}
             />
           </div>
           <div>
@@ -130,6 +131,7 @@ export default function EditProjectForm({ project }: { project: ProjectFormData 
               max="100"
               value={form.plannedPct}
               onChange={(e) => set("plannedPct", Number(e.target.value))}
+              onFocus={(e) => e.target.select()}
             />
           </div>
         </div>
