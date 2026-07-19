@@ -5,6 +5,7 @@ import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { ROLE_LABELS, ROLE_META, PERM_LABELS, can, type Permission } from "@/lib/permissions";
 import { statusBadgeClass, statusLabel } from "@/lib/format";
 import Modal from "@/components/app/Modal";
+import SortableTh, { type SortState, toggleSort, sortRows } from "@/components/app/SortableTh";
 import type { Role } from "@/lib/db/types";
 
 const ROLES: Role[] = [
@@ -61,6 +62,7 @@ export default function TeamView({ orgName, myRole, myId }: { orgName: string; m
   const [manageTarget, setManageTarget] = useState<Member | null>(null);
   const [roleInfo, setRoleInfo] = useState<Role | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [sort, setSort] = useState<SortState<"name" | "role" | "active">>(null);
 
   async function load() {
     setLoading(true);
@@ -84,6 +86,9 @@ export default function TeamView({ orgName, myRole, myId }: { orgName: string; m
 
   const activeCount = members.filter((m) => m.active).length;
   const pendingCount = invites.filter((i) => i.status === "PENDING").length;
+  const sortedMembers = sortRows(members, sort, (m, key) =>
+    key === "name" ? m.name : key === "role" ? m.role : m.active ? "1" : "0",
+  );
 
   return (
     <>
@@ -118,14 +123,14 @@ export default function TeamView({ orgName, myRole, myId }: { orgName: string; m
               <table>
                 <thead>
                   <tr>
-                    <th>Person</th>
-                    <th>Role</th>
-                    <th>Status</th>
+                    <SortableTh label="Person" sortKey="name" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
+                    <SortableTh label="Role" sortKey="role" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
+                    <SortableTh label="Status" sortKey="active" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {members.map((m) => {
+                  {sortedMembers.map((m) => {
                     const me = m.id === myId;
                     const canManage = m.role !== "OWNER" || myRole === "OWNER";
                     return (

@@ -22,8 +22,29 @@ type AttendanceRecord = {
 
 type RowState = { status: AttendanceRecord["status"] | null; timeIn: string; timeOut: string };
 
+type MonthlyRow = {
+  id: string;
+  name: string;
+  trade: string | null;
+  icNumber: string | null;
+  dailyRate: number | null;
+  cidbNumber: string | null;
+  cidbExpiry: string | null;
+  daysWorked: number;
+  wages: number;
+};
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
+}
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+function formatRM(n: number) {
+  return new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR", maximumFractionDigits: 0 }).format(n);
+}
+function csvEscape(v: string) {
+  return `"${v.replace(/"/g, '""')}"`;
 }
 
 export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit: boolean; canManageWorkers: boolean }) {
@@ -39,6 +60,13 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [mode, setMode] = useState<"daily" | "monthly">("daily");
+  const [month, setMonth] = useState(currentMonth());
+  const [monthlyProjectId, setMonthlyProjectId] = useState("all");
+  const [monthlyRows, setMonthlyRows] = useState<MonthlyRow[]>([]);
+  const [monthlyTotal, setMonthlyTotal] = useState(0);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   useEffect(() => {
     apiFetch<{ projects: Project[] }>("/api/projects").then((d) => {
@@ -78,6 +106,38 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
     // state update (load() sets loading state before its first await).
     queueMicrotask(load);
   }, [load]);
+
+  const loadMonthly = useCallback(async () => {
+    setMonthlyLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams({ month });
+      if (monthlyProjectId !== "all") params.set("projectId", monthlyProjectId);
+      const data = await apiFetch<{ rows: MonthlyRow[]; totalWages: number }>(`/api/attendance/monthly?${params}`);
+      setMonthlyRows(data.rows);
+      setMonthlyTotal(data.totalWages);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Failed to load monthly summary.");
+    } finally {
+      setMonthlyLoading(false);
+    }
+  }, [month, monthlyProjectId]);
+
+  useEffect(() => {
+    if (mode === "monthly") queueMicrotask(loadMonthly);
+  }, [mode, loadMonthly]);
+
+  function exportCSV() {
+    let csv = "Worker,IC/Passport,Trade,Rate (RM/day),Days,Wages (RM)\n";
+    for (const r of monthlyRows) {
+      csv += [csvEscape(r.name), csvEscape(r.icNumber || ""), csvEscape(r.trade || ""), r.dailyRate ?? 0, r.daysWorked, r.wages].join(",") + "\n";
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `attendance-${month}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
 
   function setStatus(workerId: string, status: RowState["status"]) {
     setRows((r) => ({ ...r, [workerId]: { ...r[workerId], status } }));
@@ -123,34 +183,127 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
     <>
       <div className="topbar">
         <h2>Attendance</h2>
-        <div className="sub">Daily check-in from site.</div>
-      </div>
-
-      <div className="filters">
-        <select className="proj-select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        {canEdit && (
-          <button className="btn" type="button" onClick={markAllPresent} disabled={workers.length === 0}>
-            Mark all present
-          </button>
-        )}
-        {canManageWorkers && projectId && (
-          <Link href={`/projects/${projectId}/workers/new`} className="btn">
-            ＋ Add worker
-          </Link>
-        )}
-        <span className="small mut" style={{ alignSelf: "center" }}>
-          Marked {markedCount}/{workers.length} · on site {presentCount}
-        </span>
+        <div className="top-actions">
+          <div className="seg">
+            <button type="button" className={mode === "daily" ? "on" : ""} onClick={() => setMode("daily")}>
+              Daily check-in
+            </button>
+            <button type="button" className={mode === "monthly" ? "on" : ""} onClick={() => setMode("monthly")}>
+              Monthly summary
+            </button>
+          </div>
+        </div>
+        <div className="sub">Daily check-in from site, wages calculated for you.</div>
       </div>
 
       {error && <div className="auth-err">{error}</div>}
+
+      {mode === "monthly" ? (
+        <>
+          <div className="filters">
+            <select className="proj-select" value={monthlyProjectId} onChange={(e) => setMonthlyProjectId(e.target.value)}>
+              <option value="all">All projects</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <input type="month" value={month} max={currentMonth()} onChange={(e) => setMonth(e.target.value)} />
+            <button className="btn" type="button" onClick={exportCSV} disabled={monthlyRows.length === 0}>
+              ⬇ Export CSV
+            </button>
+            <span className="small mut" style={{ alignSelf: "center" }}>
+              Payroll this month: <b className="num" style={{ color: "var(--amber)" }}>{formatRM(monthlyTotal)}</b>
+            </span>
+          </div>
+          <div className="card">
+            {monthlyLoading ? (
+              <div className="card-b">
+                <p className="mut small">Loading…</p>
+              </div>
+            ) : monthlyRows.length === 0 ? (
+              <div className="empty">
+                <div className="e-ic">👷</div>
+                <div className="e-t">No workers</div>
+                <p>No active workers match this filter.</p>
+              </div>
+            ) : (
+              <div className="tbl-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Worker</th>
+                      <th>Trade</th>
+                      <th>Rate/day</th>
+                      <th>Days worked</th>
+                      <th>Wages</th>
+                      <th>Green card</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyRows.map((r) => {
+                      const expSoon = r.cidbExpiry && r.cidbExpiry <= new Date(now + 30 * 86400000).toISOString().slice(0, 10);
+                      return (
+                        <tr key={r.id}>
+                          <td>
+                            <b>{r.name}</b>
+                            <div className="small faint num">{r.icNumber || "—"}</div>
+                          </td>
+                          <td className="small">{r.trade || "—"}</td>
+                          <td className="num">{formatRM(r.dailyRate ?? 0)}</td>
+                          <td className="num">{r.daysWorked}</td>
+                          <td className="num">
+                            <b>{formatRM(r.wages)}</b>
+                          </td>
+                          <td>
+                            {r.cidbExpiry ? (
+                              expSoon ? (
+                                <span className="badge b-bad">
+                                  <i className="dot" />
+                                  exp {new Date(r.cidbExpiry).toLocaleDateString("en-GB")}
+                                </span>
+                              ) : (
+                                <span className="small faint">ok · {new Date(r.cidbExpiry).toLocaleDateString("en-GB")}</span>
+                              )
+                            ) : (
+                              <span className="small faint">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="filters">
+            <select className="proj-select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            {canEdit && (
+              <button className="btn" type="button" onClick={markAllPresent} disabled={workers.length === 0}>
+                Mark all present
+              </button>
+            )}
+            {canManageWorkers && projectId && (
+              <Link href={`/projects/${projectId}/workers/new`} className="btn">
+                ＋ Add worker
+              </Link>
+            )}
+            <span className="small mut" style={{ alignSelf: "center" }}>
+              Marked {markedCount}/{workers.length} · on site {presentCount}
+            </span>
+          </div>
 
       <div className="card">
         {loading ? (
@@ -269,6 +422,8 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
           </div>
         )}
       </div>
+        </>
+      )}
     </>
   );
 }

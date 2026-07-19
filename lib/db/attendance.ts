@@ -36,12 +36,72 @@ export async function listAttendanceForProjectDate(projectId: string, date: stri
   return (data ?? []).map(mapAttendanceRecord);
 }
 
+/** Per-worker days-worked in a date range, for the monthly attendance summary. */
+export async function getDaysWorkedByWorker(
+  orgId: string,
+  range: { from: string; to: string },
+  projectId?: string,
+): Promise<Record<string, number>> {
+  let query = createAdminClient()
+    .from("attendance_records")
+    .select("worker_id, status")
+    .eq("org_id", orgId)
+    .gte("date", range.from)
+    .lte("date", range.to)
+    .neq("status", "ABSENT");
+  if (projectId) query = query.eq("project_id", projectId);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const days: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const workerId = row.worker_id as string;
+    const fraction = row.status === "HALF_DAY" ? 0.5 : 1;
+    days[workerId] = (days[workerId] ?? 0) + fraction;
+  }
+  return days;
+}
+
 /** Total wages accrued to date across an org's records (present = full day, half-day = 0.5). */
 export async function sumLaborCostForOrg(orgId: string): Promise<number> {
   const { data, error } = await createAdminClient()
     .from("attendance_records")
     .select("status, workers(daily_rate)")
     .eq("org_id", orgId)
+    .neq("status", "ABSENT");
+  if (error) throw error;
+  return (data ?? []).reduce((sum, row) => {
+    const worker = row.workers as unknown as { daily_rate: number | string | null } | null;
+    const rate = worker?.daily_rate ? Number(worker.daily_rate) : 0;
+    const fraction = row.status === "HALF_DAY" ? 0.5 : 1;
+    return sum + rate * fraction;
+  }, 0);
+}
+
+/** Per-worker days-worked, all time, for a single project (used by the cost report). */
+export async function getDaysWorkedByWorkerForProject(projectId: string): Promise<Record<string, number>> {
+  const { data, error } = await createAdminClient()
+    .from("attendance_records")
+    .select("worker_id, status")
+    .eq("project_id", projectId)
+    .neq("status", "ABSENT");
+  if (error) throw error;
+
+  const days: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const workerId = row.worker_id as string;
+    const fraction = row.status === "HALF_DAY" ? 0.5 : 1;
+    days[workerId] = (days[workerId] ?? 0) + fraction;
+  }
+  return days;
+}
+
+/** Total wages accrued to date for a single project. */
+export async function sumLaborCostForProject(projectId: string): Promise<number> {
+  const { data, error } = await createAdminClient()
+    .from("attendance_records")
+    .select("status, workers(daily_rate)")
+    .eq("project_id", projectId)
     .neq("status", "ABSENT");
   if (error) throw error;
   return (data ?? []).reduce((sum, row) => {

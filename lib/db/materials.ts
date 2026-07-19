@@ -47,6 +47,16 @@ export async function listRequestsForOrg(
   }));
 }
 
+export async function listRequestsForProject(projectId: string): Promise<MaterialRequest[]> {
+  const { data, error } = await createAdminClient()
+    .from("material_requests")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapRequest);
+}
+
 export async function getRequestById(orgId: string, id: string): Promise<MaterialRequestWithTimeline | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase

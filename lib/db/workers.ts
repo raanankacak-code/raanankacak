@@ -29,6 +29,14 @@ export async function listActiveWorkersForProject(projectId: string): Promise<Wo
   return (data ?? []).map(mapWorker);
 }
 
+export async function listActiveWorkersForOrg(orgId: string, projectId?: string): Promise<Worker[]> {
+  let query = createAdminClient().from("workers").select("*").eq("org_id", orgId).eq("active", true);
+  if (projectId) query = query.eq("project_id", projectId);
+  const { data, error } = await query.order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapWorker);
+}
+
 export async function countActiveWorkersForOrg(orgId: string): Promise<number> {
   const { count, error } = await createAdminClient()
     .from("workers")

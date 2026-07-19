@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { statusBadgeClass, statusLabel, formatDate } from "@/lib/format";
 import Modal from "@/components/app/Modal";
+import SortableTh, { type SortState, toggleSort, sortRows } from "@/components/app/SortableTh";
 
 const UNITS = ["bags", "m³", "tonnes", "pcs", "m", "litres", "rolls", "sets"];
 const STATES = ["all", "DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "ORDERED", "DELIVERED"] as const;
@@ -63,6 +64,7 @@ export default function MaterialsView({
   const [statusFilter, setStatusFilter] = useState<Status>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [sort, setSort] = useState<SortState<"ref" | "material" | "qty" | "needed" | "status" | "updated">>(null);
 
   async function load() {
     setLoading(true);
@@ -86,10 +88,26 @@ export default function MaterialsView({
 
   const submittedCount = requests.filter((r) => r.status === "SUBMITTED").length;
   const list = useMemo(() => {
-    return requests.filter(
+    const filtered = requests.filter(
       (r) => (projectFilter === "all" || r.projectId === projectFilter) && (statusFilter === "all" || r.status === statusFilter),
     );
-  }, [requests, projectFilter, statusFilter]);
+    return sortRows(filtered, sort, (r, key) => {
+      switch (key) {
+        case "ref":
+          return r.code;
+        case "material":
+          return r.material;
+        case "qty":
+          return r.qty;
+        case "needed":
+          return r.neededBy || "";
+        case "status":
+          return r.status;
+        case "updated":
+          return r.updatedAt;
+      }
+    });
+  }, [requests, projectFilter, statusFilter, sort]);
 
   return (
     <>
@@ -136,12 +154,12 @@ export default function MaterialsView({
             <table>
               <thead>
                 <tr>
-                  <th>Ref</th>
-                  <th>Material</th>
-                  <th>Qty</th>
-                  <th>Needed by</th>
-                  <th>Status</th>
-                  <th>Last update</th>
+                  <SortableTh label="Ref" sortKey="ref" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
+                  <SortableTh label="Material" sortKey="material" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
+                  <SortableTh label="Qty" sortKey="qty" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} numeric />
+                  <SortableTh label="Needed by" sortKey="needed" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
+                  <SortableTh label="Status" sortKey="status" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
+                  <SortableTh label="Last update" sortKey="updated" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
                 </tr>
               </thead>
               <tbody>

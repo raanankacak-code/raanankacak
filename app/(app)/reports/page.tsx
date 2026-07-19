@@ -3,8 +3,8 @@ import { getCurrentMember } from "@/lib/auth";
 import { listReports } from "@/lib/db/reports";
 import { listProjectNamesForOrg } from "@/lib/db/projects";
 import { can } from "@/lib/permissions";
-import { formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import ProjectFilterSelect from "@/components/app/ProjectFilterSelect";
+import ReportsTable from "./ReportsTable";
 
 export default async function ReportsPage({
   searchParams,
@@ -56,43 +56,17 @@ export default async function ReportsPage({
             )}
           </div>
         ) : (
-          <div className="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Project</th>
-                  <th>Weather</th>
-                  <th>Submitted by</th>
-                  <th>Work completed</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.map((r) => (
-                  <tr key={r.id} className="rowlink">
-                    <td className="mono">{formatDate(r.date)}</td>
-                    <td>
-                      <Link href={`/reports/${r.id}`}>
-                        <b>{r.project.name}</b>
-                      </Link>
-                    </td>
-                    <td>{r.weather || "—"}</td>
-                    <td>{r.submittedByName}</td>
-                    <td style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {r.workCompleted || "—"}
-                    </td>
-                    <td>
-                      <span className={`badge ${statusBadgeClass(r.status)}`}>
-                        <i className="dot" />
-                        {statusLabel(r.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ReportsTable
+            rows={reports.map((r) => ({
+              id: r.id,
+              date: r.date.toISOString().slice(0, 10),
+              projectName: r.project.name,
+              weather: r.weather,
+              submittedByName: r.submittedByName,
+              workCompleted: r.workCompleted,
+              status: r.status,
+            }))}
+          />
         )}
       </div>
     </>
