@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 
 type Project = { id: string; name: string };
@@ -25,7 +26,7 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function AttendanceView({ canEdit }: { canEdit: boolean }) {
+export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit: boolean; canManageWorkers: boolean }) {
   const searchParams = useSearchParams();
   const presetProjectId = searchParams.get("projectId") || "";
 
@@ -139,6 +140,11 @@ export default function AttendanceView({ canEdit }: { canEdit: boolean }) {
             Mark all present
           </button>
         )}
+        {canManageWorkers && projectId && (
+          <Link href={`/projects/${projectId}/workers/new`} className="btn">
+            ＋ Add worker
+          </Link>
+        )}
         <span className="small mut" style={{ alignSelf: "center" }}>
           Marked {markedCount}/{workers.length} · on site {presentCount}
         </span>
@@ -156,6 +162,13 @@ export default function AttendanceView({ canEdit }: { canEdit: boolean }) {
             <div className="e-ic">👷</div>
             <div className="e-t">No workers on this project</div>
             <p>Add workers to the project roster before taking attendance.</p>
+            {canManageWorkers && projectId ? (
+              <Link href={`/projects/${projectId}/workers/new`} className="btn btn-amber">
+                ＋ Add worker
+              </Link>
+            ) : (
+              <span className="small faint">Ask a Project Manager or the Owner to add workers.</span>
+            )}
           </div>
         ) : (
           <div className="tbl-wrap">

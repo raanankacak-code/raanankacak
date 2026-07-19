@@ -9,7 +9,7 @@ export default async function AttendancePage() {
 
   return (
     <Suspense fallback={null}>
-      <AttendanceView canEdit={can(member.role, "takeAttendance")} />
+      <AttendanceView canEdit={can(member.role, "takeAttendance")} canManageWorkers={can(member.role, "manageWorkers")} />
     </Suspense>
   );
 }
