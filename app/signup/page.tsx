@@ -17,7 +17,9 @@ function SignupForm() {
   // new company
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   const [showPw, setShowPw] = useState(false);
 
   // join with invitation
@@ -68,12 +70,16 @@ function SignupForm() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    if (password !== password2) {
+      setError("Passwords do not match.");
+      return;
+    }
     setLoading(true);
     const supabase = createClient();
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name } },
+      options: { data: { full_name: name, phone: phone || undefined } },
     });
     setLoading(false);
     if (signUpError) {
@@ -141,11 +147,7 @@ function SignupForm() {
   return (
     <AuthShell>
       <div className="auth-tabs">
-        <Link href="/login" style={{ flex: 1 }}>
-          <button type="button" style={{ width: "100%" }}>
-            Sign in
-          </button>
-        </Link>
+        <Link href="/login">Sign in</Link>
         <button className="on" type="button">
           Create account
         </button>
@@ -243,37 +245,67 @@ function SignupForm() {
       ) : (
         <form onSubmit={handleNewCompany}>
           <div className="fld">
-            <label htmlFor="name">Your name</label>
-            <input id="name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+            <label htmlFor="name">Full name</label>
+            <input id="name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="e.g. Azlan Hashim" />
           </div>
-          <div className="fld">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="you@company.my"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-          </div>
-          <div className="fld">
-            <label htmlFor="password">Password</label>
-            <div className="pw-wrap">
+          <div className="fld fld-2">
+            <div>
+              <label htmlFor="email">Email</label>
               <input
-                id="password"
-                type={showPw ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
+                id="email"
+                type="email"
+                placeholder="you@company.my"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
               />
-              <button type="button" className="pw-eye" onClick={() => setShowPw((s) => !s)}>
-                {showPw ? "Hide" : "Show"}
-              </button>
+            </div>
+            <div>
+              <label htmlFor="owner-phone">Phone number</label>
+              <input
+                id="owner-phone"
+                inputMode="tel"
+                placeholder="e.g. 012-345 6789"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                autoComplete="tel"
+              />
             </div>
           </div>
+          <div className="fld fld-2">
+            <div>
+              <label htmlFor="password">Password</label>
+              <div className="pw-wrap">
+                <input
+                  id="password"
+                  type={showPw ? "text" : "password"}
+                  placeholder="Min. 8 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <button type="button" className="pw-eye" onClick={() => setShowPw((s) => !s)}>
+                  {showPw ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="password2">Confirm password</label>
+              <input
+                id="password2"
+                type={showPw ? "text" : "password"}
+                placeholder="Repeat password"
+                value={password2}
+                onChange={(e) => setPassword2(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          <div className="small faint" style={{ margin: "-4px 0 14px" }}>
+            You&rsquo;ll be the <b style={{ color: "var(--amber)" }}>👑 Owner</b> of this workspace, with full access.
+          </div>
           <button className="btn btn-amber auth-submit" type="submit" disabled={loading}>
-            {loading ? "Creating account…" : "Continue"}
+            {loading ? "Creating account…" : "Continue — Company details →"}
           </button>
         </form>
       )}

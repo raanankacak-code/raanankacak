@@ -1,3 +1,5 @@
+import PricingSection from "./PricingSection";
+
 export default function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="login-shell">
@@ -25,10 +27,29 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
             <li>Material requests approved from anywhere, with a full audit trail</li>
           </ul>
         </div>
+        <div className="lg-stats">
+          <div>
+            <b>RM 7.25M</b>
+            <span>Under management</span>
+          </div>
+          <div>
+            <b>2</b>
+            <span>Active sites</span>
+          </div>
+          <div>
+            <b>24</b>
+            <span>Workers tracked</span>
+          </div>
+          <div>
+            <b>80%</b>
+            <span>Less paperwork</span>
+          </div>
+        </div>
       </section>
       <section className="lg-panel">
         <div className="auth">{children}</div>
       </section>
+      <PricingSection />
     </div>
   );
 }

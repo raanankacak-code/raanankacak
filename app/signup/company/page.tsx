@@ -32,6 +32,7 @@ export default function CompanySetupPage() {
   const [name, setName] = useState("");
   const [ssmNumber, setSsmNumber] = useState("");
   const [cidbNumber, setCidbNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [city, setCity] = useState("");
@@ -65,6 +66,7 @@ export default function CompanySetupPage() {
           name,
           ssmNumber: ssmNumber || undefined,
           cidbNumber: cidbNumber || undefined,
+          email: email || undefined,
           phone: phone || undefined,
           addressLine1: addressLine1 || undefined,
           city: city || undefined,
@@ -112,9 +114,15 @@ export default function CompanySetupPage() {
             <input id="cidb" value={cidbNumber} onChange={(e) => setCidbNumber(e.target.value)} />
           </div>
         </div>
-        <div className="fld">
-          <label htmlFor="phone">Phone number</label>
-          <input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <div className="fld fld-2">
+          <div>
+            <label htmlFor="company-email">Company email</label>
+            <input id="company-email" type="email" placeholder="office@company.my" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="phone">Phone number</label>
+            <input id="phone" inputMode="tel" placeholder="e.g. 085-123 456" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
         </div>
         <div className="fld">
           <label htmlFor="addr1">Business address</label>

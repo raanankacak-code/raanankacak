@@ -42,11 +42,7 @@ export default function LoginPage() {
         <button className="on" type="button">
           Sign in
         </button>
-        <Link href="/signup" style={{ flex: 1 }}>
-          <button type="button" style={{ width: "100%" }}>
-            Create account
-          </button>
-        </Link>
+        <Link href="/signup">Create account</Link>
       </div>
       <h2>Welcome back</h2>
       <p className="a-sub">Sign in to your organisation&rsquo;s workspace.</p>
