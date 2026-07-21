@@ -1,17 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthShell from "@/components/auth/AuthShell";
 import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    searchParams.get("error") === "reset-link-expired"
+      ? "That reset link has expired or already been used. Request a new one below."
+      : "",
+  );
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -62,7 +67,14 @@ export default function LoginPage() {
           />
         </div>
         <div className="fld">
-          <label htmlFor="password">Password</label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+            <label htmlFor="password" style={{ margin: 0 }}>
+              Password
+            </label>
+            <Link href="/forgot-password" className="small">
+              Forgot password?
+            </Link>
+          </div>
           <div className="pw-wrap">
             <input
               id="password"
@@ -88,5 +100,13 @@ export default function LoginPage() {
         Don&rsquo;t have a workspace? <Link href="/signup">Create one</Link>.
       </p>
     </AuthShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }
