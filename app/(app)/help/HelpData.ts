@@ -6,7 +6,6 @@ export type HelpArticle = {
   desc: string;
   body: string[];
   video?: boolean;
-  len?: string;
 };
 
 export const HELP_CAT_CLS: Record<HelpArticle["cat"], string> = {
@@ -116,10 +115,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     cat: "FAQ",
     ic: "🔑",
     title: "How do I reset an employee's password?",
-    desc: "Owners and Admins reset passwords from Team → Manage, effective immediately.",
+    desc: "They reset it themselves with \"Forgot password?\" on the sign-in page — no admin action needed.",
     body: [
-      "Password resets for teammates go through Supabase Auth's own reset flow — ask them to use \"Forgot password\" on the sign-in page.",
-      "Deactivated accounts keep their history but can't sign in until reactivated.",
+      "BinaWorks doesn't let Owners or Admins set a password on someone else's behalf. Instead, ask the teammate to click \"Forgot password?\" on the sign-in page — they'll get an email to set a new one themselves.",
+      "Deactivated accounts keep their history but can't sign in until reactivated by an Owner or Admin from Team.",
     ],
   },
   {
@@ -129,10 +128,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     title: "BinaWorks in 5 minutes",
     desc: "A quick tour of the dashboard, projects and the daily site workflow.",
     video: true,
-    len: "5:12",
     body: [
-      "Video tutorial placeholder.",
-      "It covers: signing in, reading the dashboard, opening a project, and where every module lives.",
+      "This walkthrough video is still being filmed — check back soon.",
+      "It'll cover: signing in, reading the dashboard, opening a project, and where every module lives.",
     ],
   },
   {
@@ -142,8 +140,10 @@ export const HELP_ARTICLES: HelpArticle[] = [
     title: "Daily reports walkthrough",
     desc: "Filing a complete report from site, with photos, in real time.",
     video: true,
-    len: "3:47",
-    body: ["Video tutorial placeholder.", "It covers: weather, manpower, delays, photo uploads and PM review."],
+    body: [
+      "This walkthrough video is still being filmed — check back soon.",
+      "It'll cover: weather, manpower, delays, photo uploads and PM review.",
+    ],
   },
   {
     id: "h12",
@@ -152,7 +152,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     title: "Approving material requests",
     desc: "The approval flow from a PM's seat — including rejections done right.",
     video: true,
-    len: "4:05",
-    body: ["Video tutorial placeholder.", "It covers: the request timeline, approve/reject with comments, ordering and delivery."],
+    body: [
+      "This walkthrough video is still being filmed — check back soon.",
+      "It'll cover: the request timeline, approve/reject with comments, ordering and delivery.",
+    ],
   },
 ];

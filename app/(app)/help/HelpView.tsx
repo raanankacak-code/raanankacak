@@ -10,9 +10,9 @@ function ArticleCard({ a, onOpen }: { a: HelpArticle; onOpen: () => void }) {
   return (
     <div className="ha-card">
       {a.video && (
-        <button className="ha-vid" onClick={onOpen} aria-label={`Play ${a.title}`}>
-          <span className="ha-play">▶</span>
-          <span className="ha-len">{a.len}</span>
+        <button className="ha-vid" onClick={onOpen} aria-label={`${a.title} — coming soon`}>
+          <span className="ha-play">🎬</span>
+          <span className="ha-len">Coming soon</span>
         </button>
       )}
       <div className="ha-t">
@@ -33,13 +33,25 @@ function ArticleCard({ a, onOpen }: { a: HelpArticle; onOpen: () => void }) {
   );
 }
 
-export default function HelpView({ orgName, memberFirstName }: { orgName: string; memberFirstName: string }) {
+type Admin = { name: string; email: string; role: "OWNER" | "ADMIN" };
+
+export default function HelpView({
+  orgName,
+  memberFirstName,
+  orgEmail,
+  orgPhone,
+  admins,
+}: {
+  orgName: string;
+  memberFirstName: string;
+  orgEmail: string | null;
+  orgPhone: string | null;
+  admins: Admin[];
+}) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<(typeof CATS)[number]>("All");
   const [openArticle, setOpenArticle] = useState<HelpArticle | null>(null);
   const [bugOpen, setBugOpen] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [checkMsg, setCheckMsg] = useState("");
   const [changelogOpen, setChangelogOpen] = useState(false);
 
   const list = useMemo(() => {
@@ -48,15 +60,6 @@ export default function HelpView({ orgName, memberFirstName }: { orgName: string
       (a) => !query || `${a.title} ${a.desc} ${a.body.join(" ")}`.toLowerCase().includes(query),
     );
   }, [q, cat]);
-
-  function checkUpdates() {
-    setChecking(true);
-    setCheckMsg("");
-    setTimeout(() => {
-      setChecking(false);
-      setCheckMsg(`You're on the latest version — v${APP_VERSION.v}`);
-    }, 700);
-  }
 
   return (
     <>
@@ -144,21 +147,41 @@ export default function HelpView({ orgName, memberFirstName }: { orgName: string
               <h3>Contact Support</h3>
             </div>
             <div className="card-b">
-              <div className="hc-line">
-                📧 <b>support@binaworks.my</b>
-              </div>
-              <div className="hc-line">
-                📞 <b>+60 85-431 900</b>
-              </div>
-              <div className="hc-line">
-                🕘 <span className="small mut">Mon–Fri, 9:00–18:00 MYT</span>
-              </div>
-              <div className="small faint" style={{ margin: "6px 0 12px" }}>
-                Typical response within 1 business day. Include your company name and a screenshot if you can.
-              </div>
-              <a className="btn btn-amber" style={{ width: "100%", justifyContent: "center" }} href="mailto:support@binaworks.my?subject=BinaWorks%20support%20request">
-                ✉ Email Support
-              </a>
+              <p className="small mut" style={{ marginBottom: 12 }}>
+                BinaWorks doesn&rsquo;t have a live support line yet — for help with your workspace, reach out to your
+                Owner or Admin.
+              </p>
+              {admins.length > 0 ? (
+                <div style={{ display: "grid", gap: 8, marginBottom: (orgEmail || orgPhone) ? 14 : 0 }}>
+                  {admins.map((a) => (
+                    <a
+                      key={a.email}
+                      href={`mailto:${a.email}`}
+                      className="hc-line"
+                      style={{ textDecoration: "none", color: "inherit" }}
+                    >
+                      ✉ <b>{a.name}</b>
+                      <span className="small mut">
+                        {a.role === "OWNER" ? "Owner" : "Admin"} · {a.email}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+              {(orgEmail || orgPhone) && (
+                <>
+                  {orgEmail && (
+                    <div className="hc-line">
+                      📧 <a href={`mailto:${orgEmail}`}>{orgEmail}</a>
+                    </div>
+                  )}
+                  {orgPhone && (
+                    <div className="hc-line">
+                      📞 <b>{orgPhone}</b>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
           <div className="card">
@@ -203,12 +226,8 @@ export default function HelpView({ orgName, memberFirstName }: { orgName: string
               <div className="powered" style={{ marginTop: 8 }}>
                 Powered by Bina<span>Works</span>
               </div>
-              {checkMsg && <div className="small" style={{ color: "var(--ok)", marginTop: 8 }}>{checkMsg}</div>}
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                <button className="btn btn-sm" style={{ flex: 1, justifyContent: "center" }} disabled={checking} onClick={checkUpdates}>
-                  {checking ? "Checking…" : "Check for updates"}
-                </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setChangelogOpen(true)}>
+                <button className="btn btn-sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => setChangelogOpen(true)}>
                   What&rsquo;s new
                 </button>
               </div>
@@ -219,7 +238,7 @@ export default function HelpView({ orgName, memberFirstName }: { orgName: string
 
       {openArticle && (
         <Modal
-          title={`${openArticle.video ? "▶ " : `${openArticle.ic} `}${openArticle.title}`}
+          title={`${openArticle.video ? "🎬 " : `${openArticle.ic} `}${openArticle.title}`}
           onClose={() => setOpenArticle(null)}
           footer={
             <button className="btn btn-amber" onClick={() => setOpenArticle(null)}>
@@ -232,14 +251,14 @@ export default function HelpView({ orgName, memberFirstName }: { orgName: string
               <span className="dot" />
               {openArticle.cat}
             </span>
-            <span className="small faint">{openArticle.video ? `Video · ${openArticle.len}` : "Article · 2 min read"}</span>
+            <span className="small faint">{openArticle.video ? "Video tutorial · Coming soon" : "Article · 2 min read"}</span>
           </div>
           {openArticle.video && (
             <div className="ha-vid" style={{ height: 200, marginBottom: 14 }}>
               <span className="ha-play" style={{ width: 54, height: 54, fontSize: 20 }}>
-                ▶
+                🎬
               </span>
-              <span className="ha-len">{openArticle.len}</span>
+              <span className="ha-len">Coming soon</span>
             </div>
           )}
           <div style={{ display: "grid", gap: 11 }}>
