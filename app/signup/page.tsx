@@ -94,6 +94,13 @@ function SignupForm() {
       router.push("/signup/company");
       return;
     }
+    // Supabase returns a user with no identities (no error) when the email
+    // is already registered, to avoid leaking which emails exist — that
+    // also means it silently skips sending a new confirmation email.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      setError("This email already has an account. Sign in instead, or use “Forgot password?” if you don’t remember it.");
+      return;
+    }
     setInfo(
       "Account created — check your email to confirm it, then sign in. You'll finish setting up your company workspace right after.",
     );
@@ -137,6 +144,11 @@ function SignupForm() {
       });
       if (signUpError) throw new Error(signUpError.message);
       if (!data.session) {
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+          setError("This email already has an account. Sign in instead, then open your invitation link again to join.");
+          setLoading(false);
+          return;
+        }
         setInfo("Account created — check your email to confirm it, then sign in to finish joining the workspace.");
         setLoading(false);
         return;
