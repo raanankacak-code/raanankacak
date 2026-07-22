@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
@@ -18,6 +18,19 @@ export default function NewProjectPage() {
   const [endDate, setEndDate] = useState("");
   const [status, setStatus] = useState("PLANNING");
   const [managerName, setManagerName] = useState("");
+  const [memberNames, setMemberNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await apiFetch<{ members: { name: string; active: boolean }[] }>("/api/team");
+        setMemberNames(Array.from(new Set(data.members.filter((m) => m.active).map((m) => m.name))));
+      } catch {
+        // Non-critical: the manager field just won't have a picker if this fails.
+      }
+    }
+    queueMicrotask(load);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,7 +84,14 @@ export default function NewProjectPage() {
               </div>
               <div>
                 <label htmlFor="manager">Project manager</label>
-                <input id="manager" value={managerName} onChange={(e) => setManagerName(e.target.value)} />
+                <select id="manager" value={managerName} onChange={(e) => setManagerName(e.target.value)}>
+                  <option value="">— None —</option>
+                  {memberNames.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="full">
                 <label htmlFor="site">Site address</label>

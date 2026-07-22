@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
@@ -24,10 +24,30 @@ export default function EditProjectForm({ project }: { project: ProjectFormData 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState(project);
+  const [memberNames, setMemberNames] = useState<string[]>([]);
 
   function set<K extends keyof ProjectFormData>(key: K, value: ProjectFormData[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await apiFetch<{ members: { name: string; active: boolean }[] }>("/api/team");
+        setMemberNames(Array.from(new Set(data.members.filter((m) => m.active).map((m) => m.name))));
+      } catch {
+        // Non-critical: the manager field just won't have a picker if this fails.
+      }
+    }
+    queueMicrotask(load);
+  }, []);
+
+  // Keep the project's current manager selectable even if they're no longer
+  // an active team member (or it's legacy freeform text), so switching to a
+  // dropdown never silently loses what was already saved.
+  const managerOptions = project.managerName && !memberNames.includes(project.managerName)
+    ? [project.managerName, ...memberNames]
+    : memberNames;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,7 +97,14 @@ export default function EditProjectForm({ project }: { project: ProjectFormData 
           </div>
           <div>
             <label htmlFor="manager">Project manager</label>
-            <input id="manager" value={form.managerName} onChange={(e) => set("managerName", e.target.value)} />
+            <select id="manager" value={form.managerName} onChange={(e) => set("managerName", e.target.value)}>
+              <option value="">— None —</option>
+              {managerOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="full">
             <label htmlFor="site">Site address</label>
