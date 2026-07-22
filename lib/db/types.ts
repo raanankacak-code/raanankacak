@@ -228,3 +228,18 @@ export interface AppNotification {
   read: boolean;
   createdAt: Date;
 }
+
+export interface BugReport {
+  id: string;
+  ref: string;
+  orgId: string;
+  reportedByUserId: string;
+  reportedByName: string;
+  reportedByEmail: string;
+  area: string;
+  severity: string;
+  description: string;
+  steps: string | null;
+  status: string;
+  createdAt: Date;
+}

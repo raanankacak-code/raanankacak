@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Modal from "@/components/app/Modal";
+import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { HELP_ARTICLES, HELP_CAT_CLS, APP_VERSION, type HelpArticle } from "./HelpData";
 
 const CATS: ("All" | HelpArticle["cat"])[] = ["All", "Getting Started", "FAQ", "Video Tutorials"];
@@ -339,17 +340,24 @@ function BugFormModal({ firstName, onClose }: { firstName: string; onClose: () =
   const [submitting, setSubmitting] = useState(false);
   const [ref, setRef] = useState("");
 
-  function submit() {
+  async function submit() {
     if (!desc.trim()) {
       setError("Please describe what happened.");
       return;
     }
     setError("");
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      const data = await apiFetch<{ report: { ref: string } }>("/api/bug-reports", {
+        method: "POST",
+        body: JSON.stringify({ area, severity, description: desc, steps: steps || undefined }),
+      });
+      setRef(data.report.ref);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Something went wrong. Please try again.");
+    } finally {
       setSubmitting(false);
-      setRef("BUG-" + String(Math.floor(1000 + Math.random() * 9000)));
-    }, 700);
+    }
   }
 
   if (ref) {

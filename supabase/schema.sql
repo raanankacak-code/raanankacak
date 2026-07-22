@@ -388,3 +388,24 @@ create table notifications (
 create index notifications_org_id_created_idx on notifications (org_id, created_at desc);
 
 alter table notifications enable row level security;
+
+-- bug reports -----------------------------------------------------------
+
+create table bug_reports (
+  id uuid primary key default gen_random_uuid(),
+  ref text not null unique,
+  org_id uuid not null references organizations(id) on delete cascade,
+  reported_by_user_id uuid not null references auth.users(id) on delete cascade,
+  reported_by_name text not null,
+  reported_by_email text not null,
+  area text not null,
+  severity text not null,
+  description text not null,
+  steps text,
+  status text not null default 'OPEN',
+  created_at timestamptz not null default now()
+);
+
+create index bug_reports_org_id_created_idx on bug_reports (org_id, created_at desc);
+
+alter table bug_reports enable row level security;
