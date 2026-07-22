@@ -79,7 +79,10 @@ export default async function DashboardPage() {
   const presentToday = todaysAttendance.filter((a) => a.status === "PRESENT" || a.status === "HALF_DAY").length;
   const absentToday = todaysAttendance.filter((a) => a.status === "ABSENT").length;
   const halfDayToday = todaysAttendance.filter((a) => a.status === "HALF_DAY").length;
-  const totalContractValue = activeProjects.reduce((sum, p) => sum + (p.contractValue ? Number(p.contractValue) : 0), 0);
+  // Includes Planning/Active/On Hold so a brand-new (still-Planning) project's
+  // contract value isn't invisible here — only fully Completed work drops off.
+  const ongoingProjects = projects.filter((p) => p.status !== "COMPLETED");
+  const totalContractValue = ongoingProjects.reduce((sum, p) => sum + (p.contractValue ? Number(p.contractValue) : 0), 0);
   const budgetUsage = totalContractValue ? Math.min(100, Math.round((laborCost / totalContractValue) * 100)) : 0;
 
   const pendingRequests = requests.filter((r) => r.status === "SUBMITTED");

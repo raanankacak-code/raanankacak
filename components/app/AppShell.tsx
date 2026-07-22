@@ -168,7 +168,7 @@ export default function AppShell({
         {children}
       </main>
 
-      {can(role, "submitReports") && (
+      {can(role, "submitReports") && pathname !== "/reports/new" && (
         <Link href="/reports/new" className="fab" aria-label="Create daily report">
           ＋<span>Report</span>
         </Link>

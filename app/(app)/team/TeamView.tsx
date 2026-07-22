@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { ROLE_LABELS, ROLE_META, PERM_LABELS, can, type Permission } from "@/lib/permissions";
-import { statusBadgeClass, statusLabel } from "@/lib/format";
+import { formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import Modal from "@/components/app/Modal";
 import SortableTh, { type SortState, toggleSort, sortRows } from "@/components/app/SortableTh";
 import type { Role } from "@/lib/db/types";
@@ -513,7 +513,7 @@ function InviteRow({ invite, onChanged }: { invite: Invite; onChanged: () => voi
           {statusLabel(invite.status)}
         </span>
         <div className="small faint" style={{ marginTop: 3 }}>
-          {invite.status === "PENDING" ? `expires ${new Date(invite.expiresAt).toLocaleDateString()}` : `invited by ${invite.invitedByName}`}
+          {invite.status === "PENDING" ? `expires ${formatDate(invite.expiresAt)}` : `invited by ${invite.invitedByName}`}
         </div>
       </td>
       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
