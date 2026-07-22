@@ -204,7 +204,7 @@ export default function ProjectsView({
                       {canEdit || canDelete ? (
                         <>
                           {canEdit && (
-                            <Link href={`/projects/${p.id}/edit`} className="btn btn-ghost btn-sm">
+                            <Link href={`/projects/${p.id}/edit`} className="btn btn-ghost btn-sm" aria-label={`Edit ${p.name}`}>
                               Edit
                             </Link>
                           )}
@@ -214,6 +214,7 @@ export default function ProjectsView({
                               type="button"
                               disabled={deletingId === p.id}
                               onClick={() => handleDelete(p.id, p.name)}
+                              aria-label={`Delete ${p.name}`}
                             >
                               Delete
                             </button>

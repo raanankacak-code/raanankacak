@@ -310,7 +310,7 @@ export default function CalendarView({ canEdit }: { canEdit: boolean }) {
                     </div>
                     <div style={{ textAlign: "right", flex: "none" }}>
                       <div className="num small">{formatDate(e.date)}</div>
-                      <div className="small" style={{ color: "var(--bad)", fontWeight: 700 }}>
+                      <div className="small" style={{ color: "var(--bad-text)", fontWeight: 700 }}>
                         {Math.round((new Date(todayISO()).getTime() - new Date(e.date).getTime()) / 86400000)}d overdue
                       </div>
                     </div>

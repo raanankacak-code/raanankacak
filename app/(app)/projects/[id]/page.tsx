@@ -161,10 +161,14 @@ export default async function ProjectDetailPage({
                       <td style={{ whiteSpace: "nowrap" }}>
                         {can(member.role, "manageWorkers") && (
                           <>
-                            <Link href={`/projects/${project.id}/workers/${w.id}/edit`} className="btn btn-ghost btn-sm">
+                            <Link
+                              href={`/projects/${project.id}/workers/${w.id}/edit`}
+                              className="btn btn-ghost btn-sm"
+                              aria-label={`Edit ${w.name}`}
+                            >
                               Edit
                             </Link>{" "}
-                            <RemoveWorkerButton workerId={w.id} />
+                            <RemoveWorkerButton workerId={w.id} workerName={w.name} />
                           </>
                         )}
                       </td>

@@ -214,7 +214,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
               ⬇ Export CSV
             </button>
             <span className="small mut" style={{ alignSelf: "center" }}>
-              Payroll this month: <b className="num" style={{ color: "var(--amber)" }}>{formatRM(monthlyTotal)}</b>
+              Payroll this month: <b className="num" style={{ color: "var(--amber-text)" }}>{formatRM(monthlyTotal)}</b>
             </span>
           </div>
           <div className="card">

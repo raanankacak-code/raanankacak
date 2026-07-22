@@ -156,7 +156,7 @@ export default function ProfileView({
             <div className="card-b">
               {pwError && <div className="auth-err">{pwError}</div>}
               {pwSuccess && (
-                <div className="auth-err" style={{ color: "var(--ok)", background: "#3ecf8e14", borderColor: "#3ecf8e3d" }}>
+                <div className="auth-err" style={{ color: "var(--ok-text)", background: "#3ecf8e14", borderColor: "#3ecf8e3d" }}>
                   {pwSuccess}
                 </div>
               )}
@@ -192,7 +192,7 @@ export default function ProfileView({
                 const on = can(role, key);
                 return (
                   <div className="pf-perm" key={key}>
-                    <span className="ic" style={{ color: on ? "var(--ok)" : "var(--line2)" }}>
+                    <span className="ic" style={{ color: on ? "var(--ok-text)" : "var(--line2)" }}>
                       {on ? "✓" : "—"}
                     </span>
                     <span style={{ color: on ? "var(--text)" : "var(--faint)" }}>{label}</span>

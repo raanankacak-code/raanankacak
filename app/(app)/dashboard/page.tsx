@@ -348,7 +348,7 @@ export default async function DashboardPage() {
                       </div>
                       <div style={{ textAlign: "right", flex: "none" }}>
                         <div className="num small">{formatDate(d.date)}</div>
-                        <div className="small" style={{ color: days <= 7 ? "var(--amber)" : "var(--faint)", fontWeight: 700 }}>
+                        <div className="small" style={{ color: days <= 7 ? "var(--amber-text)" : "var(--faint)", fontWeight: 700 }}>
                           {days === 0 ? "Today" : `${days}d left`}
                         </div>
                       </div>

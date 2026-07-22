@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
       {error && <div className="auth-err">{error}</div>}
 
       {sent ? (
-        <div className="auth-err" style={{ color: "var(--ok)", background: "#3ecf8e14", borderColor: "#3ecf8e3d" }}>
+        <div className="auth-err" style={{ color: "var(--ok-text)", background: "#3ecf8e14", borderColor: "#3ecf8e3d" }}>
           If an account exists for {email}, a reset link is on its way — check your inbox.
         </div>
       ) : (

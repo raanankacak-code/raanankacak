@@ -175,7 +175,7 @@ export default function MaterialsView({
                       <td className="num">
                         {r.qty} {r.unit}
                       </td>
-                      <td className="num" style={{ color: overdue ? "var(--bad)" : "inherit" }}>
+                      <td className="num" style={{ color: overdue ? "var(--bad-text)" : "inherit" }}>
                         {formatDate(r.neededBy)}
                       </td>
                       <td>
@@ -374,7 +374,7 @@ function RequestDetailModal({
           <label>Quantity</label>
           <div className="num">
             {req.qty} {req.unit}
-            {req.receivedQty != null && <span className="small" style={{ color: "var(--ok)" }}> · received {req.receivedQty}</span>}
+            {req.receivedQty != null && <span className="small" style={{ color: "var(--ok-text)" }}> · received {req.receivedQty}</span>}
           </div>
         </div>
         <div>

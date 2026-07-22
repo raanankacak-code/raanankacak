@@ -366,7 +366,7 @@ function BugFormModal({ firstName, onClose }: { firstName: string; onClose: () =
         <div style={{ textAlign: "center", padding: "8px 4px 2px" }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>🐞</div>
           <p style={{ marginBottom: 8 }}>Thanks, {firstName} — your report is in the queue.</p>
-          <p className="mono" style={{ color: "var(--amber)", fontWeight: 600, fontSize: 16, marginBottom: 12 }}>
+          <p className="mono" style={{ color: "var(--amber-text)", fontWeight: 600, fontSize: 16, marginBottom: 12 }}>
             {ref}
           </p>
           <p className="small mut" style={{ maxWidth: 360, margin: "0 auto" }}>

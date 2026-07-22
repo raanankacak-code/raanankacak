@@ -186,7 +186,7 @@ function SignupForm() {
 
       {error && <div className="auth-err">{error}</div>}
       {info && (
-        <div className="auth-err" style={{ color: "var(--ok)", background: "#3ecf8e14", borderColor: "#3ecf8e3d" }}>
+        <div className="auth-err" style={{ color: "var(--ok-text)", background: "#3ecf8e14", borderColor: "#3ecf8e3d" }}>
           {info}
         </div>
       )}
@@ -320,7 +320,7 @@ function SignupForm() {
             </div>
           </div>
           <div className="small faint" style={{ margin: "-4px 0 14px" }}>
-            You&rsquo;ll be the <b style={{ color: "var(--amber)" }}>👑 Owner</b> of this workspace, with full access.
+            You&rsquo;ll be the <b style={{ color: "var(--amber-text)" }}>👑 Owner</b> of this workspace, with full access.
           </div>
           <button className="btn btn-amber auth-submit" type="submit" disabled={loading}>
             {loading ? "Creating account…" : "Continue — Company details →"}

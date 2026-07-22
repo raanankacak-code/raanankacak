@@ -158,7 +158,7 @@ export default function TeamView({ orgName, myRole, myId }: { orgName: string; m
                         </td>
                         <td style={{ textAlign: "right" }}>
                           {canManage && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => setManageTarget(m)}>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setManageTarget(m)} aria-label={`Manage ${m.name}`}>
                               Manage
                             </button>
                           )}
@@ -267,7 +267,7 @@ function RoleInfoModal({ role, onClose }: { role: Role; onClose: () => void }) {
           const has = can(role, key);
           return (
             <div key={key} className="small" style={{ display: "flex", gap: 8, alignItems: "center", color: has ? "var(--text)" : "var(--faint)" }}>
-              <b style={{ color: has ? "var(--ok)" : "var(--bad)", width: 14 }}>{has ? "✓" : "✗"}</b>
+              <b style={{ color: has ? "var(--ok-text)" : "var(--bad-text)", width: 14 }}>{has ? "✓" : "✗"}</b>
               {label}
             </div>
           );
@@ -518,17 +518,27 @@ function InviteRow({ invite, onChanged }: { invite: Invite; onChanged: () => voi
       </td>
       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
         {invite.status === "PENDING" && (
-          <button className="btn btn-ghost btn-sm" onClick={copyLink}>
+          <button className="btn btn-ghost btn-sm" onClick={copyLink} aria-label={`Copy invitation link for ${invite.name}`}>
             {copied ? "Copied!" : "Copy link"}
           </button>
         )}
         {(invite.status === "PENDING" || invite.status === "EXPIRED" || invite.status === "CANCELLED") && (
-          <button className="btn btn-ghost btn-sm" onClick={resend} disabled={busy}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={resend}
+            disabled={busy}
+            aria-label={`Resend invitation to ${invite.name}`}
+          >
             Resend
           </button>
         )}
         {invite.status === "PENDING" && (
-          <button className="btn btn-danger btn-sm" onClick={cancel} disabled={busy}>
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={cancel}
+            disabled={busy}
+            aria-label={`Cancel invitation for ${invite.name}`}
+          >
             Cancel
           </button>
         )}
