@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { listInvitesForOrg, createInvite } from "@/lib/db/team";
 import { notify } from "@/lib/db/notifications";
+import { getOrganizationById } from "@/lib/db/organizations";
 import { requireMember, apiErrorResponse } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
+import { sendEmail, inviteEmailHtml } from "@/lib/email";
 
 const ROLES = [
   "OWNER",
@@ -46,6 +48,20 @@ export async function POST(request: Request) {
     }
     const invite = await createInvite(member.orgId, { ...body, invitedByName: member.name });
     await notify(member.orgId, "invite", "User Invited", `${body.email} invited as ${ROLE_LABELS[body.role]} by ${member.name}.`);
+
+    const org = await getOrganizationById(member.orgId);
+    const link = `${new URL(request.url).origin}/signup?invite=${invite.token}`;
+    await sendEmail({
+      to: invite.email,
+      subject: `You're invited to join ${org?.name ?? "your company"} on BinaWorks`,
+      html: inviteEmailHtml({
+        orgName: org?.name ?? "your company",
+        roleLabel: ROLE_LABELS[body.role],
+        invitedByName: member.name,
+        link,
+      }),
+    });
+
     return NextResponse.json({ invite }, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {

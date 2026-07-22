@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthShell from "@/components/auth/AuthShell";
 import { createClient } from "@/lib/supabase/client";
+import { apiFetch } from "@/lib/api-client";
 
 function LoginForm() {
   const router = useRouter();
@@ -18,6 +19,32 @@ function LoginForm() {
       : "",
   );
   const [loading, setLoading] = useState(false);
+  // A confirmation-email link lands here with ?code=... — detectSessionInUrl
+  // exchanges it into a session automatically, so we skip straight to the
+  // app instead of making the user type their credentials again.
+  const [checkingConfirmation, setCheckingConfirmation] = useState(() => searchParams.has("code"));
+
+  useEffect(() => {
+    if (!searchParams.has("code")) return;
+    const supabase = createClient();
+    const invite = searchParams.get("invite");
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) {
+        setCheckingConfirmation(false);
+        return;
+      }
+      if (invite) {
+        try {
+          await apiFetch(`/api/invites/${encodeURIComponent(invite)}/accept`, { method: "POST" });
+        } catch {
+          // Invite may already be accepted (e.g. a re-click) — proceed regardless.
+        }
+      }
+      router.replace("/dashboard");
+      router.refresh();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +66,15 @@ function LoginForm() {
     }
     router.push("/dashboard");
     router.refresh();
+  }
+
+  if (checkingConfirmation) {
+    return (
+      <AuthShell>
+        <h2>Confirming your account&hellip;</h2>
+        <p className="a-sub">Hang tight, this only takes a second.</p>
+      </AuthShell>
+    );
   }
 
   return (

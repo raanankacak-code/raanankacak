@@ -40,7 +40,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  // A pending confirmation code or invite token means /login still has work
+  // to do client-side (exchange the code, accept the invite) before it
+  // redirects itself — don't short-circuit that here.
+  const hasPendingAuthAction = request.nextUrl.searchParams.has("code") || request.nextUrl.searchParams.has("invite");
+
+  if (user && (pathname === "/login" || pathname === "/signup") && !hasPendingAuthAction) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

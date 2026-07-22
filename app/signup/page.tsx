@@ -79,7 +79,10 @@ function SignupForm() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, phone: phone || undefined } },
+      options: {
+        data: { full_name: name, phone: phone || undefined },
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
     });
     setLoading(false);
     if (signUpError) {
@@ -127,7 +130,10 @@ function SignupForm() {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: joinEmail,
         password: joinPassword,
-        options: { data: { full_name: joinName } },
+        options: {
+          data: { full_name: joinName },
+          emailRedirectTo: `${window.location.origin}/login?invite=${encodeURIComponent(token)}`,
+        },
       });
       if (signUpError) throw new Error(signUpError.message);
       if (!data.session) {
