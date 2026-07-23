@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { listRequestsForOrg, createRequest } from "@/lib/db/materials";
 import { getProjectById } from "@/lib/db/projects";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const createSchema = z.object({
   projectId: z.string().uuid(),
@@ -26,7 +26,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const member = await requireMember("submitRequests");
+    const member = await requireWritableMember("submitRequests");
     const body = createSchema.parse(await request.json());
     const project = await getProjectById(member.orgId, body.projectId);
     if (!project) throw new ApiError(404, "Project not found");

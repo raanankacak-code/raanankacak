@@ -10,12 +10,21 @@ vi.mock("@/lib/auth", async () => {
   return {
     ...actual,
     requireMember: requireMemberMock,
+    // Mutation handlers use the write-gated variant; route through the same
+    // mock so these tests stay focused on their own concern, not billing.
+    requireWritableMember: requireMemberMock,
   };
 });
 
 vi.mock("@/lib/db/projects", () => ({
   listProjectsForOrg: listProjectsForOrgMock,
   createProject: createProjectMock,
+}));
+
+const assertCanCreateProjectMock = vi.fn();
+
+vi.mock("@/lib/billing/limits", () => ({
+  assertCanCreateProject: assertCanCreateProjectMock,
 }));
 
 const { GET, POST } = await import("@/app/api/projects/route");
@@ -44,6 +53,8 @@ beforeEach(() => {
   requireMemberMock.mockReset();
   listProjectsForOrgMock.mockReset();
   createProjectMock.mockReset();
+  assertCanCreateProjectMock.mockReset();
+  assertCanCreateProjectMock.mockResolvedValue(undefined);
 });
 
 describe("GET /api/projects", () => {
@@ -106,5 +117,15 @@ describe("POST /api/projects", () => {
 
     expect(createProjectMock).toHaveBeenCalledTimes(1);
     expect(createProjectMock.mock.calls[0][0]).toBe("org-A");
+  });
+
+  it("returns 402 and never creates the project when the plan's project limit is reached", async () => {
+    requireMemberMock.mockResolvedValue(MEMBER_ORG_A);
+    assertCanCreateProjectMock.mockRejectedValue(new ApiError(402, "The Starter plan includes 3 active projects."));
+
+    const res = await POST(postRequest({ name: "Riverside Phase 3" }));
+
+    expect(res.status).toBe(402);
+    expect(createProjectMock).not.toHaveBeenCalled();
   });
 });

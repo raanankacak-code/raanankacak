@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getMemberById, updateMember, removeMember, countOwners } from "@/lib/db/team";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/db/auditLog";
 
 const ROLES = [
@@ -25,7 +25,7 @@ const patchSchema = z.object({
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const me = await requireMember("manageUsers");
+    const me = await requireWritableMember("manageUsers");
     const { id } = await params;
     const target = await getMemberById(me.orgId, id);
     if (!target) throw new ApiError(404, "User not found");
@@ -83,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const me = await requireMember("manageUsers");
+    const me = await requireWritableMember("manageUsers");
     const { id } = await params;
     const target = await getMemberById(me.orgId, id);
     if (!target) throw new ApiError(404, "User not found");

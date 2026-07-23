@@ -10,7 +10,13 @@ const recordAuditEventMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
-  return { ...actual, requireMember: requireMemberMock };
+  return {
+    ...actual,
+    requireMember: requireMemberMock,
+    // Mutation handlers use the write-gated variant; route through the same
+    // mock so these tests stay focused on their own concern, not billing.
+    requireWritableMember: requireMemberMock,
+  };
 });
 
 vi.mock("@/lib/db/team", () => ({

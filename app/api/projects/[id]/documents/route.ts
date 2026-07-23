@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
 import { listDocumentsForProject, createDocument } from "@/lib/db/documents";
 import { notify } from "@/lib/db/notifications";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { safeUrlSchema } from "@/lib/url-validation";
 
@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireMember();
+    const member = await requireWritableMember();
     if (!can(member.role, "uploadDocs") && !can(member.role, "manageDocs")) {
       throw new ApiError(403, "Your role can't upload documents");
     }

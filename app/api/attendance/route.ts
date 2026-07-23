@@ -4,7 +4,7 @@ import { getProjectById } from "@/lib/db/projects";
 import { listActiveWorkersForProject, listWorkerIdsForProject } from "@/lib/db/workers";
 import { listAttendanceForProjectDate, upsertAttendanceRecords } from "@/lib/db/attendance";
 import { notify } from "@/lib/db/notifications";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const upsertSchema = z.object({
   projectId: z.string().min(1),
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const member = await requireMember("takeAttendance");
+    const member = await requireWritableMember("takeAttendance");
     const body = upsertSchema.parse(await request.json());
 
     const project = await getProjectById(member.orgId, body.projectId);

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRequestById, transitionRequest, deleteRequest } from "@/lib/db/materials";
 import { notify } from "@/lib/db/notifications";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { recordAuditEvent } from "@/lib/db/auditLog";
 import type { AuditAction } from "@/lib/db/types";
@@ -27,7 +27,7 @@ const transitionSchema = z.object({
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireMember();
+    const member = await requireWritableMember();
     const { id } = await params;
     const existing = await getRequestById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Material request not found");
@@ -83,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireMember();
+    const member = await requireWritableMember();
     const { id } = await params;
     const existing = await getRequestById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Material request not found");

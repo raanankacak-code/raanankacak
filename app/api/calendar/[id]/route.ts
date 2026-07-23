@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEventById, updateEvent, deleteEvent } from "@/lib/db/calendar";
 import { getProjectById } from "@/lib/db/projects";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const patchSchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
@@ -20,7 +20,7 @@ const patchSchema = z.object({
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireMember();
+    const member = await requireWritableMember();
     const { id } = await params;
     const existing = await getEventById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Event not found");
@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireMember();
+    const member = await requireWritableMember();
     const { id } = await params;
     const existing = await getEventById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Event not found");

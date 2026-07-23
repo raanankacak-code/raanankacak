@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { listEventsForOrg, createEvent } from "@/lib/db/calendar";
 import { getProjectById } from "@/lib/db/projects";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
@@ -32,7 +32,7 @@ const createSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const member = await requireMember();
+    const member = await requireWritableMember();
     const body = createSchema.parse(await request.json());
     if (body.projectId) {
       const project = await getProjectById(member.orgId, body.projectId);

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { listProjectsForOrg, createProject } from "@/lib/db/projects";
-import { requireMember, apiErrorResponse } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse } from "@/lib/auth";
+import { assertCanCreateProject } from "@/lib/billing/limits";
 
 const projectSchema = z.object({
   name: z.string().min(2).max(200),
@@ -26,7 +27,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const member = await requireMember("manageProjects");
+    const member = await requireWritableMember("manageProjects");
+    await assertCanCreateProject(member.orgId);
     const body = projectSchema.parse(await request.json());
 
     const project = await createProject(member.orgId, {

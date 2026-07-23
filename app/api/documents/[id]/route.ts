@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDocumentById, deleteDocument } from "@/lib/db/documents";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireMember();
+    const member = await requireWritableMember();
     const { id } = await params;
     const doc = await getDocumentById(member.orgId, id);
     if (!doc) throw new ApiError(404, "Document not found");

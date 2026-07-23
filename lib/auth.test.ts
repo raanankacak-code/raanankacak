@@ -14,7 +14,15 @@ vi.mock("@/lib/db/organizations", () => ({
   getMemberByUserId: getMemberByUserIdMock,
 }));
 
-const { getCurrentMember, requireMember, ApiError, apiErrorResponse } = await import("@/lib/auth");
+const getSubscriptionForOrgMock = vi.fn();
+
+vi.mock("@/lib/db/subscriptions", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/db/subscriptions")>("@/lib/db/subscriptions");
+  return { ...actual, getSubscriptionForOrg: getSubscriptionForOrgMock };
+});
+
+const { getCurrentMember, requireMember, requireWritableMember, ApiError, apiErrorResponse } =
+  await import("@/lib/auth");
 
 const FAKE_MEMBER: OrgMember = {
   id: "member-1",
@@ -31,7 +39,22 @@ const FAKE_MEMBER: OrgMember = {
 beforeEach(() => {
   getUserMock.mockReset();
   getMemberByUserIdMock.mockReset();
+  getSubscriptionForOrgMock.mockReset();
 });
+
+function subscription(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "sub-1",
+    orgId: "org-1",
+    plan: "PROFESSIONAL",
+    status: "TRIALING",
+    trialEndsAt: new Date(Date.now() + 7 * 86400000),
+    currentPeriodEnd: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
 
 describe("getCurrentMember", () => {
   it("returns null when there is no signed-in Supabase user", async () => {
@@ -80,6 +103,35 @@ describe("requireMember", () => {
 
     const member = await requireMember();
     expect(member.role).toBe("VIEWER");
+  });
+});
+
+describe("requireWritableMember", () => {
+  beforeEach(() => {
+    getUserMock.mockResolvedValue({ data: { user: { id: "user-1" } } });
+    getMemberByUserIdMock.mockResolvedValue(FAKE_MEMBER);
+  });
+
+  it("resolves during an active trial", async () => {
+    getSubscriptionForOrgMock.mockResolvedValue(subscription());
+    const member = await requireWritableMember();
+    expect(member.orgId).toBe("org-1");
+  });
+
+  it("throws 402 once the trial has expired (workspace becomes read-only)", async () => {
+    getSubscriptionForOrgMock.mockResolvedValue(subscription({ trialEndsAt: new Date(Date.now() - 1000) }));
+    await expect(requireWritableMember()).rejects.toMatchObject({ status: 402 });
+  });
+
+  it("throws 402 for a cancelled subscription", async () => {
+    getSubscriptionForOrgMock.mockResolvedValue(subscription({ status: "CANCELLED" }));
+    await expect(requireWritableMember()).rejects.toMatchObject({ status: 402 });
+  });
+
+  it("still enforces role permissions before the billing check", async () => {
+    getMemberByUserIdMock.mockResolvedValue({ ...FAKE_MEMBER, role: "VIEWER" });
+    await expect(requireWritableMember("manageProjects")).rejects.toMatchObject({ status: 403 });
+    expect(getSubscriptionForOrgMock).not.toHaveBeenCalled();
   });
 });
 

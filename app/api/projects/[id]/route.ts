@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProjectById, getProjectWithWorkers, updateProject, deleteProject } from "@/lib/db/projects";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/db/auditLog";
 import { formatCurrency } from "@/lib/format";
 
@@ -44,7 +44,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const member = await requireMember("manageProjects");
+    const member = await requireWritableMember("manageProjects");
     const { id } = await params;
     const existing = await loadProjectOrThrow(member.orgId, id);
     const body = updateSchema.parse(await request.json());
@@ -81,7 +81,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const member = await requireMember("deleteProjects");
+    const member = await requireWritableMember("deleteProjects");
     const { id } = await params;
     await loadProjectOrThrow(member.orgId, id);
     await deleteProject(member.orgId, id);

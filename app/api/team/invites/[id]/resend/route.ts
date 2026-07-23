@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { getInviteById, resendInvite } from "@/lib/db/team";
 import { getOrganizationById } from "@/lib/db/organizations";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rateLimit";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireMember("manageUsers");
+    const member = await requireWritableMember("manageUsers");
     const rateLimit = checkRateLimit(`invite-create:${member.id}`, 20, 60_000);
     if (!rateLimit.allowed) {
       throw new ApiError(429, "Too many invites sent. Try again shortly.");

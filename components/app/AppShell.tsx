@@ -16,6 +16,7 @@ import {
   GearIcon,
   HelpIcon,
   AuditIcon,
+  BillingIcon,
 } from "@/components/app/icons";
 import NotificationBell from "@/components/app/NotificationBell";
 import GlobalSearch from "@/components/app/GlobalSearch";
@@ -47,6 +48,7 @@ export default function AppShell({
   orgShortName,
   orgLogoUrl,
   materialsBadge,
+  billing,
 }: {
   children: React.ReactNode;
   memberName: string;
@@ -55,6 +57,7 @@ export default function AppShell({
   orgShortName: string | null;
   orgLogoUrl: string | null;
   materialsBadge: number;
+  billing: { trialing: boolean; daysLeft: number; readOnly: boolean };
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -86,6 +89,7 @@ export default function AppShell({
       show: role === "OWNER" || role === "ADMIN",
     },
     { href: "/audit-log", label: "Audit Log", icon: <AuditIcon />, show: can(role, "viewAuditLog"), mobile: false },
+    { href: "/billing", label: "Billing", icon: <BillingIcon />, show: can(role, "manageOrg"), mobile: false },
     { href: "/help", label: "Help Center", icon: <HelpIcon />, show: true, mobile: false },
   ];
   const visible = navItems.filter((n) => n.show);
@@ -167,6 +171,28 @@ export default function AppShell({
           </button>
         </div>
         <GlobalSearch />
+        {billing.readOnly ? (
+          <div className="billing-banner ro" role="status">
+            {can(role, "manageOrg") ? (
+              <>
+                Your {billing.trialing ? "free trial has ended" : "subscription is inactive"} — the workspace is
+                read-only. <Link href="/billing">Choose a plan</Link> to continue working.
+              </>
+            ) : (
+              <>This workspace is read-only right now. Ask your company Owner or Admin to update the subscription.</>
+            )}
+          </div>
+        ) : billing.trialing && billing.daysLeft <= 7 ? (
+          <div className="billing-banner" role="status">
+            <b className="num">{billing.daysLeft}</b> day{billing.daysLeft === 1 ? "" : "s"} left in your free trial.
+            {can(role, "manageOrg") && (
+              <>
+                {" "}
+                <Link href="/billing">See plans</Link>
+              </>
+            )}
+          </div>
+        ) : null}
         {children}
       </main>
 

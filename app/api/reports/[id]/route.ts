@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getReportById, updateReportStatus, deleteReport } from "@/lib/db/reports";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/db/auditLog";
 import { formatDate } from "@/lib/format";
 
@@ -29,7 +29,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const member = await requireMember("reviewReports");
+    const member = await requireWritableMember("reviewReports");
     const { id } = await params;
     const existing = await getReportById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Report not found");
@@ -64,7 +64,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const member = await requireMember("reviewReports");
+    const member = await requireWritableMember("reviewReports");
     const { id } = await params;
     const existing = await getReportById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Report not found");

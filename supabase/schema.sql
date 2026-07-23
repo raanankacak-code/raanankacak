@@ -447,3 +447,26 @@ create trigger audit_log_no_update
 create trigger audit_log_no_delete
   before delete on audit_log
   for each row execute function audit_log_deny_mutation();
+
+-- subscriptions ----------------------------------------------------------
+-- One subscription row per organization. Rows are created lazily on first
+-- read (existing orgs get a fresh trial), so no backfill is needed.
+
+create table org_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null unique references organizations(id) on delete cascade,
+  plan text not null default 'PROFESSIONAL',
+  status text not null default 'TRIALING',
+  trial_ends_at timestamptz not null,
+  current_period_end timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint org_subscriptions_plan_check check (plan in ('STARTER', 'PROFESSIONAL', 'BUSINESS')),
+  constraint org_subscriptions_status_check check (status in ('TRIALING', 'ACTIVE', 'PAST_DUE', 'CANCELLED'))
+);
+
+alter table org_subscriptions enable row level security;
+
+create trigger org_subscriptions_set_updated_at
+  before update on org_subscriptions
+  for each row execute function set_updated_at();

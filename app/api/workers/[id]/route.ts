@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkerById, updateWorker, deleteWorker } from "@/lib/db/workers";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/db/auditLog";
 import { formatCurrency } from "@/lib/format";
 
@@ -20,7 +20,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const member = await requireMember("manageWorkers");
+    const member = await requireWritableMember("manageWorkers");
     const { id } = await params;
     const existing = await getWorkerById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Worker not found");
@@ -57,7 +57,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const member = await requireMember("manageWorkers");
+    const member = await requireWritableMember("manageWorkers");
     const { id } = await params;
     const existing = await getWorkerById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Worker not found");

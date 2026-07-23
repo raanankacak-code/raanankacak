@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMemberByUserId } from "@/lib/db/organizations";
 import { can, type Permission } from "@/lib/permissions";
 import { logger, errorFields } from "@/lib/logger";
+import { getSubscriptionForOrg, isSubscriptionWritable } from "@/lib/db/subscriptions";
 import type { OrgMember } from "@/lib/db/types";
 
 export type CurrentMember = OrgMember;
@@ -33,6 +34,27 @@ export async function requireMember(permission?: Permission): Promise<CurrentMem
   if (!member) throw new ApiError(401, "Not signed in");
   if (permission && !can(member.role, permission)) {
     throw new ApiError(403, "Your role does not have this permission");
+  }
+  return member;
+}
+
+/**
+ * requireMember + subscription write check, for routes that mutate business
+ * data. When the org's trial has expired (or the subscription is cancelled)
+ * the workspace is read-only: viewing and exporting keep working, writes get
+ * a 402 pointing at the billing page. Trivial personal writes (profile name,
+ * notification read state, bug reports) intentionally stay on requireMember.
+ */
+export async function requireWritableMember(permission?: Permission): Promise<CurrentMember> {
+  const member = await requireMember(permission);
+  const sub = await getSubscriptionForOrg(member.orgId);
+  if (!isSubscriptionWritable(sub)) {
+    throw new ApiError(
+      402,
+      sub.status === "TRIALING"
+        ? "Your free trial has ended. Your data is safe and read-only — choose a plan on the Billing page to continue."
+        : "Your subscription is inactive. Your data is safe and read-only — reactivate on the Billing page to continue.",
+    );
   }
   return member;
 }

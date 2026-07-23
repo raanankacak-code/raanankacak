@@ -79,6 +79,26 @@ export async function removeMember(orgId: string, id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function countActiveMembersForOrg(orgId: string): Promise<number> {
+  const { count, error } = await createAdminClient()
+    .from("org_members")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .eq("active", true);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function countPendingInvitesForOrg(orgId: string): Promise<number> {
+  const { count, error } = await createAdminClient()
+    .from("org_invites")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .eq("status", "PENDING");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function countOwners(orgId: string): Promise<number> {
   const { count, error } = await createAdminClient()
     .from("org_members")

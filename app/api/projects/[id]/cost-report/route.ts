@@ -4,10 +4,12 @@ import { listActiveWorkersForOrg } from "@/lib/db/workers";
 import { sumLaborCostForProject, getDaysWorkedByWorkerForProject } from "@/lib/db/attendance";
 import { listRequestsForProject } from "@/lib/db/materials";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { assertCostReportsIncluded } from "@/lib/billing/limits";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const member = await requireMember("costReports");
+    await assertCostReportsIncluded(member.orgId);
     const { id: projectId } = await params;
     const project = await getProjectById(member.orgId, projectId);
     if (!project) throw new ApiError(404, "Project not found");

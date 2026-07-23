@@ -44,6 +44,17 @@ export async function listProjectsForOrg(orgId: string): Promise<ProjectWithWork
   return (data ?? []).map(mapProjectWithWorkerCount);
 }
 
+/** Projects that count against the plan's active-project limit (everything not COMPLETED). */
+export async function countActiveProjectsForOrg(orgId: string): Promise<number> {
+  const { count, error } = await createAdminClient()
+    .from("projects")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .neq("status", "COMPLETED");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function listProjectNamesForOrg(orgId: string): Promise<{ id: string; name: string }[]> {
   const { data, error } = await createAdminClient()
     .from("projects")

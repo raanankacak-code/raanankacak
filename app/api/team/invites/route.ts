@@ -3,11 +3,12 @@ import { z } from "zod";
 import { listInvitesForOrg, createInvite } from "@/lib/db/team";
 import { notify } from "@/lib/db/notifications";
 import { getOrganizationById } from "@/lib/db/organizations";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { recordAuditEvent } from "@/lib/db/auditLog";
+import { assertCanAddTeamAccount } from "@/lib/billing/limits";
 
 const ROLES = [
   "OWNER",
@@ -43,7 +44,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const member = await requireMember("manageUsers");
+    const member = await requireWritableMember("manageUsers");
+    await assertCanAddTeamAccount(member.orgId);
     // Sending an invite triggers a real email — cap how many one account can
     // fire off in a short window so a compromised/malicious account can't
     // use this as a bulk mail relay or burn through the email provider quota.

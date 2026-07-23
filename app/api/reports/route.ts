@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
 import { listReports, createReport } from "@/lib/db/reports";
 import { notify } from "@/lib/db/notifications";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { safeUrlSchema } from "@/lib/url-validation";
 
 const reportSchema = z.object({
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const member = await requireMember("submitReports");
+    const member = await requireWritableMember("submitReports");
     const body = reportSchema.parse(await request.json());
 
     const project = await getProjectById(member.orgId, body.projectId);

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember } from "@/lib/auth";
 import { getOrganizationById } from "@/lib/db/organizations";
 import { listRequestsForOrg } from "@/lib/db/materials";
+import { getSubscriptionForOrg, isSubscriptionWritable, trialDaysLeft } from "@/lib/db/subscriptions";
 import { can } from "@/lib/permissions";
 import AppShell from "@/components/app/AppShell";
 
@@ -25,6 +26,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     materialsBadge = requests.filter((r) => r.status === "SUBMITTED").length;
   }
 
+  const subscription = await getSubscriptionForOrg(member.orgId);
+  const billing = {
+    trialing: subscription.status === "TRIALING",
+    daysLeft: trialDaysLeft(subscription),
+    readOnly: !isSubscriptionWritable(subscription),
+  };
+
   return (
     <AppShell
       memberName={member.name}
@@ -33,6 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       orgShortName={org.shortName}
       orgLogoUrl={org.logoUrl}
       materialsBadge={materialsBadge}
+      billing={billing}
     >
       {children}
     </AppShell>

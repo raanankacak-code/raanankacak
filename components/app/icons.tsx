@@ -84,6 +84,14 @@ export function AuditIcon() {
     </svg>
   );
 }
+export function BillingIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M2 10h20M6 15h4" />
+    </svg>
+  );
+}
 export function BellIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

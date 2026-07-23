@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getMemberByUserId, createOrganizationWithOwner, updateOrganization } from "@/lib/db/organizations";
-import { apiErrorResponse, ApiError, requireMember } from "@/lib/auth";
+import { apiErrorResponse, ApiError, requireWritableMember } from "@/lib/auth";
 
 const createOrgSchema = z.object({
   name: z.string().min(2).max(200),
@@ -84,7 +84,7 @@ const updateOrgSchema = z.object({
 /** Updates the signed-in member's company profile (Company Settings page). */
 export async function PATCH(request: Request) {
   try {
-    const member = await requireMember("manageOrg");
+    const member = await requireWritableMember("manageOrg");
     const body = updateOrgSchema.parse(await request.json());
     const org = await updateOrganization(member.orgId, body);
     return NextResponse.json({ org });

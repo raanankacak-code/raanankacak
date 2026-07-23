@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { uploadsRoot } from "@/lib/uploads";
 import { checkRateLimit } from "@/lib/rateLimit";
 
@@ -28,7 +28,7 @@ const ALLOWED_TYPES = new Set([
  */
 export async function POST(request: Request) {
   try {
-    const member = await requireMember();
+    const member = await requireWritableMember();
     // Uploads land on local disk with no per-org storage quota — cap request
     // rate so one account can't fill the shared disk (affects every org).
     const rateLimit = checkRateLimit(`upload:${member.id}`, 30, 10 * 60_000);
