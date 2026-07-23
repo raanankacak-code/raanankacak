@@ -53,6 +53,9 @@ h1,h2,h3{font-family:var(--font-disp);letter-spacing:.02em}
 .mut{color:var(--mut)} .faint{color:var(--faint)}
 .small{font-size:12.5px}
 
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--mut);text-decoration:none;padding:6px 8px;margin:-6px 0 6px -8px;border-radius:8px;transition:color .12s,background .12s}
+.back-link:hover{color:var(--text);background:var(--panel2)}
+
 /* ---------- hazard signature ---------- */
 .hazard{height:6px;background:var(--hazard);border-radius:99px}
 

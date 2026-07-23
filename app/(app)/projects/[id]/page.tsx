@@ -70,7 +70,7 @@ export default async function ProjectDetailPage({
 
   return (
     <>
-      <Link href="/projects" className="small mut">
+      <Link href="/projects" className="back-link">
         ← All projects
       </Link>
       <div className="topbar" style={{ marginTop: 6 }}>

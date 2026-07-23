@@ -20,7 +20,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <Link href={`/reports?projectId=${report.project.id}`} className="small mut">
+      <Link href={`/reports?projectId=${report.project.id}`} className="back-link">
         ← Daily reports
       </Link>
       <div className="topbar" style={{ marginTop: 6 }}>
