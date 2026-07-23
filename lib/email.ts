@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+
 const RESEND_API_URL = "https://api.resend.com/emails";
 
 /**
@@ -8,7 +10,7 @@ const RESEND_API_URL = "https://api.resend.com/emails";
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.warn(`[email] RESEND_API_KEY not set — skipped sending "${subject}" to ${to}`);
+    logger.warn("Email skipped: RESEND_API_KEY not set", { subject, to });
     return;
   }
   const from = process.env.RESEND_FROM_EMAIL || "BinaWorks <onboarding@resend.dev>";
@@ -23,7 +25,7 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error(`[email] Resend request failed (${res.status}): ${body}`);
+    logger.error("Resend request failed", { status: res.status, responseBody: body, subject, to });
   }
 }
 

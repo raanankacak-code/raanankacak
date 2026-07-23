@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getMemberByUserId } from "@/lib/db/organizations";
 import { can, type Permission } from "@/lib/permissions";
+import { logger, errorFields } from "@/lib/logger";
 import type { OrgMember } from "@/lib/db/types";
 
 export type CurrentMember = OrgMember;
@@ -39,6 +41,10 @@ export function apiErrorResponse(err: unknown) {
   if (err instanceof ApiError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
-  console.error(err);
-  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  // Unexpected error: log the full detail server-side under a correlation id,
+  // and return only that id to the client — a user quoting it (e.g. via the
+  // bug-report form) lets us find the exact stack trace in the logs.
+  const errorId = randomUUID();
+  logger.error("Unhandled API error", { errorId, ...errorFields(err) });
+  return NextResponse.json({ error: "Internal server error", errorId }, { status: 500 });
 }

@@ -97,4 +97,16 @@ describe("apiErrorResponse", () => {
     expect(body.error).toBe("Internal server error");
     expect(JSON.stringify(body)).not.toContain("leaked");
   });
+
+  it("includes a correlation errorId in 500 responses so users can reference server logs", async () => {
+    const res = apiErrorResponse(new Error("boom"));
+    const body = await res.json();
+    expect(body.errorId).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("gives each unexpected error a distinct errorId", async () => {
+    const a = await apiErrorResponse(new Error("one")).json();
+    const b = await apiErrorResponse(new Error("two")).json();
+    expect(a.errorId).not.toBe(b.errorId);
+  });
 });

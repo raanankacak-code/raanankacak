@@ -10,7 +10,10 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new ApiClientError(body?.error || `Request failed (${res.status})`);
+    const message = body?.error || `Request failed (${res.status})`;
+    // Server 500s carry a correlation id; surfacing it lets users quote it in
+    // a bug report so the exact server-side stack trace can be found.
+    throw new ApiClientError(body?.errorId ? `${message} (ref: ${body.errorId})` : message);
   }
   return body as T;
 }
