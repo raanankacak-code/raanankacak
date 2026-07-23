@@ -15,6 +15,7 @@ import {
   TeamIcon,
   GearIcon,
   HelpIcon,
+  AuditIcon,
 } from "@/components/app/icons";
 import NotificationBell from "@/components/app/NotificationBell";
 import GlobalSearch from "@/components/app/GlobalSearch";
@@ -84,6 +85,7 @@ export default function AppShell({
       icon: <GearIcon />,
       show: role === "OWNER" || role === "ADMIN",
     },
+    { href: "/audit-log", label: "Audit Log", icon: <AuditIcon />, show: can(role, "viewAuditLog"), mobile: false },
     { href: "/help", label: "Help Center", icon: <HelpIcon />, show: true, mobile: false },
   ];
   const visible = navItems.filter((n) => n.show);

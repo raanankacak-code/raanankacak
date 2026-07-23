@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getReportById, updateReportStatus, deleteReport } from "@/lib/db/reports";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { recordAuditEvent } from "@/lib/db/auditLog";
+import { formatDate } from "@/lib/format";
 
 const updateSchema = z.object({
   status: z.enum(["SUBMITTED", "REVIEWED"]).optional(),
@@ -36,6 +38,18 @@ export async function PATCH(
     const report = body.status
       ? await updateReportStatus(member.orgId, id, body.status)
       : existing;
+
+    if (body.status === "REVIEWED" && existing.status !== "REVIEWED") {
+      await recordAuditEvent(member.orgId, {
+        actorMemberId: member.id,
+        actorName: member.name,
+        action: "REPORT_REVIEWED",
+        entityType: "daily_report",
+        entityId: report.id,
+        summary: `${member.name} reviewed the ${formatDate(existing.date)} daily report for ${existing.project.name}`,
+      });
+    }
+
     return NextResponse.json({ report });
   } catch (err) {
     if (err instanceof z.ZodError) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getMemberById, updateMember, removeMember, countOwners } from "@/lib/db/team";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { recordAuditEvent } from "@/lib/db/auditLog";
 
 const ROLES = [
   "OWNER",
@@ -48,6 +49,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const member = await updateMember(me.orgId, id, body);
+
+    if (body.role && body.role !== target.role) {
+      await recordAuditEvent(me.orgId, {
+        actorMemberId: me.id,
+        actorName: me.name,
+        action: "MEMBER_ROLE_CHANGED",
+        entityType: "org_member",
+        entityId: member.id,
+        summary: `${me.name} changed ${target.name}'s role from ${target.role} to ${body.role}`,
+        metadata: { from: target.role, to: body.role },
+      });
+    }
+    if (body.active !== undefined && body.active !== target.active) {
+      await recordAuditEvent(me.orgId, {
+        actorMemberId: me.id,
+        actorName: me.name,
+        action: body.active ? "MEMBER_REACTIVATED" : "MEMBER_DEACTIVATED",
+        entityType: "org_member",
+        entityId: member.id,
+        summary: `${me.name} ${body.active ? "reactivated" : "deactivated"} ${target.name}'s account`,
+      });
+    }
+
     return NextResponse.json({ member });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -71,6 +95,15 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       throw new ApiError(400, "Your company needs at least one active Owner");
     }
     await removeMember(me.orgId, id);
+    await recordAuditEvent(me.orgId, {
+      actorMemberId: me.id,
+      actorName: me.name,
+      action: "MEMBER_REMOVED",
+      entityType: "org_member",
+      entityId: target.id,
+      summary: `${me.name} removed ${target.name} (${target.role}) from the company`,
+      metadata: { removedRole: target.role, removedEmail: target.email },
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

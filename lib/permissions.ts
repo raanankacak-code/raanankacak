@@ -29,7 +29,8 @@ export type Permission =
   | "viewMaterials"
   | "uploadDocs"
   | "manageDocs"
-  | "costReports";
+  | "costReports"
+  | "viewAuditLog";
 
 /** Role -> permission matrix, mirroring the BinaWorks design prototype's ROLE_PERMS. */
 const MATRIX: Record<Role, Permission[]> = {
@@ -50,8 +51,18 @@ const MATRIX: Record<Role, Permission[]> = {
     "uploadDocs",
     "costReports",
     "manageOrg",
+    "viewAuditLog",
   ],
-  ADMIN: ["manageUsers", "manageProjects", "updateProgress", "viewReports", "manageDocs", "uploadDocs", "manageOrg"],
+  ADMIN: [
+    "manageUsers",
+    "manageProjects",
+    "updateProgress",
+    "viewReports",
+    "manageDocs",
+    "uploadDocs",
+    "manageOrg",
+    "viewAuditLog",
+  ],
   PROJECT_MANAGER: [
     "manageProjects",
     "updateProgress",
@@ -98,6 +109,7 @@ export const PERM_LABELS: [Permission, string][] = [
   ["uploadDocs", "Upload Documents"],
   ["manageDocs", "Manage Documents"],
   ["costReports", "Cost Reports"],
+  ["viewAuditLog", "View Audit Log"],
 ];
 
 export function can(role: Role, permission: Permission): boolean {

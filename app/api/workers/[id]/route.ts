@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkerById, updateWorker, deleteWorker } from "@/lib/db/workers";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { recordAuditEvent } from "@/lib/db/auditLog";
+import { formatCurrency } from "@/lib/format";
 
 const updateSchema = z.object({
   name: z.string().min(1).max(160).optional(),
@@ -28,6 +30,19 @@ export async function PATCH(
       ...body,
       cidbExpiry: body.cidbExpiry || undefined,
     });
+
+    if (body.dailyRate !== undefined && body.dailyRate !== existing.dailyRate) {
+      await recordAuditEvent(member.orgId, {
+        actorMemberId: member.id,
+        actorName: member.name,
+        action: "WORKER_RATE_CHANGED",
+        entityType: "worker",
+        entityId: worker.id,
+        summary: `${member.name} changed ${worker.name}'s daily rate from ${formatCurrency(existing.dailyRate)} to ${formatCurrency(body.dailyRate)}`,
+        metadata: { from: existing.dailyRate, to: body.dailyRate },
+      });
+    }
+
     return NextResponse.json({ worker });
   } catch (err) {
     if (err instanceof z.ZodError) {

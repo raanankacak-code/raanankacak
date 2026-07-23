@@ -243,3 +243,31 @@ export interface BugReport {
   status: string;
   createdAt: Date;
 }
+
+export type AuditAction =
+  | "PROJECT_CONTRACT_VALUE_CHANGED"
+  | "WORKER_RATE_CHANGED"
+  | "MATERIAL_REQUEST_APPROVED"
+  | "MATERIAL_REQUEST_REJECTED"
+  | "MATERIAL_REQUEST_ORDERED"
+  | "MATERIAL_REQUEST_DELIVERED"
+  | "REPORT_REVIEWED"
+  | "MEMBER_ROLE_CHANGED"
+  | "MEMBER_DEACTIVATED"
+  | "MEMBER_REACTIVATED"
+  | "MEMBER_REMOVED"
+  | "MEMBER_INVITED"
+  | "MEMBER_JOINED";
+
+export interface AuditLogEntry {
+  id: string;
+  orgId: string;
+  actorMemberId: string | null;
+  actorName: string;
+  action: AuditAction;
+  entityType: string;
+  entityId: string | null;
+  summary: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: Date;
+}

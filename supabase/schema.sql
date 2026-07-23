@@ -409,3 +409,41 @@ create table bug_reports (
 create index bug_reports_org_id_created_idx on bug_reports (org_id, created_at desc);
 
 alter table bug_reports enable row level security;
+
+-- audit log --------------------------------------------------------------
+-- Append-only compliance trail for financial edits, approvals and
+-- membership/role changes. The triggers below block UPDATE and DELETE
+-- unconditionally, including for the service-role key the app uses for
+-- everything else, so this table stays tamper-evident even if application
+-- code has a bug — there is intentionally no update/delete path at all.
+
+create table audit_log (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  actor_member_id uuid references org_members(id) on delete set null,
+  actor_name text not null,
+  action text not null,
+  entity_type text not null,
+  entity_id uuid,
+  summary text not null,
+  metadata jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index audit_log_org_id_created_idx on audit_log (org_id, created_at desc);
+
+alter table audit_log enable row level security;
+
+create function audit_log_deny_mutation() returns trigger as $$
+begin
+  raise exception 'audit_log is append-only: % is not permitted', tg_op;
+end;
+$$ language plpgsql set search_path = '';
+
+create trigger audit_log_no_update
+  before update on audit_log
+  for each row execute function audit_log_deny_mutation();
+
+create trigger audit_log_no_delete
+  before delete on audit_log
+  for each row execute function audit_log_deny_mutation();

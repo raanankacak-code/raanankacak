@@ -4,6 +4,8 @@ import { getRequestById, transitionRequest, deleteRequest } from "@/lib/db/mater
 import { notify } from "@/lib/db/notifications";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { recordAuditEvent } from "@/lib/db/auditLog";
+import type { AuditAction } from "@/lib/db/types";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -50,6 +52,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         `Material Request ${body.status === "APPROVED" ? "Approved" : "Rejected"}`,
         `${existing.code} — ${existing.material} ${body.status.toLowerCase()} by ${member.name}.`,
       );
+    }
+
+    if (approverActions.has(body.status)) {
+      const actionByStatus: Record<string, AuditAction> = {
+        APPROVED: "MATERIAL_REQUEST_APPROVED",
+        REJECTED: "MATERIAL_REQUEST_REJECTED",
+        ORDERED: "MATERIAL_REQUEST_ORDERED",
+        DELIVERED: "MATERIAL_REQUEST_DELIVERED",
+      };
+      await recordAuditEvent(member.orgId, {
+        actorMemberId: member.id,
+        actorName: member.name,
+        action: actionByStatus[body.status],
+        entityType: "material_request",
+        entityId: updated.id,
+        summary: `${member.name} marked material request ${existing.code} (${existing.material}) as ${body.status.toLowerCase()}`,
+        metadata: { from: existing.status, to: body.status, comment: body.comment },
+      });
     }
 
     return NextResponse.json({ request: updated });

@@ -7,6 +7,7 @@ import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { recordAuditEvent } from "@/lib/db/auditLog";
 
 const ROLES = [
   "OWNER",
@@ -56,6 +57,15 @@ export async function POST(request: Request) {
     }
     const invite = await createInvite(member.orgId, { ...body, invitedByName: member.name });
     await notify(member.orgId, "invite", "User Invited", `${body.email} invited as ${ROLE_LABELS[body.role]} by ${member.name}.`);
+    await recordAuditEvent(member.orgId, {
+      actorMemberId: member.id,
+      actorName: member.name,
+      action: "MEMBER_INVITED",
+      entityType: "org_invite",
+      entityId: invite.id,
+      summary: `${member.name} invited ${body.email} as ${ROLE_LABELS[body.role]}`,
+      metadata: { email: body.email, role: body.role },
+    });
 
     const org = await getOrganizationById(member.orgId);
     const link = `${new URL(request.url).origin}/signup?invite=${invite.token}`;

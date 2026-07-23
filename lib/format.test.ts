@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
+import { formatCurrency, formatDate, formatDateTime, statusBadgeClass, statusLabel } from "@/lib/format";
 
 // Intl.NumberFormat renders MYR as "RM" + U+00A0 (non-breaking space) + amount.
 const rm = (amount: string) => "RM\u00A0" + amount;
@@ -36,6 +36,17 @@ describe("formatDate", () => {
   it("returns an em dash for null/undefined instead of throwing", () => {
     expect(formatDate(null)).toBe("\u2014");
     expect(formatDate(undefined)).toBe("\u2014");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("formats a Date as DD/MM/YYYY, HH:MM in UTC", () => {
+    expect(formatDateTime(new Date("2026-07-19T14:05:00.000Z"))).toBe("19/07/2026, 14:05");
+  });
+
+  it("returns an em dash for null/undefined instead of throwing", () => {
+    expect(formatDateTime(null)).toBe("\u2014");
+    expect(formatDateTime(undefined)).toBe("\u2014");
   });
 });
 

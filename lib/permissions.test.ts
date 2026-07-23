@@ -21,6 +21,7 @@ const ALL_PERMISSIONS: Permission[] = [
   "uploadDocs",
   "manageDocs",
   "costReports",
+  "viewAuditLog",
 ];
 
 describe("can()", () => {
@@ -57,6 +58,16 @@ describe("can()", () => {
     for (const role of ALL_ROLES) {
       const expected = role === "OWNER" || role === "ADMIN";
       expect(can(role, "manageOrg")).toBe(expected);
+    }
+  });
+
+  it("restricts viewAuditLog to OWNER and ADMIN only", () => {
+    // The audit log carries compliance-sensitive detail (rate/contract
+    // changes, who removed whom) — must stay limited to the same roles
+    // trusted with company administration.
+    for (const role of ALL_ROLES) {
+      const expected = role === "OWNER" || role === "ADMIN";
+      expect(can(role, "viewAuditLog")).toBe(expected);
     }
   });
 
