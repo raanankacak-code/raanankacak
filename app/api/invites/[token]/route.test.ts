@@ -28,8 +28,12 @@ beforeEach(() => {
 });
 
 describe("GET /api/invites/[token] rate limiting", () => {
+  // The limiter's buckets live in a module-level Map that persists across
+  // tests in this file, so each test must use IPs no other test touches.
+  // Deterministic disjoint subnets — never random, which once caused two
+  // tests to collide on the same IP and fail flakily.
   it("allows the first 20 lookups from one IP within the window", async () => {
-    const ip = `198.51.100.${Math.floor(Math.random() * 250)}`;
+    const ip = "198.51.101.1";
     for (let i = 0; i < 20; i++) {
       const res = await GET(requestFrom(ip), paramsFor("tok-abc"));
       expect(res.status).not.toBe(429);
@@ -37,7 +41,7 @@ describe("GET /api/invites/[token] rate limiting", () => {
   });
 
   it("blocks the 21st lookup from the same IP within the window", async () => {
-    const ip = `198.51.100.${Math.floor(Math.random() * 250) + 1}`;
+    const ip = "198.51.102.1";
     for (let i = 0; i < 20; i++) {
       await GET(requestFrom(ip), paramsFor("tok-abc"));
     }
@@ -46,8 +50,8 @@ describe("GET /api/invites/[token] rate limiting", () => {
   });
 
   it("does not rate-limit a different IP", async () => {
-    const ipA = `198.51.100.${Math.floor(Math.random() * 100) + 100}`;
-    const ipB = `198.51.100.${Math.floor(Math.random() * 100) + 150}`;
+    const ipA = "198.51.103.1";
+    const ipB = "198.51.104.1";
     for (let i = 0; i < 20; i++) {
       await GET(requestFrom(ipA), paramsFor("tok-abc"));
     }
