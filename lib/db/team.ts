@@ -191,6 +191,12 @@ export async function acceptInvite(
   if (!invite) throw new Error("Invitation not found");
   if (invite.status !== "PENDING") throw new Error("This invitation is no longer valid");
   if (invite.expiresAt.getTime() < Date.now()) throw new Error("This invitation has expired");
+  // The token alone is a bearer credential — anyone who obtains it (a forwarded
+  // link, a browser history entry, etc.) could otherwise join the org under a
+  // different account. Require the signed-in account's email to match.
+  if (invite.email.toLowerCase() !== input.email.toLowerCase()) {
+    throw new Error("This invitation was sent to a different email address");
+  }
 
   const { data: memberRow, error: memberError } = await supabase
     .from("org_members")

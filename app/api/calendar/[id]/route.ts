@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getEventById, updateEvent, deleteEvent } from "@/lib/db/calendar";
+import { getProjectById } from "@/lib/db/projects";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 const patchSchema = z.object({
@@ -24,6 +25,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const existing = await getEventById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Event not found");
     const body = patchSchema.parse(await request.json());
+    if (body.projectId) {
+      const project = await getProjectById(member.orgId, body.projectId);
+      if (!project) throw new ApiError(404, "Project not found");
+    }
     const event = await updateEvent(member.orgId, id, body);
     return NextResponse.json({ event });
   } catch (err) {

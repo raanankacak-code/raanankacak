@@ -29,6 +29,15 @@ export async function listActiveWorkersForProject(projectId: string): Promise<Wo
   return (data ?? []).map(mapWorker);
 }
 
+/** Ids of every worker on a project (any active status) — used to validate that
+ * worker ids submitted by a client actually belong to the project before writing
+ * records keyed on them (e.g. attendance), instead of trusting the client. */
+export async function listWorkerIdsForProject(projectId: string): Promise<Set<string>> {
+  const { data, error } = await createAdminClient().from("workers").select("id").eq("project_id", projectId);
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => row.id as string));
+}
+
 export async function listActiveWorkersForOrg(orgId: string, projectId?: string): Promise<Worker[]> {
   let query = createAdminClient().from("workers").select("*").eq("org_id", orgId).eq("active", true);
   if (projectId) query = query.eq("project_id", projectId);

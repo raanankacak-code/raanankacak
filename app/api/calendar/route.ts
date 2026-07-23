@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { listEventsForOrg, createEvent } from "@/lib/db/calendar";
-import { requireMember, apiErrorResponse } from "@/lib/auth";
+import { getProjectById } from "@/lib/db/projects";
+import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
@@ -33,6 +34,10 @@ export async function POST(request: Request) {
   try {
     const member = await requireMember();
     const body = createSchema.parse(await request.json());
+    if (body.projectId) {
+      const project = await getProjectById(member.orgId, body.projectId);
+      if (!project) throw new ApiError(404, "Project not found");
+    }
     const event = await createEvent(member.orgId, { ...body, createdByName: member.name });
     return NextResponse.json({ event }, { status: 201 });
   } catch (err) {

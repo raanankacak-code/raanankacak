@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
-import { listActiveWorkersForProject } from "@/lib/db/workers";
+import { listActiveWorkersForProject, listWorkerIdsForProject } from "@/lib/db/workers";
 import { listAttendanceForProjectDate, upsertAttendanceRecords } from "@/lib/db/attendance";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
@@ -50,6 +50,15 @@ export async function PUT(request: Request) {
 
     const project = await getProjectById(member.orgId, body.projectId);
     if (!project) throw new ApiError(404, "Project not found");
+
+    // Every worker id must belong to this project — otherwise a crafted request
+    // could upsert (and, via the worker_id+date unique constraint, silently
+    // overwrite) another org's attendance record.
+    const validWorkerIds = await listWorkerIdsForProject(body.projectId);
+    const unknownWorkerId = body.records.find((r) => !validWorkerIds.has(r.workerId));
+    if (unknownWorkerId) {
+      throw new ApiError(400, "One or more workers do not belong to this project");
+    }
 
     const records = await upsertAttendanceRecords(member.orgId, body.projectId, body.date, body.records);
     const present = body.records.filter((r) => r.status === "PRESENT" || r.status === "HALF_DAY").length;

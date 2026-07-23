@@ -4,10 +4,15 @@ import { getOrganizationById } from "@/lib/db/organizations";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const member = await requireMember("manageUsers");
+    const rateLimit = checkRateLimit(`invite-create:${member.id}`, 20, 60_000);
+    if (!rateLimit.allowed) {
+      throw new ApiError(429, "Too many invites sent. Try again shortly.");
+    }
     const { id } = await params;
     const existing = await getInviteById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Invitation not found");

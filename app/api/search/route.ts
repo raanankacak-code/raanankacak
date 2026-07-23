@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireMember, apiErrorResponse } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { toIlikePattern } from "@/lib/search-sanitize";
 
 type Item = { icon: string; title: string; sub: string; category: string; href: string };
 type Group = { category: string; items: Item[] };
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     if (!q) return NextResponse.json({ groups: [] });
 
     const supabase = createAdminClient();
-    const like = `%${q}%`;
+    const like = toIlikePattern(q);
     const groups: Group[] = [];
 
     const { data: projects } = await supabase

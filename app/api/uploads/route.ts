@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { uploadsRoot } from "@/lib/uploads";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20MB
 const ALLOWED_TYPES = new Set([
@@ -28,6 +29,12 @@ const ALLOWED_TYPES = new Set([
 export async function POST(request: Request) {
   try {
     const member = await requireMember();
+    // Uploads land on local disk with no per-org storage quota — cap request
+    // rate so one account can't fill the shared disk (affects every org).
+    const rateLimit = checkRateLimit(`upload:${member.id}`, 30, 10 * 60_000);
+    if (!rateLimit.allowed) {
+      throw new ApiError(429, "Too many uploads. Try again in a few minutes.");
+    }
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File)) {

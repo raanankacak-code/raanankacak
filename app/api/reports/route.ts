@@ -4,6 +4,7 @@ import { getProjectById } from "@/lib/db/projects";
 import { listReports, createReport } from "@/lib/db/reports";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { safeUrlSchema } from "@/lib/url-validation";
 
 const reportSchema = z.object({
   projectId: z.string().min(1),
@@ -13,7 +14,7 @@ const reportSchema = z.object({
   workCompleted: z.string().max(4000).optional(),
   delays: z.string().max(2000).optional(),
   notes: z.string().max(2000).optional(),
-  photos: z.array(z.string()).optional(),
+  photos: z.array(safeUrlSchema).optional(),
 });
 
 export async function GET(request: Request) {

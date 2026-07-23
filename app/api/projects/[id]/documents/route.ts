@@ -5,11 +5,12 @@ import { listDocumentsForProject, createDocument } from "@/lib/db/documents";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
+import { safeUrlSchema } from "@/lib/url-validation";
 
 const createSchema = z.object({
   folder: z.string().min(1).max(60).default("Other"),
   name: z.string().min(1).max(300),
-  url: z.string().min(1).max(500),
+  url: safeUrlSchema,
   sizeBytes: z.coerce.number().nonnegative(),
   mimeType: z.string().max(120).optional(),
 });

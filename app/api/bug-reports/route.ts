@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createBugReport } from "@/lib/db/bugReports";
 import { notify } from "@/lib/db/notifications";
-import { requireMember, apiErrorResponse } from "@/lib/auth";
+import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const createSchema = z.object({
   area: z.string().min(1).max(80),
@@ -14,6 +15,10 @@ const createSchema = z.object({
 export async function POST(request: Request) {
   try {
     const member = await requireMember();
+    const rateLimit = checkRateLimit(`bug-report:${member.id}`, 10, 60_000);
+    if (!rateLimit.allowed) {
+      throw new ApiError(429, "Too many reports submitted. Try again shortly.");
+    }
     const body = createSchema.parse(await request.json());
 
     const report = await createBugReport(member.orgId, {
