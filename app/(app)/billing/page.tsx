@@ -3,10 +3,12 @@ import { getCurrentMember } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { getSubscriptionForOrg, isSubscriptionWritable, planFor, trialDaysLeft } from "@/lib/db/subscriptions";
 import { PLANS, type Plan } from "@/lib/billing/plans";
+import { priceIdForPlan } from "@/lib/billing/stripe";
 import { countActiveProjectsForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
 import { countActiveMembersForOrg, countPendingInvitesForOrg } from "@/lib/db/team";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { UpgradeButton, ManageSubscriptionButton } from "@/components/app/billing/BillingActions";
 
 function limitLabel(limit: number | null): string {
   return limit === null ? "Unlimited" : String(limit);
@@ -32,7 +34,17 @@ function UsageRow({ label, used, limit }: { label: string; used: number; limit: 
   );
 }
 
-function PlanCard({ plan, current }: { plan: Plan; current: boolean }) {
+function PlanCard({
+  plan,
+  current,
+  purchasable,
+  hasStripeCustomer,
+}: {
+  plan: Plan;
+  current: boolean;
+  purchasable: boolean;
+  hasStripeCustomer: boolean;
+}) {
   return (
     <div className="card" style={current ? { borderColor: "var(--amber)" } : undefined}>
       <div className="card-h">
@@ -58,15 +70,29 @@ function PlanCard({ plan, current }: { plan: Plan; current: boolean }) {
           <li>{plan.costReports ? "Cost reports included" : "No cost reports"}</li>
           <li>{plan.customBranding ? "Custom branding" : "Standard branding"}</li>
         </ul>
+        {current ? (
+          hasStripeCustomer && <ManageSubscriptionButton />
+        ) : purchasable ? (
+          <UpgradeButton plan={plan.id} label={`Switch to ${plan.name}`} />
+        ) : (
+          <p className="small mut" style={{ margin: 0 }}>
+            Contact support to switch to this plan.
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ checkout?: string }>;
+}) {
   const member = await getCurrentMember();
   if (!member || !can(member.role, "manageOrg")) redirect("/dashboard");
 
+  const { checkout } = await searchParams;
   const sub = await getSubscriptionForOrg(member.orgId);
   const plan = planFor(sub);
   const writable = isSubscriptionWritable(sub);
@@ -85,6 +111,24 @@ export default async function BillingPage() {
         <h2>Billing</h2>
         <div className="sub">Your plan, trial status and usage.</div>
       </div>
+
+      {checkout === "success" && (
+        <div className="card" style={{ borderColor: "var(--ok)", marginBottom: 14 }}>
+          <div className="card-b">
+            <b style={{ color: "var(--ok-text)" }}>Payment received.</b>{" "}
+            <span className="small mut">
+              Your subscription is being activated — this can take a few seconds to reflect below.
+            </span>
+          </div>
+        </div>
+      )}
+      {checkout === "cancelled" && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-b">
+            <span className="small mut">Checkout was cancelled — no changes were made.</span>
+          </div>
+        </div>
+      )}
 
       {!writable && (
         <div className="card" style={{ borderColor: "var(--bad)", marginBottom: 14 }}>
@@ -119,10 +163,7 @@ export default async function BillingPage() {
                 {formatDate(sub.trialEndsAt)}
               </p>
             )}
-            <p className="small mut" style={{ margin: 0 }}>
-              Online payment is coming soon. To activate or change a plan today, contact BinaWorks support — your
-              account manager will set it up for you.
-            </p>
+            {sub.stripeCustomerId && <ManageSubscriptionButton />}
           </div>
         </div>
 
@@ -144,9 +185,19 @@ export default async function BillingPage() {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
         {Object.values(PLANS).map((p) => (
-          <PlanCard key={p.id} plan={p} current={p.id === sub.plan} />
+          <PlanCard
+            key={p.id}
+            plan={p}
+            current={p.id === sub.plan}
+            purchasable={priceIdForPlan(p.id) !== null}
+            hasStripeCustomer={!!sub.stripeCustomerId}
+          />
         ))}
       </div>
+      <p className="small mut" style={{ marginTop: 10 }}>
+        Payment is processed securely by Stripe. You can update your card, view invoices, or cancel anytime from the
+        billing portal.
+      </p>
     </>
   );
 }

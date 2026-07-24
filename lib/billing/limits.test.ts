@@ -36,6 +36,8 @@ function subOnPlan(plan: OrgSubscription["plan"]): OrgSubscription {
     status: "ACTIVE",
     trialEndsAt: new Date(Date.now() + 86400000),
     currentPeriodEnd: null,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

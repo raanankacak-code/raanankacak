@@ -10,6 +10,8 @@ export interface OrgSubscription {
   status: SubscriptionStatus;
   trialEndsAt: Date;
   currentPeriodEnd: Date | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +24,8 @@ function mapSubscription(row: Record<string, unknown>): OrgSubscription {
     status: row.status as SubscriptionStatus,
     trialEndsAt: new Date(row.trial_ends_at as string),
     currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end as string) : null,
+    stripeCustomerId: row.stripe_customer_id as string | null,
+    stripeSubscriptionId: row.stripe_subscription_id as string | null,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
   };
@@ -85,4 +89,50 @@ export function trialDaysLeft(sub: OrgSubscription, now: number = Date.now()): n
 
 export function planFor(sub: OrgSubscription): Plan {
   return PLANS[sub.plan];
+}
+
+/** Persists the Stripe customer id the first time an org starts checkout. */
+export async function setStripeCustomerId(orgId: string, stripeCustomerId: string): Promise<void> {
+  const { error } = await createAdminClient()
+    .from("org_subscriptions")
+    .update({ stripe_customer_id: stripeCustomerId })
+    .eq("org_id", orgId);
+  if (error) throw error;
+}
+
+export async function getSubscriptionByStripeCustomerId(stripeCustomerId: string): Promise<OrgSubscription | null> {
+  const { data, error } = await createAdminClient()
+    .from("org_subscriptions")
+    .select("*")
+    .eq("stripe_customer_id", stripeCustomerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapSubscription(data) : null;
+}
+
+/**
+ * Applies the authoritative state from a Stripe subscription object
+ * (called only from the webhook handler, which has already verified the
+ * event's signature). org_id is resolved via stripe_customer_id, which is
+ * set during checkout before Stripe can send any subscription event.
+ */
+export async function syncSubscriptionFromStripe(
+  stripeCustomerId: string,
+  input: {
+    stripeSubscriptionId: string;
+    plan: PlanId;
+    status: SubscriptionStatus;
+    currentPeriodEnd: Date | null;
+  },
+): Promise<void> {
+  const { error } = await createAdminClient()
+    .from("org_subscriptions")
+    .update({
+      stripe_subscription_id: input.stripeSubscriptionId,
+      plan: input.plan,
+      status: input.status,
+      current_period_end: input.currentPeriodEnd ? input.currentPeriodEnd.toISOString() : null,
+    })
+    .eq("stripe_customer_id", stripeCustomerId);
+  if (error) throw error;
 }

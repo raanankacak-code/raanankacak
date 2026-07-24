@@ -11,6 +11,8 @@ function sub(overrides: Partial<OrgSubscription> = {}): OrgSubscription {
     status: "TRIALING",
     trialEndsAt: new Date(NOW + 7 * 86400000),
     currentPeriodEnd: null,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
     createdAt: new Date(NOW - 7 * 86400000),
     updatedAt: new Date(NOW - 7 * 86400000),
     ...overrides,

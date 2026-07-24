@@ -459,11 +459,17 @@ create table org_subscriptions (
   status text not null default 'TRIALING',
   trial_ends_at timestamptz not null,
   current_period_end timestamptz,
+  stripe_customer_id text,
+  stripe_subscription_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint org_subscriptions_plan_check check (plan in ('STARTER', 'PROFESSIONAL', 'BUSINESS')),
   constraint org_subscriptions_status_check check (status in ('TRIALING', 'ACTIVE', 'PAST_DUE', 'CANCELLED'))
 );
+
+create unique index org_subscriptions_stripe_subscription_id_idx
+  on org_subscriptions (stripe_subscription_id)
+  where stripe_subscription_id is not null;
 
 alter table org_subscriptions enable row level security;
 
