@@ -433,6 +433,16 @@ function NewRequestModal({
   onCreated: () => void;
 }) {
   const [projectId, setProjectId] = useState(initialProjectId ?? projects[0]?.id ?? "");
+
+  // `projects` can still be empty at first mount (e.g. this modal opened
+  // right as the parent's initial fetch was landing) — adopt a default once
+  // it arrives instead of staying stuck on the empty initializer forever.
+  const [seenProjects, setSeenProjects] = useState(projects);
+  if (projects !== seenProjects) {
+    setSeenProjects(projects);
+    if (!projectId && projects.length) setProjectId(initialProjectId ?? projects[0].id);
+  }
+
   const [material, setMaterial] = useState("");
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState(UNITS[0]);
