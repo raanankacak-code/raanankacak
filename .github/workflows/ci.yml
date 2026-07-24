@@ -30,3 +30,54 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: test
+    # Needs a real (test) Supabase project's keys as repo secrets. Skips
+    # gracefully on forks/PRs where those secrets aren't available.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Check E2E secrets are configured
+        id: check
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping E2E — NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY/SUPABASE_SERVICE_ROLE_KEY repo secrets are not set."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Playwright browsers
+        if: steps.check.outputs.skip == 'false'
+        run: npx playwright install --with-deps chromium
+
+      - name: Production build
+        if: steps.check.outputs.skip == 'false'
+        run: npm run build
+
+      - name: E2E tests
+        if: steps.check.outputs.skip == 'false'
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always() && steps.check.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

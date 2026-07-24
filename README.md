@@ -74,6 +74,24 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) — you'll land on
 `/login`. Use "Create one" to sign up and set up your company workspace.
 
+## Testing
+
+```bash
+npm test          # unit & integration tests (Vitest)
+npm run test:e2e  # end-to-end tests (Playwright)
+```
+
+`npm run test:e2e` needs a real (test) Supabase project — it seeds a
+throwaway org/owner user directly via the service-role key, runs the
+golden-path spec against a production build (`npm run build && npm run start`,
+via Playwright's `webServer`), then deletes the seeded org/user. Set
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
+`SUPABASE_SERVICE_ROLE_KEY` in `.env` (loaded automatically via Node's
+`--env-file-if-exists`) — **use a test project, not production**, since the
+suite creates and deletes real rows. In CI (`.github/workflows/ci.yml`), the
+same three values must be set as repository secrets; the `e2e` job skips
+itself with a warning if they're missing.
+
 ## File uploads
 
 Daily report photos are stored on local disk under `UPLOADS_DIR` (default

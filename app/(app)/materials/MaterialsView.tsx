@@ -115,7 +115,7 @@ export default function MaterialsView({
         <h2>Material Requests</h2>
         <div className="top-actions">
           {canSubmit && (
-            <button className="btn btn-amber" onClick={() => setNewOpen(true)}>
+            <button className="btn btn-amber" disabled={loading} onClick={() => setNewOpen(true)}>
               ＋ New request
             </button>
           )}

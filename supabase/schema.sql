@@ -440,7 +440,13 @@ alter table audit_log enable row level security;
 
 create function audit_log_deny_mutation() returns trigger as $$
 begin
-  raise exception 'audit_log is append-only: % is not permitted', tg_op;
+  -- Block direct/standalone mutation (depth = 1), but allow deletes that
+  -- cascade from an organizations row being deleted (depth > 1) — otherwise
+  -- an org can never be deleted once it has any audit history.
+  if pg_trigger_depth() = 1 then
+    raise exception 'audit_log is append-only: % is not permitted', tg_op;
+  end if;
+  return coalesce(new, old);
 end;
 $$ language plpgsql set search_path = '';
 
