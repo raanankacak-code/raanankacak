@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { Project, ProjectStatus, ProjectWithWorkerCount, ProjectWithWorkers } from "@/lib/db/types";
 import { mapWorker } from "@/lib/db/workers";
 
@@ -36,6 +37,28 @@ function mapProjectWithWorkerCount(row: Record<string, unknown>): ProjectWithWor
 
 export async function listProjectsForOrg(orgId: string): Promise<ProjectWithWorkerCount[]> {
   const { data, error } = await createAdminClient()
+    .from("projects")
+    .select("*, workers(count)")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapProjectWithWorkerCount);
+}
+
+/**
+ * Tenant-isolation pilot: identical to listProjectsForOrg, but queries
+ * through the request's session-bound client (anon key, subject to RLS)
+ * instead of the admin client. The .eq("org_id", orgId) filter stays —
+ * this is defense in depth, not a replacement for it — but the org_id
+ * database column policy (see supabase/schema.sql, "RLS enforcement") is
+ * now the thing actually guaranteeing tenant isolation for this query:
+ * a bug that dropped the .eq() call here would still only ever return the
+ * caller's own org's rows — verified live against the real database with
+ * a second throwaway org/user, not just asserted by a mock.
+ */
+export async function listProjectsForOrgViaSession(orgId: string): Promise<ProjectWithWorkerCount[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
     .from("projects")
     .select("*, workers(count)")
     .eq("org_id", orgId)

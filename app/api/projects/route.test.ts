@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { OrgMember } from "@/lib/db/types";
 
 const requireMemberMock = vi.fn();
-const listProjectsForOrgMock = vi.fn();
+const listProjectsForOrgViaSessionMock = vi.fn();
 const createProjectMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
@@ -17,7 +17,7 @@ vi.mock("@/lib/auth", async () => {
 });
 
 vi.mock("@/lib/db/projects", () => ({
-  listProjectsForOrg: listProjectsForOrgMock,
+  listProjectsForOrgViaSession: listProjectsForOrgViaSessionMock,
   createProject: createProjectMock,
 }));
 
@@ -51,7 +51,7 @@ function postRequest(body: unknown) {
 
 beforeEach(() => {
   requireMemberMock.mockReset();
-  listProjectsForOrgMock.mockReset();
+  listProjectsForOrgViaSessionMock.mockReset();
   createProjectMock.mockReset();
   assertCanCreateProjectMock.mockReset();
   assertCanCreateProjectMock.mockResolvedValue(undefined);
@@ -59,13 +59,17 @@ beforeEach(() => {
 
 describe("GET /api/projects", () => {
   it("scopes the listing to the signed-in member's own org, never a client-supplied one", async () => {
+    // This route reads through the session-scoped (RLS-subject) client as a
+    // tenant-isolation pilot — the org_id filter passed here is defense in
+    // depth, not the sole guarantee; see listProjectsForOrgViaSession's
+    // doc comment and supabase/schema.sql's RLS policies for the rest.
     requireMemberMock.mockResolvedValue(MEMBER_ORG_A);
-    listProjectsForOrgMock.mockResolvedValue([{ id: "p1" }]);
+    listProjectsForOrgViaSessionMock.mockResolvedValue([{ id: "p1" }]);
 
     const res = await GET();
 
-    expect(listProjectsForOrgMock).toHaveBeenCalledWith("org-A");
-    expect(listProjectsForOrgMock).toHaveBeenCalledTimes(1);
+    expect(listProjectsForOrgViaSessionMock).toHaveBeenCalledWith("org-A");
+    expect(listProjectsForOrgViaSessionMock).toHaveBeenCalledTimes(1);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ projects: [{ id: "p1" }] });
   });
@@ -76,7 +80,7 @@ describe("GET /api/projects", () => {
     const res = await GET();
 
     expect(res.status).toBe(401);
-    expect(listProjectsForOrgMock).not.toHaveBeenCalled();
+    expect(listProjectsForOrgViaSessionMock).not.toHaveBeenCalled();
   });
 });
 

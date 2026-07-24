@@ -1,9 +1,13 @@
 -- BinaWorks — Phase 1 schema
 -- Run this once in the Supabase SQL Editor (Project -> SQL Editor -> New query).
--- Mirrors prisma/schema.prisma. All access from the app goes through the
--- Next.js API routes using the service-role key, so RLS is enabled with no
--- public policies (deny-by-default for anon/authenticated; service_role
--- bypasses RLS entirely).
+-- Mirrors prisma/schema.prisma. Most access from the app goes through the
+-- Next.js API routes using the service-role key (which bypasses RLS
+-- entirely) — see the "RLS enforcement" section near the end of this file
+-- for the per-org SELECT policies that back every table for anon/
+-- authenticated, used both as a defense-in-depth backstop and, on the
+-- projects table so far (lib/db/projects.ts's *ViaSession functions, using
+-- lib/supabase/server.ts's cookie-bound client), as the actual enforcement
+-- mechanism for a session-scoped read path.
 
 create type role as enum (
   'OWNER',
@@ -476,3 +480,91 @@ alter table org_subscriptions enable row level security;
 create trigger org_subscriptions_set_updated_at
   before update on org_subscriptions
   for each row execute function set_updated_at();
+
+-- RLS enforcement ----------------------------------------------------------
+-- Real policies, as a defense-in-depth backstop behind the app's own org_id
+-- filtering. All current app traffic runs through the service-role key
+-- (which bypasses RLS entirely), so these policies don't change today's
+-- behavior — they protect the path a future bug could open: any query
+-- issued with the anon/authenticated key (a client-side query, a leaked
+-- key, a future serverless function, or the session-scoped read client
+-- piloted on the projects table) instead of the admin client.
+--
+-- auth_org_id() is SECURITY DEFINER so it can read org_members to resolve
+-- the caller's org without recursing into org_members' own RLS policy.
+-- EXECUTE is revoked from anon/PUBLIC — Supabase grants new public-schema
+-- functions to anon/authenticated by default, and this function has no
+-- legitimate direct-call use case (only RLS policy evaluation needs it).
+
+create function auth_org_id() returns uuid
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select org_id from public.org_members where user_id = auth.uid() and active = true limit 1;
+$$;
+
+revoke execute on function auth_org_id() from public;
+revoke execute on function auth_org_id() from anon;
+grant execute on function auth_org_id() to authenticated;
+
+create policy "select_own_org" on organizations
+  for select to authenticated
+  using (id = auth_org_id());
+
+create policy "select_own_org_members" on org_members
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_projects" on projects
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_workers" on workers
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_attendance" on attendance_records
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_reports" on daily_reports
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_invites" on org_invites
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_material_requests" on material_requests
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_material_events" on material_request_events
+  for select to authenticated
+  using (request_id in (select id from material_requests where org_id = auth_org_id()));
+
+create policy "select_own_org_documents" on documents
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_calendar" on calendar_events
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_notifications" on notifications
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_bug_reports" on bug_reports
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_audit_log" on audit_log
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+create policy "select_own_org_subscription" on org_subscriptions
+  for select to authenticated
+  using (org_id = auth_org_id());

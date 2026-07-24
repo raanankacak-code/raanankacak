@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { listProjectsForOrg, createProject } from "@/lib/db/projects";
+import { listProjectsForOrgViaSession, createProject } from "@/lib/db/projects";
 import { requireMember, requireWritableMember, apiErrorResponse } from "@/lib/auth";
 import { assertCanCreateProject } from "@/lib/billing/limits";
 
@@ -18,7 +18,7 @@ const projectSchema = z.object({
 export async function GET() {
   try {
     const member = await requireMember();
-    const projects = await listProjectsForOrg(member.orgId);
+    const projects = await listProjectsForOrgViaSession(member.orgId);
     return NextResponse.json({ projects });
   } catch (err) {
     return apiErrorResponse(err);
