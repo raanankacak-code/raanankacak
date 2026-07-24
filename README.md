@@ -88,9 +88,17 @@ via Playwright's `webServer`), then deletes the seeded org/user. Set
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
 `SUPABASE_SERVICE_ROLE_KEY` in `.env` (loaded automatically by
 `playwright.config.ts` via `process.loadEnvFile()`) — **use a test project,
-not production**, since the
-suite creates and deletes real rows. In CI (`.github/workflows/ci.yml`), the
-same three values must be set as repository secrets; the `e2e` job skips
+not production**, since the suite creates and deletes real rows.
+
+The first time you run it on a given machine, download Playwright's browser
+binary once:
+
+```bash
+npx playwright install chromium
+```
+
+In CI (`.github/workflows/ci.yml`) this happens automatically and the same
+three Supabase values must be set as repository secrets; the `e2e` job skips
 itself with a warning if they're missing.
 
 ## File uploads
