@@ -45,10 +45,13 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run start -- -p ${PORT}`,
+    // Always rebuild first — reusing a pre-existing .next build (or, worse,
+    // an already-running server left on this port from a previous run) is
+    // exactly how a stale build silently keeps failing on a fixed bug.
+    command: `npm run build && npm run start -- -p ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 180_000,
     env: { PORT: String(PORT) },
   },
 });
