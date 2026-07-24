@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { Worker } from "@/lib/db/types";
 
 export function mapWorker(row: Record<string, unknown>): Worker {
@@ -40,6 +41,16 @@ export async function listWorkerIdsForProject(projectId: string): Promise<Set<st
 
 export async function listActiveWorkersForOrg(orgId: string, projectId?: string): Promise<Worker[]> {
   let query = createAdminClient().from("workers").select("*").eq("org_id", orgId).eq("active", true);
+  if (projectId) query = query.eq("project_id", projectId);
+  const { data, error } = await query.order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapWorker);
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listActiveWorkersForOrgViaSession(orgId: string, projectId?: string): Promise<Worker[]> {
+  const supabase = await createSessionClient();
+  let query = supabase.from("workers").select("*").eq("org_id", orgId).eq("active", true);
   if (projectId) query = query.eq("project_id", projectId);
   const { data, error } = await query.order("name", { ascending: true });
   if (error) throw error;

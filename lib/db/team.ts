@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { InviteStatus, OrgInvite, OrgMember, Role } from "@/lib/db/types";
 
 function mapOrgMember(row: Record<string, unknown>): OrgMember {
@@ -39,6 +40,18 @@ function mapInvite(row: Record<string, unknown>): OrgInvite {
 
 export async function listMembersForOrg(orgId: string): Promise<OrgMember[]> {
   const { data, error } = await createAdminClient()
+    .from("org_members")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapOrgMember);
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listMembersForOrgViaSession(orgId: string): Promise<OrgMember[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
     .from("org_members")
     .select("*")
     .eq("org_id", orgId)

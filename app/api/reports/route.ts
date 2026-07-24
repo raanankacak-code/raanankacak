@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
-import { listReports, createReport } from "@/lib/db/reports";
+import { listReportsViaSession, createReport } from "@/lib/db/reports";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { safeUrlSchema } from "@/lib/url-validation";
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    const reports = await listReports(member.orgId, {
+    const reports = await listReportsViaSession(member.orgId, {
       projectId: projectId || undefined,
       from: from || undefined,
       to: to || undefined,

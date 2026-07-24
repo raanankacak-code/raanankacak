@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { AuditAction, AuditLogEntry } from "@/lib/db/types";
 
 function mapAuditLogEntry(row: Record<string, unknown>): AuditLogEntry {
@@ -48,6 +49,19 @@ export async function recordAuditEvent(
 
 export async function listAuditLogForOrg(orgId: string, limit = 200): Promise<AuditLogEntry[]> {
   const { data, error } = await createAdminClient()
+    .from("audit_log")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map(mapAuditLogEntry);
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listAuditLogForOrgViaSession(orgId: string, limit = 200): Promise<AuditLogEntry[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
     .from("audit_log")
     .select("*")
     .eq("org_id", orgId)

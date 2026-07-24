@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { listEventsForOrg, createEvent } from "@/lib/db/calendar";
+import { listEventsForOrgViaSession, createEvent } from "@/lib/db/calendar";
 import { getProjectById } from "@/lib/db/projects";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
-    const events = await listEventsForOrg(member.orgId, from && to ? { from, to } : undefined);
+    const events = await listEventsForOrgViaSession(member.orgId, from && to ? { from, to } : undefined);
     return NextResponse.json({ events });
   } catch (err) {
     return apiErrorResponse(err);

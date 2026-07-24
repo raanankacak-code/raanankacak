@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
-import { listDocumentsForProject, createDocument } from "@/lib/db/documents";
+import { listDocumentsForProjectViaSession, createDocument } from "@/lib/db/documents";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { id: projectId } = await params;
     const project = await getProjectById(member.orgId, projectId);
     if (!project) throw new ApiError(404, "Project not found");
-    const documents = await listDocumentsForProject(projectId);
+    const documents = await listDocumentsForProjectViaSession(projectId);
     return NextResponse.json({ documents });
   } catch (err) {
     return apiErrorResponse(err);

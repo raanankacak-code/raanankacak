@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
 import { listActiveWorkersForProject, listWorkerIdsForProject } from "@/lib/db/workers";
-import { listAttendanceForProjectDate, upsertAttendanceRecords } from "@/lib/db/attendance";
+import { listAttendanceForProjectDateViaSession, upsertAttendanceRecords } from "@/lib/db/attendance";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
     const [workers, records] = await Promise.all([
       listActiveWorkersForProject(projectId),
-      listAttendanceForProjectDate(projectId, date),
+      listAttendanceForProjectDateViaSession(projectId, date),
     ]);
 
     return NextResponse.json({ workers, records });

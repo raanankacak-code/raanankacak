@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type {
   CalendarEvent,
   CalendarEventPriority,
@@ -32,6 +33,19 @@ export async function listEventsForOrg(
   range?: { from: string; to: string },
 ): Promise<CalendarEvent[]> {
   let query = createAdminClient().from("calendar_events").select("*").eq("org_id", orgId);
+  if (range) query = query.gte("date", range.from).lte("date", range.to);
+  const { data, error } = await query.order("date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapEvent);
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listEventsForOrgViaSession(
+  orgId: string,
+  range?: { from: string; to: string },
+): Promise<CalendarEvent[]> {
+  const supabase = await createSessionClient();
+  let query = supabase.from("calendar_events").select("*").eq("org_id", orgId);
   if (range) query = query.gte("date", range.from).lte("date", range.to);
   const { data, error } = await query.order("date", { ascending: true });
   if (error) throw error;

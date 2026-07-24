@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { MaterialRequest, MaterialRequestEvent, MaterialRequestStatus, MaterialRequestWithTimeline } from "@/lib/db/types";
 
 function mapRequest(row: Record<string, unknown>): MaterialRequest {
@@ -36,6 +37,23 @@ export async function listRequestsForOrg(
   orgId: string,
 ): Promise<(MaterialRequest & { project: { id: string; name: string } })[]> {
   const { data, error } = await createAdminClient()
+    .from("material_requests")
+    .select("*, project:projects(id, name)")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    ...mapRequest(row),
+    project: row.project as { id: string; name: string },
+  }));
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listRequestsForOrgViaSession(
+  orgId: string,
+): Promise<(MaterialRequest & { project: { id: string; name: string } })[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
     .from("material_requests")
     .select("*, project:projects(id, name)")
     .eq("org_id", orgId)

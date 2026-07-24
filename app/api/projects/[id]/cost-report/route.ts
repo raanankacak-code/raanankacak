@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProjectById } from "@/lib/db/projects";
-import { listActiveWorkersForOrg } from "@/lib/db/workers";
+import { listActiveWorkersForOrgViaSession } from "@/lib/db/workers";
 import { sumLaborCostForProject, getDaysWorkedByWorkerForProject } from "@/lib/db/attendance";
 import { listRequestsForProject } from "@/lib/db/materials";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!project) throw new ApiError(404, "Project not found");
 
     const [workers, laborCost, daysByWorker, requests] = await Promise.all([
-      listActiveWorkersForOrg(member.orgId, projectId),
+      listActiveWorkersForOrgViaSession(member.orgId, projectId),
       sumLaborCostForProject(projectId),
       getDaysWorkedByWorkerForProject(projectId),
       listRequestsForProject(projectId),

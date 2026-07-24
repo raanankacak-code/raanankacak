@@ -13,15 +13,43 @@ function makeFakeAdminClient(response: { data: unknown; error: unknown } = { dat
 }
 
 const createAdminClientMock = vi.fn();
+const createSessionClientMock = vi.fn();
+const eqMock = vi.fn();
+const orderMock = vi.fn();
+const limitMock = vi.fn();
+const selectMock = vi.fn();
+const fromMock = vi.fn();
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: createAdminClientMock,
 }));
 
-const { recordAuditEvent, listAuditLogForOrg } = await import("@/lib/db/auditLog");
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: createSessionClientMock,
+}));
+
+const { recordAuditEvent, listAuditLogForOrg, listAuditLogForOrgViaSession } = await import("@/lib/db/auditLog");
+
+function makeSessionChain(result: { data: unknown; error: unknown } = { data: [], error: null }) {
+  const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
+  chain.eq = eqMock.mockImplementation(() => chain);
+  chain.order = orderMock.mockImplementation(() => chain);
+  chain.limit = limitMock.mockImplementation(() => chain);
+  return chain;
+}
 
 beforeEach(() => {
   createAdminClientMock.mockReset();
+  createSessionClientMock.mockReset();
+  eqMock.mockReset();
+  orderMock.mockReset();
+  limitMock.mockReset();
+  selectMock.mockReset();
+  fromMock.mockReset();
+
+  selectMock.mockReturnValue(makeSessionChain());
+  fromMock.mockReturnValue({ select: selectMock });
+  createSessionClientMock.mockResolvedValue({ from: fromMock });
 });
 
 describe("recordAuditEvent", () => {
@@ -99,5 +127,28 @@ describe("listAuditLogForOrg", () => {
         createdAt: new Date("2026-07-19T00:00:00.000Z"),
       },
     ]);
+  });
+});
+
+describe("listAuditLogForOrgViaSession", () => {
+  it("queries through the session-bound (RLS-subject) client, not the admin client", async () => {
+    await listAuditLogForOrgViaSession("org-A");
+
+    expect(createSessionClientMock).toHaveBeenCalledTimes(1);
+    expect(createAdminClientMock).not.toHaveBeenCalled();
+    expect(fromMock).toHaveBeenCalledWith("audit_log");
+  });
+
+  it("still applies the org_id filter and default limit as defense in depth alongside RLS", async () => {
+    await listAuditLogForOrgViaSession("org-A");
+
+    expect(eqMock).toHaveBeenCalledWith("org_id", "org-A");
+    expect(limitMock).toHaveBeenCalledWith(200);
+  });
+
+  it("propagates a query error instead of swallowing it", async () => {
+    selectMock.mockReturnValue(makeSessionChain({ data: null, error: new Error("query failed") }));
+
+    await expect(listAuditLogForOrgViaSession("org-A")).rejects.toThrow("query failed");
   });
 });

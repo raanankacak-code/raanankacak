@@ -5,7 +5,7 @@ const requireMemberMock = vi.fn();
 const getProjectByIdMock = vi.fn();
 const listActiveWorkersForProjectMock = vi.fn();
 const listWorkerIdsForProjectMock = vi.fn();
-const listAttendanceForProjectDateMock = vi.fn();
+const listAttendanceForProjectDateViaSessionMock = vi.fn();
 const upsertAttendanceRecordsMock = vi.fn();
 const notifyMock = vi.fn();
 
@@ -30,7 +30,7 @@ vi.mock("@/lib/db/workers", () => ({
 }));
 
 vi.mock("@/lib/db/attendance", () => ({
-  listAttendanceForProjectDate: listAttendanceForProjectDateMock,
+  listAttendanceForProjectDateViaSession: listAttendanceForProjectDateViaSessionMock,
   upsertAttendanceRecords: upsertAttendanceRecordsMock,
 }));
 
@@ -66,7 +66,7 @@ beforeEach(() => {
   getProjectByIdMock.mockReset();
   listActiveWorkersForProjectMock.mockReset();
   listWorkerIdsForProjectMock.mockReset();
-  listAttendanceForProjectDateMock.mockReset();
+  listAttendanceForProjectDateViaSessionMock.mockReset();
   upsertAttendanceRecordsMock.mockReset();
   notifyMock.mockReset();
   requireMemberMock.mockResolvedValue(MEMBER);

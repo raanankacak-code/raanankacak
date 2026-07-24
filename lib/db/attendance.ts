@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { AttendanceRecord, AttendanceStatus } from "@/lib/db/types";
 
 function mapAttendanceRecord(row: Record<string, unknown>): AttendanceRecord {
@@ -28,6 +29,18 @@ export async function listAttendanceForOrgDate(orgId: string, date: string): Pro
 
 export async function listAttendanceForProjectDate(projectId: string, date: string): Promise<AttendanceRecord[]> {
   const { data, error } = await createAdminClient()
+    .from("attendance_records")
+    .select("*")
+    .eq("project_id", projectId)
+    .eq("date", date);
+  if (error) throw error;
+  return (data ?? []).map(mapAttendanceRecord);
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listAttendanceForProjectDateViaSession(projectId: string, date: string): Promise<AttendanceRecord[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
     .from("attendance_records")
     .select("*")
     .eq("project_id", projectId)

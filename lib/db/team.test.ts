@@ -20,12 +20,21 @@ function makeFakeAdminClient(responsesByTable: Record<string, unknown>) {
 }
 
 const createAdminClientMock = vi.fn();
+const createSessionClientMock = vi.fn();
+const eqMock = vi.fn();
+const orderMock = vi.fn();
+const selectMock = vi.fn();
+const fromMock = vi.fn();
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: createAdminClientMock,
 }));
 
-const { acceptInvite } = await import("@/lib/db/team");
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: createSessionClientMock,
+}));
+
+const { acceptInvite, listMembersForOrgViaSession } = await import("@/lib/db/team");
 
 const NOW = Date.now();
 
@@ -63,8 +72,24 @@ function memberRow() {
   };
 }
 
+function makeChain(result: { data: unknown; error: unknown } = { data: [], error: null }) {
+  const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
+  chain.eq = eqMock.mockImplementation(() => chain);
+  chain.order = orderMock.mockImplementation(() => chain);
+  return chain;
+}
+
 beforeEach(() => {
   createAdminClientMock.mockReset();
+  createSessionClientMock.mockReset();
+  eqMock.mockReset();
+  orderMock.mockReset();
+  selectMock.mockReset();
+  fromMock.mockReset();
+
+  selectMock.mockReturnValue(makeChain());
+  fromMock.mockReturnValue({ select: selectMock });
+  createSessionClientMock.mockResolvedValue({ from: fromMock });
 });
 
 describe("acceptInvite", () => {
@@ -112,5 +137,27 @@ describe("acceptInvite", () => {
     await expect(
       acceptInvite("tok-abc", { userId: "user-1", email: "jane@org-a.test" }),
     ).rejects.toThrow("This invitation has expired");
+  });
+});
+
+describe("listMembersForOrgViaSession", () => {
+  it("queries through the session-bound (RLS-subject) client, not the admin client", async () => {
+    await listMembersForOrgViaSession("org-A");
+
+    expect(createSessionClientMock).toHaveBeenCalledTimes(1);
+    expect(createAdminClientMock).not.toHaveBeenCalled();
+    expect(fromMock).toHaveBeenCalledWith("org_members");
+  });
+
+  it("still applies the org_id filter as defense in depth alongside RLS", async () => {
+    await listMembersForOrgViaSession("org-A");
+
+    expect(eqMock).toHaveBeenCalledWith("org_id", "org-A");
+  });
+
+  it("propagates a query error instead of swallowing it", async () => {
+    selectMock.mockReturnValue(makeChain({ data: null, error: new Error("query failed") }));
+
+    await expect(listMembersForOrgViaSession("org-A")).rejects.toThrow("query failed");
   });
 });

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { DailyReport, DailyReportWithProject, ReportStatus } from "@/lib/db/types";
 
 function mapDailyReport(row: Record<string, unknown>): DailyReport {
@@ -31,6 +32,26 @@ export async function listReports(
   filters: { projectId?: string; from?: string; to?: string } = {},
 ): Promise<DailyReportWithProject[]> {
   let query = createAdminClient()
+    .from("daily_reports")
+    .select("*, project:projects(id, name)")
+    .eq("org_id", orgId)
+    .order("date", { ascending: false });
+  if (filters.projectId) query = query.eq("project_id", filters.projectId);
+  if (filters.from) query = query.gte("date", filters.from);
+  if (filters.to) query = query.lte("date", filters.to);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map(mapDailyReportWithProject);
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listReportsViaSession(
+  orgId: string,
+  filters: { projectId?: string; from?: string; to?: string } = {},
+): Promise<DailyReportWithProject[]> {
+  const supabase = await createSessionClient();
+  let query = supabase
     .from("daily_reports")
     .select("*, project:projects(id, name)")
     .eq("org_id", orgId)

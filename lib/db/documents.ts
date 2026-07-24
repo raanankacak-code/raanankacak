@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { ProjectDocument } from "@/lib/db/types";
 
 function mapDocument(row: Record<string, unknown>): ProjectDocument {
@@ -19,6 +20,18 @@ function mapDocument(row: Record<string, unknown>): ProjectDocument {
 
 export async function listDocumentsForProject(projectId: string): Promise<ProjectDocument[]> {
   const { data, error } = await createAdminClient()
+    .from("documents")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapDocument);
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listDocumentsForProjectViaSession(projectId: string): Promise<ProjectDocument[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
     .from("documents")
     .select("*")
     .eq("project_id", projectId)

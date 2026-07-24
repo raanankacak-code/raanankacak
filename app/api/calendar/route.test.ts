@@ -3,7 +3,7 @@ import type { OrgMember } from "@/lib/db/types";
 
 const requireMemberMock = vi.fn();
 const createEventMock = vi.fn();
-const listEventsForOrgMock = vi.fn();
+const listEventsForOrgViaSessionMock = vi.fn();
 const getProjectByIdMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
@@ -18,7 +18,7 @@ vi.mock("@/lib/auth", async () => {
 });
 
 vi.mock("@/lib/db/calendar", () => ({
-  listEventsForOrg: listEventsForOrgMock,
+  listEventsForOrgViaSession: listEventsForOrgViaSessionMock,
   createEvent: createEventMock,
 }));
 
@@ -47,7 +47,7 @@ function postRequest(body: unknown) {
 beforeEach(() => {
   requireMemberMock.mockReset();
   createEventMock.mockReset();
-  listEventsForOrgMock.mockReset();
+  listEventsForOrgViaSessionMock.mockReset();
   getProjectByIdMock.mockReset();
   requireMemberMock.mockResolvedValue(MEMBER);
 });

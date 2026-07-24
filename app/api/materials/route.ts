@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { listRequestsForOrg, createRequest } from "@/lib/db/materials";
+import { listRequestsForOrgViaSession, createRequest } from "@/lib/db/materials";
 import { getProjectById } from "@/lib/db/projects";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
@@ -17,7 +17,7 @@ const createSchema = z.object({
 export async function GET() {
   try {
     const member = await requireMember("viewMaterials");
-    const requests = await listRequestsForOrg(member.orgId);
+    const requests = await listRequestsForOrgViaSession(member.orgId);
     return NextResponse.json({ requests });
   } catch (err) {
     return apiErrorResponse(err);

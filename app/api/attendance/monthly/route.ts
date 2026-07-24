@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDaysWorkedByWorker } from "@/lib/db/attendance";
-import { listActiveWorkersForOrg } from "@/lib/db/workers";
+import { listActiveWorkersForOrgViaSession } from "@/lib/db/workers";
 import { getProjectById } from "@/lib/db/projects";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const to = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
 
     const [workers, daysByWorker] = await Promise.all([
-      listActiveWorkersForOrg(member.orgId, projectId),
+      listActiveWorkersForOrgViaSession(member.orgId, projectId),
       getDaysWorkedByWorker(member.orgId, { from, to }, projectId),
     ]);
 

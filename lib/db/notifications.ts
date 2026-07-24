@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { AppNotification } from "@/lib/db/types";
 
 function mapNotification(row: Record<string, unknown>): AppNotification {
@@ -15,6 +16,19 @@ function mapNotification(row: Record<string, unknown>): AppNotification {
 
 export async function listNotificationsForOrg(orgId: string, limit = 50): Promise<AppNotification[]> {
   const { data, error } = await createAdminClient()
+    .from("notifications")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map(mapNotification);
+}
+
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listNotificationsForOrgViaSession(orgId: string, limit = 50): Promise<AppNotification[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
     .from("notifications")
     .select("*")
     .eq("org_id", orgId)

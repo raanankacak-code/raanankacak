@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { listNotificationsForOrg, countUnread, markAllRead } from "@/lib/db/notifications";
+import { listNotificationsForOrgViaSession, countUnread, markAllRead } from "@/lib/db/notifications";
 import { requireMember, apiErrorResponse } from "@/lib/auth";
 
 export async function GET() {
   try {
     const member = await requireMember();
     const [notifications, unread] = await Promise.all([
-      listNotificationsForOrg(member.orgId),
+      listNotificationsForOrgViaSession(member.orgId),
       countUnread(member.orgId),
     ]);
     return NextResponse.json({ notifications, unread });
