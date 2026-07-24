@@ -1,5 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Node's --env-file flag can't be reliably prepended to the `playwright`
+// binary cross-platform (on Windows, node_modules/.bin/playwright is a
+// POSIX shell shim, not JS, so `node .../playwright` fails outright). Load
+// .env here instead — this runs before globalSetup and before webServer
+// spawns (which inherits process.env), and it's a no-op in CI where the
+// Supabase keys are already real env vars, not a .env file.
+try {
+  process.loadEnvFile();
+} catch {
+  // no .env file — fine in CI, where secrets come from the environment.
+}
+
 const PORT = 3100;
 const BASE_URL = `http://localhost:${PORT}`;
 
