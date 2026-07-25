@@ -8,7 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   // The only unauthenticated route in the app that accepts a client-supplied
   // secret (the invite token) — rate-limit by IP to slow down token guessing.
   const ip = getClientIp(request);
-  const rateLimit = checkRateLimit(`invite-lookup:${ip}`, 20, 60_000);
+  const rateLimit = await checkRateLimit(`invite-lookup:${ip}`, 20, 60_000);
   if (!rateLimit.allowed) {
     return NextResponse.json({ error: "Too many requests. Try again shortly." }, { status: 429 });
   }

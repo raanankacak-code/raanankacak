@@ -1,39 +1,69 @@
-import { describe, expect, it } from "vitest";
-import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const rpcMock = vi.fn();
+const createAdminClientMock = vi.fn(() => ({ rpc: rpcMock }));
+const errorMock = vi.fn();
+
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: createAdminClientMock }));
+vi.mock("@/lib/logger", () => ({
+  logger: { error: errorMock, warn: vi.fn(), info: vi.fn() },
+  errorFields: () => ({}),
+}));
+
+const { checkRateLimit, getClientIp } = await import("@/lib/rateLimit");
+
+beforeEach(() => {
+  rpcMock.mockReset();
+  errorMock.mockReset();
+});
 
 describe("checkRateLimit", () => {
-  it("allows requests up to the limit within the window", () => {
-    const key = `test-${Math.random()}`;
-    const now = 1_000_000;
-    for (let i = 0; i < 3; i++) {
-      expect(checkRateLimit(key, 3, 60_000, now).allowed).toBe(true);
-    }
+  it("asks the shared store to decide, rather than any local state", () => {
+    // The decision has to live somewhere every replica can see: an
+    // in-memory bucket gives each instance its own budget, so N replicas
+    // enforce roughly N times the intended limit.
+    rpcMock.mockResolvedValue({ data: [{ allowed: true, remaining: 2, retry_after_seconds: 0 }], error: null });
+
+    return checkRateLimit("invite-lookup:1.2.3.4", 3, 60_000).then(() => {
+      expect(rpcMock).toHaveBeenCalledWith("check_rate_limit", {
+        p_key: "invite-lookup:1.2.3.4",
+        p_limit: 3,
+        p_window_ms: 60_000,
+      });
+    });
   });
 
-  it("blocks the request that exceeds the limit", () => {
-    const key = `test-${Math.random()}`;
-    const now = 1_000_000;
-    checkRateLimit(key, 2, 60_000, now);
-    checkRateLimit(key, 2, 60_000, now);
-    const third = checkRateLimit(key, 2, 60_000, now);
-    expect(third.allowed).toBe(false);
-    expect(third.retryAfterSeconds).toBeGreaterThan(0);
+  it("passes the store's verdict straight through", async () => {
+    rpcMock.mockResolvedValue({ data: [{ allowed: false, remaining: 0, retry_after_seconds: 42 }], error: null });
+
+    await expect(checkRateLimit("k", 1, 1000)).resolves.toEqual({
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds: 42,
+    });
   });
 
-  it("resets the count once the window has elapsed", () => {
-    const key = `test-${Math.random()}`;
-    const start = 1_000_000;
-    checkRateLimit(key, 1, 60_000, start);
-    expect(checkRateLimit(key, 1, 60_000, start + 30_000).allowed).toBe(false);
-    expect(checkRateLimit(key, 1, 60_000, start + 60_001).allowed).toBe(true);
+  it("accepts a single row as well as an array", async () => {
+    rpcMock.mockResolvedValue({ data: { allowed: true, remaining: 5, retry_after_seconds: 0 }, error: null });
+
+    await expect(checkRateLimit("k", 10, 1000)).resolves.toMatchObject({ allowed: true, remaining: 5 });
   });
 
-  it("tracks separate keys independently", () => {
-    const base = `test-${Math.random()}`;
-    const now = 1_000_000;
-    checkRateLimit(`${base}-a`, 1, 60_000, now);
-    expect(checkRateLimit(`${base}-a`, 1, 60_000, now).allowed).toBe(false);
-    expect(checkRateLimit(`${base}-b`, 1, 60_000, now).allowed).toBe(true);
+  it("allows the request when the store itself fails, and says so", async () => {
+    // Rate limiting is a guard, not the thing the caller asked for. Turning
+    // a storage blip into a 429 for every user would be a worse outage than
+    // briefly not counting.
+    rpcMock.mockResolvedValue({ data: null, error: { message: "connection reset" } });
+
+    await expect(checkRateLimit("k", 1, 1000)).resolves.toMatchObject({ allowed: true });
+    expect(errorMock).toHaveBeenCalled();
+  });
+
+  it("allows the request when the store returns nothing at all", async () => {
+    rpcMock.mockResolvedValue({ data: [], error: null });
+
+    await expect(checkRateLimit("k", 1, 1000)).resolves.toMatchObject({ allowed: true });
+    expect(errorMock).toHaveBeenCalled();
   });
 });
 

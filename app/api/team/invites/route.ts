@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     // Sending an invite triggers a real email — cap how many one account can
     // fire off in a short window so a compromised/malicious account can't
     // use this as a bulk mail relay or burn through the email provider quota.
-    const rateLimit = checkRateLimit(`invite-create:${member.id}`, 20, 60_000);
+    const rateLimit = await checkRateLimit(`invite-create:${member.id}`, 20, 60_000);
     if (!rateLimit.allowed) {
       throw new ApiError(429, "Too many invites sent. Try again shortly.");
     }

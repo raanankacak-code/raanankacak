@@ -35,17 +35,6 @@ export function register() {
     throw new Error(message);
   }
 
-  // The rate limiter keeps its buckets in this process's memory, so each
-  // replica enforces its own budget and every restart forgets them — N
-  // replicas means roughly N times the intended limit. Fine for the
-  // single-instance deployment this is built for; say so loudly otherwise.
-  if (process.env.NODE_ENV === "production" && process.env.RATE_LIMIT_MULTI_INSTANCE_ACK !== "1") {
-    logger.warn("Rate limiting is per-process", {
-      detail:
-        "In-memory buckets are not shared between instances. Running more than one replica multiplies every limit — move to a shared store (Redis/Upstash) before scaling out. Set RATE_LIMIT_MULTI_INSTANCE_ACK=1 to silence.",
-    });
-  }
-
   logger.info("Server starting", {
     runtime: process.env.NEXT_RUNTIME,
     nodeEnv: process.env.NODE_ENV,

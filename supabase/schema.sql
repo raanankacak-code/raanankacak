@@ -1,13 +1,14 @@
 -- BinaWorks — Phase 1 schema
 -- Run this once in the Supabase SQL Editor (Project -> SQL Editor -> New query).
--- Mirrors prisma/schema.prisma. Most access from the app goes through the
--- Next.js API routes using the service-role key (which bypasses RLS
--- entirely) — see the "RLS enforcement" section near the end of this file
--- for the per-org SELECT policies that back every table for anon/
--- authenticated, used both as a defense-in-depth backstop and, on the
--- projects table so far (lib/db/projects.ts's *ViaSession functions, using
--- lib/supabase/server.ts's cookie-bound client), as the actual enforcement
--- mechanism for a session-scoped read path.
+-- Every tenant-scoped READ in the app goes through a session-bound client
+-- (anon key + the caller's JWT), so the per-org SELECT policies in the
+-- "RLS enforcement" section near the end of this file are load-bearing, not
+-- just a backstop: a query that lost its org_id filter would still only ever
+-- return the caller's own org's rows.
+--
+-- WRITES use the service-role key, which bypasses RLS, so the app's own
+-- checks in lib/auth.ts and lib/permissions.ts are what gate those. There
+-- are deliberately no INSERT/UPDATE/DELETE policies.
 
 create type role as enum (
   'OWNER',
@@ -486,6 +487,95 @@ alter table org_subscriptions enable row level security;
 create trigger org_subscriptions_set_updated_at
   before update on org_subscriptions
   for each row execute function set_updated_at();
+
+
+-- rate_limits ----------------------------------------------------------------
+-- Shared rate-limit buckets. Kept in Postgres rather than process memory so
+-- every instance enforces one budget: with in-memory buckets, N replicas
+-- meant roughly N times the intended limit and a restart forgot everything,
+-- which made the limits decorative in any multi-instance deployment.
+
+create table rate_limits (
+  key text primary key,
+  window_start timestamptz not null,
+  count integer not null
+);
+
+create index rate_limits_window_start_idx on rate_limits (window_start);
+
+alter table rate_limits enable row level security;
+
+-- Decides and counts in one statement. Splitting the check from the
+-- increment would let two concurrent requests both read count = limit - 1
+-- and both proceed, which is exactly the race a shared store must close.
+create function check_rate_limit(
+  p_key text,
+  p_limit integer,
+  p_window_ms integer
+)
+returns table (allowed boolean, remaining integer, retry_after_seconds integer)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_now timestamptz := now();
+  v_window_start timestamptz;
+  v_count integer;
+begin
+  insert into public.rate_limits as rl (key, window_start, count)
+  values (p_key, v_now, 1)
+  on conflict (key) do update
+    set
+      window_start = case
+        when rl.window_start + make_interval(secs => p_window_ms / 1000.0) <= v_now
+          then v_now
+        else rl.window_start
+      end,
+      count = case
+        when rl.window_start + make_interval(secs => p_window_ms / 1000.0) <= v_now
+          then 1
+        else rl.count + 1
+      end
+  returning rl.window_start, rl.count into v_window_start, v_count;
+
+  return query select
+    v_count <= p_limit,
+    greatest(0, p_limit - v_count),
+    case
+      when v_count <= p_limit then 0
+      else greatest(
+        0,
+        ceil(extract(epoch from (v_window_start + make_interval(secs => p_window_ms / 1000.0)) - v_now))::integer
+      )
+    end;
+end;
+$$;
+
+revoke execute on function check_rate_limit(text, integer, integer) from public;
+revoke execute on function check_rate_limit(text, integer, integer) from anon;
+revoke execute on function check_rate_limit(text, integer, integer) from authenticated;
+
+-- Sweeps buckets whose window closed long ago, so the table stays small.
+create function prune_rate_limits(p_older_than_hours integer default 24)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_deleted integer;
+begin
+  delete from public.rate_limits
+  where window_start < now() - make_interval(hours => p_older_than_hours);
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$$;
+
+revoke execute on function prune_rate_limits(integer) from public;
+revoke execute on function prune_rate_limits(integer) from anon;
+revoke execute on function prune_rate_limits(integer) from authenticated;
 
 -- RLS enforcement ----------------------------------------------------------
 -- Real policies, as a defense-in-depth backstop behind the app's own org_id

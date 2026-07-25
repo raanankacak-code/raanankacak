@@ -9,7 +9,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const member = await requireWritableMember("manageUsers");
-    const rateLimit = checkRateLimit(`invite-create:${member.id}`, 20, 60_000);
+    const rateLimit = await checkRateLimit(`invite-create:${member.id}`, 20, 60_000);
     if (!rateLimit.allowed) {
       throw new ApiError(429, "Too many invites sent. Try again shortly.");
     }

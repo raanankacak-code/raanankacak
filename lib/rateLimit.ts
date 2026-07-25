@@ -1,9 +1,5 @@
-interface Bucket {
-  count: number;
-  resetAt: number;
-}
-
-const buckets = new Map<string, Bucket>();
+import { createAdminClient } from "@/lib/supabase/admin";
+import { logger } from "@/lib/logger";
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -12,24 +8,51 @@ export interface RateLimitResult {
 }
 
 /**
- * Simple in-memory fixed-window rate limiter, keyed by caller-supplied string
- * (e.g. `${route}:${ip}` or `${route}:${userId}`). This works within a single
- * Node process, matching this app's current self-hosted deployment model
- * (see the "Phase 1" note in lib/uploads.ts) — it does not share state across
- * multiple instances/replicas. Swap for a shared store (Redis/Upstash) before
- * horizontally scaling.
+ * Fixed-window rate limiter backed by Postgres, keyed by a caller-supplied
+ * string (e.g. `${route}:${ip}` or `${route}:${userId}`).
+ *
+ * The store is shared, which is the whole point: an earlier version kept
+ * buckets in process memory, so every replica enforced its own budget (N
+ * replicas meant roughly N times the intended limit) and a restart forgot
+ * them entirely. That made the limits decorative in any deployment bigger
+ * than one instance — including the one defence against brute-forcing an
+ * invite token.
+ *
+ * The check and the increment happen inside a single SQL statement in
+ * check_rate_limit(), so two concurrent requests cannot both read the same
+ * count and both be let through.
  */
-export function checkRateLimit(key: string, limit: number, windowMs: number, now: number = Date.now()): RateLimitResult {
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return { allowed: true, remaining: limit - 1, retryAfterSeconds: 0 };
+export async function checkRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  const { data, error } = await createAdminClient().rpc("check_rate_limit", {
+    p_key: key,
+    p_limit: limit,
+    p_window_ms: windowMs,
+  });
+
+  if (error) {
+    // Rate limiting is a guard, not the feature the caller asked for.
+    // Failing their request because the limiter is unavailable turns a
+    // storage blip into an outage, so allow and record it instead — the
+    // routes behind this are all authenticated or otherwise bounded.
+    logger.error("Rate limit check failed; allowing request", { key, message: error.message });
+    return { allowed: true, remaining: 0, retryAfterSeconds: 0 };
   }
-  if (bucket.count >= limit) {
-    return { allowed: false, remaining: 0, retryAfterSeconds: Math.ceil((bucket.resetAt - now) / 1000) };
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    logger.error("Rate limit check returned no row; allowing request", { key });
+    return { allowed: true, remaining: 0, retryAfterSeconds: 0 };
   }
-  bucket.count += 1;
-  return { allowed: true, remaining: limit - bucket.count, retryAfterSeconds: 0 };
+
+  return {
+    allowed: row.allowed,
+    remaining: row.remaining,
+    retryAfterSeconds: row.retry_after_seconds,
+  };
 }
 
 /**

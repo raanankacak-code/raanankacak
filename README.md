@@ -214,13 +214,21 @@ that header outright and can bypass those limits by rotating it.
   read that many entries in from the right of the header; anything to the
   left is caller-supplied and ignored.
 
-### One instance, for now
+### Scaling out
 
-Rate limiting keeps its buckets in process memory. Each replica would enforce
-its own budget, so N replicas means roughly N times every limit, and a
-restart forgets them. Run a single instance until that moves to a shared
-store (Redis/Upstash); the app logs a warning at boot in production as a
-reminder, silenced with `RATE_LIMIT_MULTI_INSTANCE_ACK=1`.
+Rate-limit buckets live in Postgres (`rate_limits`, via the
+`check_rate_limit` function), so every instance shares one budget and limits
+survive a restart. Run as many replicas as you like.
+
+The check and the increment happen in a single SQL statement — splitting them
+would let two concurrent requests both read `count = limit - 1` and both
+proceed, which is the race a shared store exists to close.
+
+If the store is unreachable the request is *allowed* and the failure logged:
+rate limiting is a guard, not the thing the caller asked for, and turning a
+database blip into a 429 for everyone is the worse outage. Old buckets can be
+swept with `select prune_rate_limits();` — optional, since the table only
+holds one row per active key.
 
 ### Required configuration
 

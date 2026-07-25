@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
     // Rate-limit regardless of the storage quota below: that quota is a
     // ceiling, not a defence against one account churning through it.
-    const rateLimit = checkRateLimit(`upload:${member.id}`, 30, 10 * 60_000);
+    const rateLimit = await checkRateLimit(`upload:${member.id}`, 30, 10 * 60_000);
     if (!rateLimit.allowed) {
       throw new ApiError(429, "Too many uploads. Try again in a few minutes.");
     }

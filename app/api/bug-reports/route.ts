@@ -15,7 +15,7 @@ const createSchema = z.object({
 export async function POST(request: Request) {
   try {
     const member = await requireMember();
-    const rateLimit = checkRateLimit(`bug-report:${member.id}`, 10, 60_000);
+    const rateLimit = await checkRateLimit(`bug-report:${member.id}`, 10, 60_000);
     if (!rateLimit.allowed) {
       throw new ApiError(429, "Too many reports submitted. Try again shortly.");
     }
