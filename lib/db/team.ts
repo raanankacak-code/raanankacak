@@ -166,8 +166,17 @@ export async function getInviteById(orgId: string, id: string): Promise<OrgInvit
   return data ? mapInvite(data) : null;
 }
 
+/**
+ * Invite tokens are bearer credentials: the public lookup endpoint trades a
+ * token for the invitee's name, email, role and company name, so a guessable
+ * token is a PII disclosure. 32 bytes (256 bits) puts brute force out of
+ * reach regardless of how well the rate limiter in front of it holds up.
+ *
+ * Older invites carry a shorter token from a previous scheme; lookup is an
+ * exact match on the stored value, so those keep working until they expire.
+ */
 function genToken() {
-  return "BW-" + randomBytes(4).toString("hex").toUpperCase();
+  return "BW-" + randomBytes(32).toString("base64url");
 }
 
 export async function createInvite(
@@ -241,6 +250,21 @@ export async function acceptInvite(
   // different account. Require the signed-in account's email to match.
   if (invite.email.toLowerCase() !== input.email.toLowerCase()) {
     throw new Error("This invitation was sent to a different email address");
+  }
+
+  // The app assumes one workspace per account (getMemberByUserId uses
+  // maybeSingle()). A second membership makes that query fail for *every*
+  // authenticated request, locking the account out with no way back — so
+  // refuse here rather than let someone accept their way into that state.
+  const { data: existingMemberships, error: existingError } = await supabase
+    .from("org_members")
+    .select("id")
+    .eq("user_id", input.userId);
+  if (existingError) throw existingError;
+  if (existingMemberships && existingMemberships.length > 0) {
+    throw new Error(
+      "This account already belongs to a company workspace. Sign up with a different email address to join this one.",
+    );
   }
 
   const { data: memberRow, error: memberError } = await supabase

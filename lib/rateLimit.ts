@@ -32,12 +32,49 @@ export function checkRateLimit(key: string, limit: number, windowMs: number, now
   return { allowed: true, remaining: limit - bucket.count, retryAfterSeconds: 0 };
 }
 
-/** Best-effort client IP from standard proxy headers — no built-in equivalent
- * in Next.js Route Handlers, so this depends on the reverse proxy in front of
- * the app setting one of these (true of most self-hosted setups). */
+/**
+ * Client IP for rate-limit keying, read from proxy headers (Next.js Route
+ * Handlers expose no socket address).
+ *
+ * X-Forwarded-For is a client-supplied header that each proxy *appends* to,
+ * so the leftmost entry is whatever the caller claimed and is worthless for
+ * rate limiting — an attacker can rotate it per request and get an unlimited
+ * budget. Only the entries your own infrastructure appended can be trusted,
+ * so we count in from the right: with one reverse proxy in front of the app
+ * (the default), the last entry is the address that proxy actually saw.
+ *
+ * Set TRUSTED_PROXY_HOPS to the number of proxies in front of this app (e.g.
+ * 2 behind a CDN plus a load balancer). Too high and callers fail closed into
+ * one shared bucket; too low and they can spoof again.
+ *
+ * IMPORTANT: this only holds if the app is not directly reachable. Route
+ * Handlers expose no socket address, so X-Forwarded-For is the only signal
+ * available — if clients can bypass the proxy and talk to the app directly,
+ * they control the whole header and per-IP limiting cannot be enforced.
+ * Bind the app to localhost (or a private network) behind the proxy.
+ */
 export function getClientIp(request: Request): string {
+  const hops = Number(process.env.TRUSTED_PROXY_HOPS ?? "1");
+  const trustedHops = Number.isFinite(hops) && hops >= 1 ? Math.floor(hops) : 1;
+
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  if (forwarded) {
+    const parts = forwarded
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    // A chain shorter than the configured topology did not come through the
+    // proxies we expect, so nothing in it is vouched for. Fail closed onto a
+    // single shared bucket instead of trusting a caller-supplied value —
+    // otherwise forging a short header buys a fresh bucket per request.
+    if (parts.length >= trustedHops) {
+      return parts[parts.length - trustedHops];
+    }
+    return "untrusted-forwarded-for";
+  }
+
+  // Single-value headers set by the immediate proxy — not caller-appendable
+  // in the same way, so usable as-is.
   const real = request.headers.get("x-real-ip");
   if (real) return real.trim();
   return "unknown";
