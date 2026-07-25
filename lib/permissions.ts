@@ -75,6 +75,12 @@ const MATRIX: Record<Role, Permission[]> = {
     "manageWorkers",
     "viewMaterials",
     "manageCalendar",
+    // Deliberately beyond the original prototype's matrix: it gave an
+    // Engineer uploadDocs but left the Project Manager — who runs the
+    // project end to end — unable to add so much as a drawing. Documents
+    // are part of running a project, so the PM gets the same level as Admin.
+    "uploadDocs",
+    "manageDocs",
   ],
   SITE_SUPERVISOR: [
     "submitReports",

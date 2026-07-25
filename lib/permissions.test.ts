@@ -134,3 +134,32 @@ describe("VIEWER is genuinely read-only", () => {
     }
   });
 });
+
+describe("document permissions", () => {
+  it("lets the Project Manager handle project documents", () => {
+    // The original prototype's matrix gave an Engineer uploadDocs but left
+    // the Project Manager — who runs the project end to end — unable to
+    // upload a drawing at all. Deliberately diverged from.
+    expect(can("PROJECT_MANAGER", "uploadDocs")).toBe(true);
+    expect(can("PROJECT_MANAGER", "manageDocs")).toBe(true);
+  });
+
+  it("keeps Engineer able to upload but not to remove other people's documents", () => {
+    expect(can("ENGINEER", "uploadDocs")).toBe(true);
+    expect(can("ENGINEER", "manageDocs")).toBe(false);
+  });
+
+  it("does not hand document access to roles that had none", () => {
+    for (const role of [
+      "SITE_SUPERVISOR",
+      "QUANTITY_SURVEYOR",
+      "SAFETY_OFFICER",
+      "STOREKEEPER",
+      "FINANCE",
+      "VIEWER",
+    ] as const) {
+      expect(can(role, "uploadDocs"), role).toBe(false);
+      expect(can(role, "manageDocs"), role).toBe(false);
+    }
+  });
+});
