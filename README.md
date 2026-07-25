@@ -86,10 +86,10 @@ npm test          # unit & integration tests (Vitest)
 npm run test:e2e  # end-to-end tests (Playwright)
 ```
 
-`npm run test:e2e` needs a real (test) Supabase project — it seeds a
-throwaway org/owner user directly via the service-role key, runs the
-golden-path spec against a production build (`npm run build && npm run start`,
-via Playwright's `webServer`), then deletes the seeded org/user. Set
+`npm run test:e2e` needs a real (test) Supabase project — it seeds throwaway
+orgs and users directly via the service-role key, runs the specs against a
+production build (`npm run build && npm run start`, via Playwright's
+`webServer`), then deletes everything it created. Set
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
 `SUPABASE_SERVICE_ROLE_KEY` in `.env` (loaded automatically by
 `playwright.config.ts` via `process.loadEnvFile()`) — **use a test project,
@@ -105,6 +105,31 @@ npx playwright install chromium
 In CI (`.github/workflows/ci.yml`) this happens automatically and the same
 three Supabase values must be set as repository secrets; the `e2e` job skips
 itself with a warning if they're missing.
+
+### What the e2e suite covers
+
+Setup seeds three orgs, because the things worth regression-testing can't be
+reached from one Owner in one healthy workspace:
+
+- **`golden-path`** — the daily loop end to end: create a project, add a
+  worker, file a report, take attendance, raise and approve a material
+  request, see it on the audit log. Also fails on any CSP violation or page
+  error, so tightening the policy too far breaks the build rather than
+  silently killing a button.
+- **`tenant-isolation`** — a second org attempts to read the first org's
+  project, report and uploaded file by id, and via the listing endpoints.
+  It ends by proving the *owning* org can still read the same ids, so a
+  mis-assigned fixture can't produce a false pass.
+- **`permissions`** — a Viewer is refused calendar writes, project creation,
+  report submission and uploads; a Site Supervisor is allowed the calendar
+  and uploads but still refused team and billing. Both directions matter: a
+  role check is only right if the roles that need the feature keep it.
+- **`read-only-mode`** — an org whose trial has already expired can still
+  read and export everything but is refused every write with a 402, and a
+  healthy org is unaffected.
+
+Teardown removes all three orgs, their users, and any objects they uploaded
+to storage.
 
 ## File uploads
 

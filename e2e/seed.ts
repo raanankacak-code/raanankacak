@@ -9,16 +9,48 @@ import path from "node:path";
  * can't run outside a Next.js request), and deliberately not going through
  * the UI signup wizard, which would make every test run slower and add a
  * second thing that could break unrelated to what's being tested.
+ *
+ * Three fixtures are created, because the things worth regression-testing
+ * can't be reached from a single Owner in a single healthy org:
+ *
+ *   orgA  the main workspace, with one member per role under test —
+ *         needed to prove the permission matrix is actually enforced.
+ *   orgB  a second tenant, so cross-org access can be attempted for real
+ *         rather than asserted against a mock.
+ *   orgC  an org whose trial has already expired, so read-only mode is
+ *         exercised without mutating a live subscription mid-run.
  */
 
-export const AUTH_STATE_PATH = path.join(__dirname, ".auth", "owner.json");
-export const SEED_INFO_PATH = path.join(__dirname, ".auth", "seed-info.json");
+const AUTH_DIR = path.join(__dirname, ".auth");
+export const SEED_INFO_PATH = path.join(AUTH_DIR, "seed-info.json");
+
+/** The golden-path spec's session; kept at its original path. */
+export const AUTH_STATE_PATH = path.join(AUTH_DIR, "owner.json");
+
+export type SeededRole = "OWNER" | "VIEWER" | "SITE_SUPERVISOR";
+
+export interface SeededMember {
+  role: string;
+  email: string;
+  userId: string;
+  /** Playwright storageState file for this member. */
+  authStatePath: string;
+}
 
 export interface SeedInfo {
+  /** Org A's owner — the golden path's original fields, unchanged. */
   userId: string;
   orgId: string;
   orgName: string;
   email: string;
+
+  orgA: { id: string; name: string; members: Record<string, SeededMember> };
+  orgB: { id: string; name: string; owner: SeededMember };
+  orgC: { id: string; name: string; owner: SeededMember };
+
+  /** Everything to remove at teardown, whatever shape the fixtures take. */
+  orgIds: string[];
+  userIds: string[];
 }
 
 function requireEnv(name: string): string {
@@ -32,40 +64,14 @@ function requireEnv(name: string): string {
   return value;
 }
 
-export async function seedOwnerSession(): Promise<SeedInfo> {
+function admin() {
+  return createClient(requireEnv("NEXT_PUBLIC_SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"));
+}
+
+/** Signs in and writes a Playwright storageState file for that session. */
+async function writeAuthState(email: string, password: string, fileName: string): Promise<string> {
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-
-  const admin = createClient(url, serviceRoleKey);
-  const runId = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-  const email = `e2e-${runId}@example.com`;
-  const password = `E2ePilot!${runId}`;
-  const orgName = `E2E Test Co ${runId}`;
-
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-  if (createErr || !created.user) throw createErr ?? new Error("createUser returned no user");
-
-  const { data: orgRow, error: orgErr } = await admin
-    .from("organizations")
-    .insert({ name: orgName })
-    .select("*")
-    .single();
-  if (orgErr) throw orgErr;
-
-  const { error: memberErr } = await admin.from("org_members").insert({
-    org_id: orgRow.id,
-    user_id: created.user.id,
-    name: "E2E Owner",
-    email,
-    role: "OWNER",
-    active: true,
-  });
-  if (memberErr) throw memberErr;
 
   const collected: { name: string; value: string; domain: string; path: string }[] = [];
   const browserClient = createBrowserClient(url, anonKey, {
@@ -82,12 +88,13 @@ export async function seedOwnerSession(): Promise<SeedInfo> {
       },
     },
   });
-  const { error: signInErr } = await browserClient.auth.signInWithPassword({ email, password });
-  if (signInErr) throw signInErr;
+  const { error } = await browserClient.auth.signInWithPassword({ email, password });
+  if (error) throw error;
 
-  await mkdir(path.dirname(AUTH_STATE_PATH), { recursive: true });
+  const filePath = path.join(AUTH_DIR, fileName);
+  await mkdir(AUTH_DIR, { recursive: true });
   await writeFile(
-    AUTH_STATE_PATH,
+    filePath,
     JSON.stringify({
       cookies: collected.map((c) => ({
         ...c,
@@ -99,17 +106,103 @@ export async function seedOwnerSession(): Promise<SeedInfo> {
       origins: [],
     }),
   );
+  return filePath;
+}
 
-  const info: SeedInfo = { userId: created.user.id, orgId: orgRow.id, orgName, email };
-  await writeFile(SEED_INFO_PATH, JSON.stringify(info));
+async function createOrg(name: string): Promise<string> {
+  const { data, error } = await admin().from("organizations").insert({ name }).select("*").single();
+  if (error) throw error;
+  return data.id;
+}
+
+async function createMember(
+  orgId: string,
+  role: string,
+  runId: string,
+  fileName: string,
+): Promise<SeededMember> {
+  const email = `e2e-${role.toLowerCase().replace(/_/g, "-")}-${runId}@example.com`;
+  const password = `E2ePilot!${runId}`;
+
+  const { data: created, error: createErr } = await admin().auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (createErr || !created.user) throw createErr ?? new Error("createUser returned no user");
+
+  const { error: memberErr } = await admin().from("org_members").insert({
+    org_id: orgId,
+    user_id: created.user.id,
+    name: `E2E ${role}`,
+    email,
+    role,
+    active: true,
+  });
+  if (memberErr) throw memberErr;
+
+  const authStatePath = await writeAuthState(email, password, fileName);
+  return { role, email, userId: created.user.id, authStatePath };
+}
+
+export async function seedOwnerSession(): Promise<SeedInfo> {
+  const runId = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const orgIds: string[] = [];
+  const userIds: string[] = [];
+
+  // --- Org A: the main workspace, one member per role under test ---
+  const orgAName = `E2E Test Co ${runId}`;
+  const orgAId = await createOrg(orgAName);
+  orgIds.push(orgAId);
+
+  const members: Record<string, SeededMember> = {};
+  // The Owner keeps the original filename so the golden path is untouched.
+  members.OWNER = await createMember(orgAId, "OWNER", `a-${runId}`, "owner.json");
+  members.VIEWER = await createMember(orgAId, "VIEWER", `a-${runId}`, "viewer.json");
+  members.SITE_SUPERVISOR = await createMember(orgAId, "SITE_SUPERVISOR", `a-${runId}`, "supervisor.json");
+  for (const m of Object.values(members)) userIds.push(m.userId);
+
+  // --- Org B: a genuinely separate tenant ---
+  const orgBName = `E2E Other Co ${runId}`;
+  const orgBId = await createOrg(orgBName);
+  orgIds.push(orgBId);
+  const orgBOwner = await createMember(orgBId, "OWNER", `b-${runId}`, "orgb-owner.json");
+  userIds.push(orgBOwner.userId);
+
+  // --- Org C: trial already expired, so the workspace is read-only ---
+  const orgCName = `E2E Expired Co ${runId}`;
+  const orgCId = await createOrg(orgCName);
+  orgIds.push(orgCId);
+  const orgCOwner = await createMember(orgCId, "OWNER", `c-${runId}`, "orgc-owner.json");
+  userIds.push(orgCOwner.userId);
+
+  // Insert the subscription directly rather than letting the app lazily
+  // create a healthy trial on first request.
+  const { error: subErr } = await admin().from("org_subscriptions").insert({
+    org_id: orgCId,
+    plan: "PROFESSIONAL",
+    status: "TRIALING",
+    trial_ends_at: new Date(Date.now() - 86400000).toISOString(),
+  });
+  if (subErr) throw subErr;
+
+  const info: SeedInfo = {
+    userId: members.OWNER.userId,
+    orgId: orgAId,
+    orgName: orgAName,
+    email: members.OWNER.email,
+    orgA: { id: orgAId, name: orgAName, members },
+    orgB: { id: orgBId, name: orgBName, owner: orgBOwner },
+    orgC: { id: orgCId, name: orgCName, owner: orgCOwner },
+    orgIds,
+    userIds,
+  };
+  await writeFile(SEED_INFO_PATH, JSON.stringify(info, null, 2));
   return info;
 }
 
 export async function teardownOwnerSession(): Promise<void> {
-  const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-  const admin = createClient(url, serviceRoleKey);
-
+  const client = admin();
   const { readFile } = await import("node:fs/promises");
   let info: SeedInfo;
   try {
@@ -118,10 +211,22 @@ export async function teardownOwnerSession(): Promise<void> {
     return; // nothing to clean up (setup never ran, or already torn down)
   }
 
-  // organizations -> org_members/projects/etc. all cascade on delete.
-  const { error: deleteOrgErr } = await admin.from("organizations").delete().eq("id", info.orgId);
-  if (deleteOrgErr) throw new Error(`e2e teardown: failed to delete org ${info.orgId}: ${deleteOrgErr.message}`);
+  // Uploaded objects are not covered by the database cascade.
+  for (const orgId of info.orgIds) {
+    const { data: objects } = await client.storage.from("uploads").list(orgId);
+    if (objects?.length) {
+      await client.storage.from("uploads").remove(objects.map((o) => `${orgId}/${o.name}`));
+    }
+  }
 
-  const { error: deleteUserErr } = await admin.auth.admin.deleteUser(info.userId);
-  if (deleteUserErr) throw new Error(`e2e teardown: failed to delete user ${info.userId}: ${deleteUserErr.message}`);
+  // organizations -> org_members/projects/etc. all cascade on delete.
+  for (const orgId of info.orgIds) {
+    const { error } = await client.from("organizations").delete().eq("id", orgId);
+    if (error) throw new Error(`e2e teardown: failed to delete org ${orgId}: ${error.message}`);
+  }
+
+  for (const userId of info.userIds) {
+    const { error } = await client.auth.admin.deleteUser(userId);
+    if (error) throw new Error(`e2e teardown: failed to delete user ${userId}: ${error.message}`);
+  }
 }
