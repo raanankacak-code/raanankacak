@@ -489,12 +489,17 @@ create trigger org_subscriptions_set_updated_at
 
 -- RLS enforcement ----------------------------------------------------------
 -- Real policies, as a defense-in-depth backstop behind the app's own org_id
--- filtering. All current app traffic runs through the service-role key
--- (which bypasses RLS entirely), so these policies don't change today's
--- behavior — they protect the path a future bug could open: any query
--- issued with the anon/authenticated key (a client-side query, a leaked
--- key, a future serverless function, or the session-scoped read client
--- piloted on the projects table) instead of the admin client.
+-- filtering. Every tenant-scoped *read* in the app now goes through the
+-- session-bound client (anon key + the caller's JWT), so these policies are
+-- load-bearing today, not just a future safety net: a bug that dropped an
+-- .eq("org_id", ...) filter from a read would still only ever return the
+-- caller's own org's rows.
+--
+-- Writes (and the few reads that legitimately have no user session — the
+-- Stripe webhook, invite-token lookup during signup, lazy trial creation on
+-- first access) still use the service-role key, which bypasses RLS. There
+-- are deliberately no INSERT/UPDATE/DELETE policies: mutations are guarded
+-- by the app's own permission checks in lib/permissions.ts + lib/auth.ts.
 --
 -- auth_org_id() is SECURITY DEFINER so it can read org_members to resolve
 -- the caller's org without recursing into org_members' own RLS policy.

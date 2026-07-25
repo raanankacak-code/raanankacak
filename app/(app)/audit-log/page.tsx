@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { listAuditLogForOrg } from "@/lib/db/auditLog";
+import { listAuditLogForOrgViaSession } from "@/lib/db/auditLog";
 import { formatDateTime } from "@/lib/format";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -17,7 +17,7 @@ export default async function AuditLogPage() {
   const member = await getCurrentMember();
   if (!member || !can(member.role, "viewAuditLog")) redirect("/dashboard");
 
-  const entries = await listAuditLogForOrg(member.orgId);
+  const entries = await listAuditLogForOrgViaSession(member.orgId);
 
   return (
     <>

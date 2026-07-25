@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth";
 import { getOrganizationById } from "@/lib/db/organizations";
-import { listProjectsForOrg } from "@/lib/db/projects";
+import { listProjectsForOrgViaSession } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
 import { listAttendanceForOrgDate, sumLaborCostForOrg } from "@/lib/db/attendance";
-import { listRecentReportsForOrg, listReports } from "@/lib/db/reports";
-import { listRequestsForOrg } from "@/lib/db/materials";
-import { listEventsForOrg } from "@/lib/db/calendar";
-import { listNotificationsForOrg } from "@/lib/db/notifications";
+import { listRecentReportsForOrg, listReportsViaSession } from "@/lib/db/reports";
+import { listRequestsForOrgViaSession } from "@/lib/db/materials";
+import { listEventsForOrgViaSession } from "@/lib/db/calendar";
+import { listNotificationsForOrgViaSession } from "@/lib/db/notifications";
 import { can } from "@/lib/permissions";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 
@@ -38,14 +38,14 @@ export default async function DashboardPage() {
   const [org, projects, workerCount, todaysAttendance, recentReports, allReports, requests, events, notifications, laborCost] =
     await Promise.all([
       getOrganizationById(member.orgId),
-      listProjectsForOrg(member.orgId),
+      listProjectsForOrgViaSession(member.orgId),
       countActiveWorkersForOrg(member.orgId),
       listAttendanceForOrgDate(member.orgId, todayISO()),
       listRecentReportsForOrg(member.orgId, 6),
-      listReports(member.orgId, { from: daysAgo(6) }),
-      can(member.role, "viewMaterials") ? listRequestsForOrg(member.orgId) : Promise.resolve([]),
-      listEventsForOrg(member.orgId, { from: todayISO(), to: daysAhead(30) }),
-      listNotificationsForOrg(member.orgId, 6),
+      listReportsViaSession(member.orgId, { from: daysAgo(6) }),
+      can(member.role, "viewMaterials") ? listRequestsForOrgViaSession(member.orgId) : Promise.resolve([]),
+      listEventsForOrgViaSession(member.orgId, { from: todayISO(), to: daysAhead(30) }),
+      listNotificationsForOrgViaSession(member.orgId, 6),
       sumLaborCostForOrg(member.orgId),
     ]);
 

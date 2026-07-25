@@ -19,7 +19,7 @@ vi.mock("@/lib/db/organizations", () => ({
 }));
 
 vi.mock("@/lib/db/subscriptions", () => ({
-  getSubscriptionForOrg: getSubscriptionForOrgMock,
+  getSubscriptionForOrgViaSession: getSubscriptionForOrgMock,
   setStripeCustomerId: setStripeCustomerIdMock,
 }));
 

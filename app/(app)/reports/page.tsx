@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth";
-import { listReports } from "@/lib/db/reports";
+import { listReportsViaSession } from "@/lib/db/reports";
 import { listProjectNamesForOrg } from "@/lib/db/projects";
 import { can } from "@/lib/permissions";
 import ProjectFilterSelect from "@/components/app/ProjectFilterSelect";
@@ -17,7 +17,7 @@ export default async function ReportsPage({
   const { projectId } = await searchParams;
 
   const [reports, projects] = await Promise.all([
-    listReports(member.orgId, { projectId: projectId || undefined }),
+    listReportsViaSession(member.orgId, { projectId: projectId || undefined }),
     listProjectNamesForOrg(member.orgId),
   ]);
 

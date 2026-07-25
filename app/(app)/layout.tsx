@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember } from "@/lib/auth";
 import { getOrganizationById } from "@/lib/db/organizations";
-import { listRequestsForOrg } from "@/lib/db/materials";
-import { getSubscriptionForOrg, isSubscriptionWritable, trialDaysLeft } from "@/lib/db/subscriptions";
+import { listRequestsForOrgViaSession } from "@/lib/db/materials";
+import { getSubscriptionForOrgViaSession, isSubscriptionWritable, trialDaysLeft } from "@/lib/db/subscriptions";
 import { can } from "@/lib/permissions";
 import AppShell from "@/components/app/AppShell";
 
@@ -22,11 +22,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let materialsBadge = 0;
   if (can(member.role, "approveRequests")) {
-    const requests = await listRequestsForOrg(member.orgId);
+    const requests = await listRequestsForOrgViaSession(member.orgId);
     materialsBadge = requests.filter((r) => r.status === "SUBMITTED").length;
   }
 
-  const subscription = await getSubscriptionForOrg(member.orgId);
+  const subscription = await getSubscriptionForOrgViaSession(member.orgId);
   const billing = {
     trialing: subscription.status === "TRIALING",
     daysLeft: trialDaysLeft(subscription),

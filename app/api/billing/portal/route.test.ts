@@ -11,7 +11,7 @@ vi.mock("@/lib/auth", async () => {
 });
 
 vi.mock("@/lib/db/subscriptions", () => ({
-  getSubscriptionForOrg: getSubscriptionForOrgMock,
+  getSubscriptionForOrgViaSession: getSubscriptionForOrgMock,
 }));
 
 vi.mock("@/lib/billing/stripe", () => ({

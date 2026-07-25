@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMemberByUserId } from "@/lib/db/organizations";
 import { can, type Permission } from "@/lib/permissions";
 import { logger, errorFields } from "@/lib/logger";
-import { getSubscriptionForOrg, isSubscriptionWritable } from "@/lib/db/subscriptions";
+import { getSubscriptionForOrgViaSession, isSubscriptionWritable } from "@/lib/db/subscriptions";
 import type { OrgMember } from "@/lib/db/types";
 
 export type CurrentMember = OrgMember;
@@ -47,7 +47,7 @@ export async function requireMember(permission?: Permission): Promise<CurrentMem
  */
 export async function requireWritableMember(permission?: Permission): Promise<CurrentMember> {
   const member = await requireMember(permission);
-  const sub = await getSubscriptionForOrg(member.orgId);
+  const sub = await getSubscriptionForOrgViaSession(member.orgId);
   if (!isSubscriptionWritable(sub)) {
     throw new ApiError(
       402,

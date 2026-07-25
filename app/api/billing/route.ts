@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireMember, apiErrorResponse } from "@/lib/auth";
-import { getSubscriptionForOrg, isSubscriptionWritable, planFor, trialDaysLeft } from "@/lib/db/subscriptions";
+import { getSubscriptionForOrgViaSession, isSubscriptionWritable, planFor, trialDaysLeft } from "@/lib/db/subscriptions";
 import { PLANS } from "@/lib/billing/plans";
 import { countActiveProjectsForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
@@ -9,7 +9,7 @@ import { countActiveMembersForOrg, countPendingInvitesForOrg } from "@/lib/db/te
 export async function GET() {
   try {
     const member = await requireMember("manageOrg");
-    const sub = await getSubscriptionForOrg(member.orgId);
+    const sub = await getSubscriptionForOrgViaSession(member.orgId);
     const [projects, workers, members, pendingInvites] = await Promise.all([
       countActiveProjectsForOrg(member.orgId),
       countActiveWorkersForOrg(member.orgId),

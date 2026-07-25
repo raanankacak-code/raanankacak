@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
 import { getProjectWithWorkers } from "@/lib/db/projects";
-import { getLatestReportForProject, countReportsForProject, listReports } from "@/lib/db/reports";
+import { getLatestReportForProject, countReportsForProject, listReportsViaSession } from "@/lib/db/reports";
 import { listRequestsForProject } from "@/lib/db/materials";
 import { can } from "@/lib/permissions";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
@@ -47,7 +47,7 @@ export default async function ProjectDetailPage({
   const [latestReport, reportCount, projectReports, projectRequests] = await Promise.all([
     getLatestReportForProject(id),
     countReportsForProject(id),
-    listReports(member.orgId, { projectId: id }),
+    listReportsViaSession(member.orgId, { projectId: id }),
     can(member.role, "viewMaterials") ? listRequestsForProject(id) : Promise.resolve([]),
   ]);
 

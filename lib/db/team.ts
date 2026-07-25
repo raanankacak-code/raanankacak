@@ -133,6 +133,18 @@ export async function listInvitesForOrg(orgId: string): Promise<OrgInvite[]> {
   return (data ?? []).map(mapInvite);
 }
 
+/** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+export async function listInvitesForOrgViaSession(orgId: string): Promise<OrgInvite[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
+    .from("org_invites")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("invited_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapInvite);
+}
+
 export async function getInviteByToken(token: string): Promise<OrgInvite | null> {
   const { data, error } = await createAdminClient()
     .from("org_invites")

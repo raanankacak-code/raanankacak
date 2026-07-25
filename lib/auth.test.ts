@@ -18,7 +18,7 @@ const getSubscriptionForOrgMock = vi.fn();
 
 vi.mock("@/lib/db/subscriptions", async () => {
   const actual = await vi.importActual<typeof import("@/lib/db/subscriptions")>("@/lib/db/subscriptions");
-  return { ...actual, getSubscriptionForOrg: getSubscriptionForOrgMock };
+  return { ...actual, getSubscriptionForOrgViaSession: getSubscriptionForOrgMock };
 });
 
 const { getCurrentMember, requireMember, requireWritableMember, ApiError, apiErrorResponse } =

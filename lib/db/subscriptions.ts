@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient as createSessionClient } from "@/lib/supabase/server";
 import { PLANS, TRIAL_DAYS, TRIAL_PLAN, type Plan, type PlanId } from "@/lib/billing/plans";
 
 export type SubscriptionStatus = "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
@@ -63,6 +64,26 @@ export async function getSubscriptionForOrg(orgId: string): Promise<OrgSubscript
     return mapSubscription(existing);
   }
   return mapSubscription(created);
+}
+
+/**
+ * Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in
+ * projects.ts) — reads through the session-bound client instead of the
+ * admin client. The lazy-create-on-first-access path stays on the admin
+ * client (there is no INSERT RLS policy for a session-scoped key, by
+ * design — see supabase/schema.sql), so this falls back to
+ * getSubscriptionForOrg only for that one-time, first-ever-access case.
+ */
+export async function getSubscriptionForOrgViaSession(orgId: string): Promise<OrgSubscription> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
+    .from("org_subscriptions")
+    .select("*")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  if (error) throw error;
+  if (data) return mapSubscription(data);
+  return getSubscriptionForOrg(orgId);
 }
 
 /**

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { getOrganizationById } from "@/lib/db/organizations";
-import { getSubscriptionForOrg, setStripeCustomerId } from "@/lib/db/subscriptions";
+import { getSubscriptionForOrgViaSession, setStripeCustomerId } from "@/lib/db/subscriptions";
 import { getStripeClient, priceIdForPlan } from "@/lib/billing/stripe";
 import { PLANS } from "@/lib/billing/plans";
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripeClient();
-    const sub = await getSubscriptionForOrg(member.orgId);
+    const sub = await getSubscriptionForOrgViaSession(member.orgId);
     const org = await getOrganizationById(member.orgId);
 
     let customerId = sub.stripeCustomerId;

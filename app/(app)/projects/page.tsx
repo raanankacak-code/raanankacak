@@ -1,6 +1,6 @@
 import { getCurrentMember } from "@/lib/auth";
 import { getOrganizationById } from "@/lib/db/organizations";
-import { listProjectsForOrg } from "@/lib/db/projects";
+import { listProjectsForOrgViaSession } from "@/lib/db/projects";
 import { can } from "@/lib/permissions";
 import { formatCurrency } from "@/lib/format";
 import ProjectsView from "./ProjectsView";
@@ -11,7 +11,7 @@ export default async function ProjectsPage() {
 
   const [org, projects] = await Promise.all([
     getOrganizationById(member.orgId),
-    listProjectsForOrg(member.orgId),
+    listProjectsForOrgViaSession(member.orgId),
   ]);
 
   const totalValue = projects.reduce((s, p) => s + (p.contractValue ? Number(p.contractValue) : 0), 0);

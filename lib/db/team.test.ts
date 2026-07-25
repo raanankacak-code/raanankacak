@@ -34,7 +34,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: createSessionClientMock,
 }));
 
-const { acceptInvite, listMembersForOrgViaSession } = await import("@/lib/db/team");
+const { acceptInvite, listMembersForOrgViaSession, listInvitesForOrgViaSession } = await import("@/lib/db/team");
 
 const NOW = Date.now();
 
@@ -159,5 +159,27 @@ describe("listMembersForOrgViaSession", () => {
     selectMock.mockReturnValue(makeChain({ data: null, error: new Error("query failed") }));
 
     await expect(listMembersForOrgViaSession("org-A")).rejects.toThrow("query failed");
+  });
+});
+
+describe("listInvitesForOrgViaSession", () => {
+  it("queries through the session-bound (RLS-subject) client, not the admin client", async () => {
+    await listInvitesForOrgViaSession("org-A");
+
+    expect(createSessionClientMock).toHaveBeenCalledTimes(1);
+    expect(createAdminClientMock).not.toHaveBeenCalled();
+    expect(fromMock).toHaveBeenCalledWith("org_invites");
+  });
+
+  it("still applies the org_id filter as defense in depth alongside RLS", async () => {
+    await listInvitesForOrgViaSession("org-A");
+
+    expect(eqMock).toHaveBeenCalledWith("org_id", "org-A");
+  });
+
+  it("propagates a query error instead of swallowing it", async () => {
+    selectMock.mockReturnValue(makeChain({ data: null, error: new Error("query failed") }));
+
+    await expect(listInvitesForOrgViaSession("org-A")).rejects.toThrow("query failed");
   });
 });

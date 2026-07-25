@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/auth";
-import { getSubscriptionForOrg, planFor } from "@/lib/db/subscriptions";
+import { getSubscriptionForOrgViaSession, planFor } from "@/lib/db/subscriptions";
 import { withinLimit } from "@/lib/billing/plans";
 import { countActiveProjectsForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
@@ -12,7 +12,7 @@ import { countActiveMembersForOrg, countPendingInvitesForOrg } from "@/lib/db/te
  */
 
 export async function assertCanCreateProject(orgId: string): Promise<void> {
-  const plan = planFor(await getSubscriptionForOrg(orgId));
+  const plan = planFor(await getSubscriptionForOrgViaSession(orgId));
   if (plan.maxActiveProjects === null) return;
   const current = await countActiveProjectsForOrg(orgId);
   if (!withinLimit(plan.maxActiveProjects, current)) {
@@ -24,7 +24,7 @@ export async function assertCanCreateProject(orgId: string): Promise<void> {
 }
 
 export async function assertCanAddWorker(orgId: string): Promise<void> {
-  const plan = planFor(await getSubscriptionForOrg(orgId));
+  const plan = planFor(await getSubscriptionForOrgViaSession(orgId));
   if (plan.maxWorkers === null) return;
   const current = await countActiveWorkersForOrg(orgId);
   if (!withinLimit(plan.maxWorkers, current)) {
@@ -36,7 +36,7 @@ export async function assertCanAddWorker(orgId: string): Promise<void> {
 }
 
 export async function assertCanAddTeamAccount(orgId: string): Promise<void> {
-  const plan = planFor(await getSubscriptionForOrg(orgId));
+  const plan = planFor(await getSubscriptionForOrgViaSession(orgId));
   if (plan.maxTeamAccounts === null) return;
   const [members, pendingInvites] = await Promise.all([
     countActiveMembersForOrg(orgId),
@@ -51,7 +51,7 @@ export async function assertCanAddTeamAccount(orgId: string): Promise<void> {
 }
 
 export async function assertCostReportsIncluded(orgId: string): Promise<void> {
-  const plan = planFor(await getSubscriptionForOrg(orgId));
+  const plan = planFor(await getSubscriptionForOrgViaSession(orgId));
   if (!plan.costReports) {
     throw new ApiError(402, `Cost reports are included from the Professional plan up. Upgrade on the Billing page to use them.`);
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { listInvitesForOrg, createInvite } from "@/lib/db/team";
+import { listInvitesForOrgViaSession, createInvite } from "@/lib/db/team";
 import { notify } from "@/lib/db/notifications";
 import { getOrganizationById } from "@/lib/db/organizations";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
@@ -35,7 +35,7 @@ const inviteSchema = z.object({
 export async function GET() {
   try {
     const member = await requireMember("manageUsers");
-    const invites = await listInvitesForOrg(member.orgId);
+    const invites = await listInvitesForOrgViaSession(member.orgId);
     return NextResponse.json({ invites });
   } catch (err) {
     return apiErrorResponse(err);

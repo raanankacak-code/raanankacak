@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { getSubscriptionForOrg, isSubscriptionWritable, planFor, trialDaysLeft } from "@/lib/db/subscriptions";
+import { getSubscriptionForOrgViaSession, isSubscriptionWritable, planFor, trialDaysLeft } from "@/lib/db/subscriptions";
 import { PLANS, type Plan } from "@/lib/billing/plans";
 import { priceIdForPlan } from "@/lib/billing/stripe";
 import { countActiveProjectsForOrg } from "@/lib/db/projects";
@@ -93,7 +93,7 @@ export default async function BillingPage({
   if (!member || !can(member.role, "manageOrg")) redirect("/dashboard");
 
   const { checkout } = await searchParams;
-  const sub = await getSubscriptionForOrg(member.orgId);
+  const sub = await getSubscriptionForOrgViaSession(member.orgId);
   const plan = planFor(sub);
   const writable = isSubscriptionWritable(sub);
   const daysLeft = trialDaysLeft(sub);
