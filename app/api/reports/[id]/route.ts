@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getReportById, updateReportStatus, deleteReport } from "@/lib/db/reports";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/db/auditLog";
+import { removeObjectsByUrl } from "@/lib/uploads";
 import { formatDate } from "@/lib/format";
 
 const updateSchema = z.object({
@@ -69,6 +70,7 @@ export async function DELETE(
     const existing = await getReportById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Report not found");
     await deleteReport(member.orgId, id);
+    await removeObjectsByUrl(member.orgId, existing.photos ?? []);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

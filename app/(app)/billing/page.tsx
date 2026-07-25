@@ -7,6 +7,7 @@ import { priceIdForPlan } from "@/lib/billing/stripe";
 import { countActiveProjectsForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
 import { countActiveMembersForOrg, countPendingInvitesForOrg } from "@/lib/db/team";
+import { sumStorageBytesForOrg } from "@/lib/uploads";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { UpgradeButton, ManageSubscriptionButton } from "@/components/app/billing/BillingActions";
 
@@ -14,15 +15,34 @@ function limitLabel(limit: number | null): string {
   return limit === null ? "Unlimited" : String(limit);
 }
 
-function UsageRow({ label, used, limit }: { label: string; used: number; limit: number | null }) {
+/** Bytes as a human-readable size, e.g. 1.4GB / 320MB / 0MB. */
+function formatBytes(bytes: number): string {
+  const gb = bytes / (1024 * 1024 * 1024);
+  if (gb >= 1) return `${Math.round(gb * 10) / 10}GB`;
+  return `${Math.round(bytes / (1024 * 1024))}MB`;
+}
+
+function UsageRow({
+  label,
+  used,
+  limit,
+  format,
+}: {
+  label: string;
+  used: number;
+  limit: number | null;
+  /** Renders counts as plain numbers by default; storage passes formatBytes. */
+  format?: (value: number) => string;
+}) {
   const pct = limit === null ? 0 : Math.min(100, Math.round((used / limit) * 100));
   const nearLimit = limit !== null && used >= limit * 0.8;
+  const show = format ?? String;
   return (
     <div style={{ display: "grid", gap: 6 }}>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <span className="small">{label}</span>
         <span className="num small" style={{ color: nearLimit ? "var(--amber-text)" : "inherit" }}>
-          {used} / {limitLabel(limit)}
+          {show(used)} / {limit === null ? "Unlimited" : show(limit)}
         </span>
       </div>
       {limit !== null && (
@@ -67,6 +87,7 @@ function PlanCard({
           <li>{limitLabel(plan.maxActiveProjects)} active projects</li>
           <li>{limitLabel(plan.maxWorkers)} workers on the roster</li>
           <li>{limitLabel(plan.maxTeamAccounts)} team accounts</li>
+          <li>{plan.maxStorageBytes === null ? "Unlimited" : formatBytes(plan.maxStorageBytes)} file storage</li>
           <li>{plan.costReports ? "Cost reports included" : "No cost reports"}</li>
           <li>{plan.customBranding ? "Custom branding" : "Standard branding"}</li>
         </ul>
@@ -98,11 +119,12 @@ export default async function BillingPage({
   const writable = isSubscriptionWritable(sub);
   const daysLeft = trialDaysLeft(sub);
 
-  const [projects, workers, members, pendingInvites] = await Promise.all([
+  const [projects, workers, members, pendingInvites, storageBytes] = await Promise.all([
     countActiveProjectsForOrg(member.orgId),
     countActiveWorkersForOrg(member.orgId),
     countActiveMembersForOrg(member.orgId),
     countPendingInvitesForOrg(member.orgId),
+    sumStorageBytesForOrg(member.orgId),
   ]);
 
   return (
@@ -175,6 +197,7 @@ export default async function BillingPage({
             <UsageRow label="Active projects" used={projects} limit={plan.maxActiveProjects} />
             <UsageRow label="Workers on roster" used={workers} limit={plan.maxWorkers} />
             <UsageRow label="Team accounts (incl. pending invites)" used={members + pendingInvites} limit={plan.maxTeamAccounts} />
+            <UsageRow label="File storage" used={storageBytes} limit={plan.maxStorageBytes} format={formatBytes} />
           </div>
         </div>
       </div>

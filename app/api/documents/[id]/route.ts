@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDocumentById, deleteDocument } from "@/lib/db/documents";
 import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { removeObjectsByUrl } from "@/lib/uploads";
 import { can } from "@/lib/permissions";
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +14,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       throw new ApiError(403, "Your role can't delete this document");
     }
     await deleteDocument(member.orgId, id);
+    await removeObjectsByUrl(member.orgId, [doc.url]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

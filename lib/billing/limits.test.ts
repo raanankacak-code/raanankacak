@@ -25,8 +25,19 @@ vi.mock("@/lib/db/team", () => ({
   countPendingInvitesForOrg: countPendingInvitesForOrgMock,
 }));
 
-const { assertCanCreateProject, assertCanAddWorker, assertCanAddTeamAccount, assertCostReportsIncluded } =
-  await import("@/lib/billing/limits");
+const sumStorageBytesForOrgMock = vi.fn();
+
+vi.mock("@/lib/uploads", () => ({
+  sumStorageBytesForOrg: sumStorageBytesForOrgMock,
+}));
+
+const {
+  assertCanCreateProject,
+  assertCanAddWorker,
+  assertCanAddTeamAccount,
+  assertCostReportsIncluded,
+  assertCanStoreFile,
+} = await import("@/lib/billing/limits");
 
 function subOnPlan(plan: OrgSubscription["plan"]): OrgSubscription {
   return {
@@ -117,5 +128,50 @@ describe("assertCostReportsIncluded", () => {
   it("passes on Professional", async () => {
     getSubscriptionForOrgMock.mockResolvedValue(subOnPlan("PROFESSIONAL"));
     await expect(assertCostReportsIncluded("org-1")).resolves.toBeUndefined();
+  });
+});
+
+describe("assertCanStoreFile", () => {
+  const GB = 1024 * 1024 * 1024;
+
+  beforeEach(() => {
+    sumStorageBytesForOrgMock.mockReset();
+  });
+
+  it("allows an upload that fits within the plan's cap", async () => {
+    getSubscriptionForOrgMock.mockResolvedValue(subOnPlan("STARTER")); // 25GB
+    sumStorageBytesForOrgMock.mockResolvedValue(10 * GB);
+
+    await expect(assertCanStoreFile("org-1", 1 * GB)).resolves.toBeUndefined();
+  });
+
+  it("refuses an upload that would cross the cap, counting the incoming file", async () => {
+    // 24GB used is under the 25GB cap, but a 2GB upload would exceed it —
+    // the check must include the file being uploaded, not just current usage.
+    getSubscriptionForOrgMock.mockResolvedValue(subOnPlan("STARTER"));
+    sumStorageBytesForOrgMock.mockResolvedValue(24 * GB);
+
+    await expect(assertCanStoreFile("org-1", 2 * GB)).rejects.toMatchObject({ status: 402 });
+  });
+
+  it("allows an upload that lands exactly on the cap", async () => {
+    getSubscriptionForOrgMock.mockResolvedValue(subOnPlan("STARTER"));
+    sumStorageBytesForOrgMock.mockResolvedValue(24 * GB);
+
+    await expect(assertCanStoreFile("org-1", 1 * GB)).resolves.toBeUndefined();
+  });
+
+  it("skips the usage lookup entirely on an unlimited plan", async () => {
+    getSubscriptionForOrgMock.mockResolvedValue(subOnPlan("BUSINESS"));
+
+    await expect(assertCanStoreFile("org-1", 500 * GB)).resolves.toBeUndefined();
+    expect(sumStorageBytesForOrgMock).not.toHaveBeenCalled();
+  });
+
+  it("names the plan and current usage so the message is actionable", async () => {
+    getSubscriptionForOrgMock.mockResolvedValue(subOnPlan("PROFESSIONAL")); // 100GB
+    sumStorageBytesForOrgMock.mockResolvedValue(99 * GB);
+
+    await expect(assertCanStoreFile("org-1", 5 * GB)).rejects.toThrow(/Professional.*100GB.*99GB used/);
   });
 });

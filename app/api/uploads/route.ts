@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { putObject } from "@/lib/uploads";
+import { assertCanStoreFile } from "@/lib/billing/limits";
 import { checkRateLimit } from "@/lib/rateLimit";
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20MB
@@ -57,6 +58,10 @@ export async function POST(request: Request) {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
       "text/plain": "txt",
     };
+    // Checked after the cheap type/size rejections above, since it costs a
+    // storage listing.
+    await assertCanStoreFile(member.orgId, file.size);
+
     const ext = EXT_BY_TYPE[file.type] || "bin";
     // Server-generated name: never trust file.name, which is client-supplied
     // and could carry path separators or a misleading double extension.

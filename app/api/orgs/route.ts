@@ -3,6 +3,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getMemberByUserId, createOrganizationWithOwner, updateOrganization } from "@/lib/db/organizations";
 import { apiErrorResponse, ApiError, requireWritableMember } from "@/lib/auth";
+import { getOrganizationById } from "@/lib/db/organizations";
+import { removeObjectsByUrl } from "@/lib/uploads";
+import { safeUrlSchema } from "@/lib/url-validation";
 
 const createOrgSchema = z.object({
   name: z.string().min(2).max(200),
@@ -78,7 +81,11 @@ const updateOrgSchema = z.object({
   country: z.string().max(60).optional(),
   currency: z.string().max(10).optional(),
   timezone: z.string().max(60).optional(),
-  logoUrl: z.string().max(500).nullable().optional(),
+  // Same scheme restriction as document/photo URLs — the logo is rendered
+  // as <img src> in the app shell on every page, so an unvalidated value
+  // here would be an injection point (and a plain http:// one would leak a
+  // hit to a third party on every page view).
+  logoUrl: safeUrlSchema.nullable().optional(),
 });
 
 /** Updates the signed-in member's company profile (Company Settings page). */
@@ -86,7 +93,17 @@ export async function PATCH(request: Request) {
   try {
     const member = await requireWritableMember("manageOrg");
     const body = updateOrgSchema.parse(await request.json());
+
+    // Replacing (or clearing) the logo orphans the previous one, since
+    // nothing else ever references it.
+    const previousLogoUrl =
+      body.logoUrl !== undefined ? (await getOrganizationById(member.orgId))?.logoUrl : undefined;
+
     const org = await updateOrganization(member.orgId, body);
+
+    if (previousLogoUrl && previousLogoUrl !== org.logoUrl) {
+      await removeObjectsByUrl(member.orgId, [previousLogoUrl]);
+    }
     return NextResponse.json({ org });
   } catch (err) {
     if (err instanceof z.ZodError) {

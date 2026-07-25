@@ -20,6 +20,10 @@ vi.mock("@/lib/uploads", () => ({
 
 vi.mock("@/lib/rateLimit", () => ({ checkRateLimit: checkRateLimitMock }));
 
+const assertCanStoreFileMock = vi.fn();
+
+vi.mock("@/lib/billing/limits", () => ({ assertCanStoreFile: assertCanStoreFileMock }));
+
 const { POST } = await import("@/app/api/uploads/route");
 const { GET } = await import("@/app/api/uploads/[...path]/route");
 
@@ -51,9 +55,12 @@ beforeEach(() => {
   getObjectMock.mockReset();
   checkRateLimitMock.mockReset();
 
+  assertCanStoreFileMock.mockReset();
+
   requireMemberMock.mockResolvedValue(MEMBER_ORG_A);
   checkRateLimitMock.mockReturnValue({ allowed: true });
   putObjectMock.mockResolvedValue(undefined);
+  assertCanStoreFileMock.mockResolvedValue(undefined);
 });
 
 describe("POST /api/uploads", () => {
@@ -106,6 +113,17 @@ describe("POST /api/uploads", () => {
     const res = await POST(uploadRequest(pngFile()));
 
     expect(res.status).toBe(429);
+    expect(putObjectMock).not.toHaveBeenCalled();
+  });
+
+  it("checks the storage quota against this file's size, and refuses when over", async () => {
+    const { ApiError } = await import("@/lib/auth");
+    assertCanStoreFileMock.mockRejectedValue(new ApiError(402, "over quota"));
+
+    const res = await POST(uploadRequest(pngFile(1234)));
+
+    expect(res.status).toBe(402);
+    expect(assertCanStoreFileMock).toHaveBeenCalledWith("org-A", 1234);
     expect(putObjectMock).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,9 @@ import { z } from "zod";
 import { getProjectById, getProjectWithWorkers, updateProject, deleteProject } from "@/lib/db/projects";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { recordAuditEvent } from "@/lib/db/auditLog";
+import { listDocumentsForProject } from "@/lib/db/documents";
+import { listReports } from "@/lib/db/reports";
+import { removeObjectsByUrl } from "@/lib/uploads";
 import { formatCurrency } from "@/lib/format";
 
 const updateSchema = z.object({
@@ -84,7 +87,18 @@ export async function DELETE(
     const member = await requireWritableMember("deleteProjects");
     const { id } = await params;
     await loadProjectOrThrow(member.orgId, id);
+
+    // Deleting the project cascades its documents and daily reports away, so
+    // collect the files they point at first — afterwards there is nothing
+    // left to tell us which objects belonged to this project.
+    const [documents, reports] = await Promise.all([
+      listDocumentsForProject(id),
+      listReports(member.orgId, { projectId: id }),
+    ]);
+    const fileUrls = [...documents.map((d) => d.url), ...reports.flatMap((r) => r.photos)];
+
     await deleteProject(member.orgId, id);
+    await removeObjectsByUrl(member.orgId, fileUrls);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

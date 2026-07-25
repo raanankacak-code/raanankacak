@@ -7,9 +7,13 @@ export interface PlanLimits {
   maxWorkers: number | null;
   /** Max active team members + pending invites; null = unlimited. */
   maxTeamAccounts: number | null;
+  /** Max total bytes of uploaded photos/documents/logos; null = unlimited. */
+  maxStorageBytes: number | null;
   costReports: boolean;
   customBranding: boolean;
 }
+
+const GB = 1024 * 1024 * 1024;
 
 export interface Plan extends PlanLimits {
   id: PlanId;
@@ -31,6 +35,7 @@ export const PLANS: Record<PlanId, Plan> = {
     maxActiveProjects: 3,
     maxWorkers: 25,
     maxTeamAccounts: 5,
+    maxStorageBytes: 25 * GB,
     costReports: false,
     customBranding: false,
   },
@@ -41,6 +46,7 @@ export const PLANS: Record<PlanId, Plan> = {
     maxActiveProjects: null,
     maxWorkers: 100,
     maxTeamAccounts: 20,
+    maxStorageBytes: 100 * GB,
     costReports: true,
     customBranding: true,
   },
@@ -51,6 +57,7 @@ export const PLANS: Record<PlanId, Plan> = {
     maxActiveProjects: null,
     maxWorkers: null,
     maxTeamAccounts: null,
+    maxStorageBytes: null,
     costReports: true,
     customBranding: true,
   },
