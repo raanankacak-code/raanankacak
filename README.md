@@ -103,12 +103,30 @@ itself with a warning if they're missing.
 
 ## File uploads
 
-Daily report photos are stored on local disk under `UPLOADS_DIR` (default
-`./uploads`, gitignored) and served back through `app/api/uploads/[...path]`,
-scoped per-org. This requires a **persistent, writable filesystem** — it
-works on a self-hosted Node server, VM, or container with a mounted volume,
-but **will not persist on ephemeral/serverless hosts like Vercel**. Swap for
-S3-compatible storage (e.g. Supabase Storage) later if you deploy serverless.
+Daily report photos, project documents and the company logo are stored in a
+**private** Supabase Storage bucket named `uploads`, keyed `{orgId}/{file}`.
+No local filesystem is involved, so the app runs fine on ephemeral or
+serverless hosts.
+
+The bucket has **no storage RLS policies**, which means the anon and
+authenticated keys cannot read it at all — the only way to reach a file is
+through `app/api/uploads/[...path]`, which checks that the caller's org
+matches the object's org prefix before streaming it back. That one check is
+what enforces tenant isolation for every file in the app, so stored URLs stay
+in the app's own `/api/uploads/...` form rather than pointing at storage
+directly (a public bucket would make every site photo world-readable; signed
+URLs expire, so they can't be what's persisted in the database).
+
+Uploads are capped at 20MB and restricted to an allow-list of image, PDF,
+Office and plain-text types, enforced both in the route and on the bucket
+itself. Filenames are always server-generated UUIDs — the client-supplied
+name is never used as a path.
+
+Creating the bucket on a fresh Supabase project:
+
+```js
+await admin.storage.createBucket("uploads", { public: false, fileSizeLimit: 20971520 });
+```
 
 ## Project structure
 

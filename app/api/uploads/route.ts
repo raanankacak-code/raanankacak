@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
-import { uploadsRoot } from "@/lib/uploads";
+import { putObject } from "@/lib/uploads";
 import { checkRateLimit } from "@/lib/rateLimit";
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20MB
@@ -21,16 +19,16 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 /**
- * Local-disk file storage (Phase 1). Requires a persistent, writable
- * filesystem — this will NOT persist on ephemeral/serverless hosts
- * (e.g. Vercel). Fine for a self-hosted Node server or a VM/container
- * with a mounted volume. Swap for S3-compatible storage later if needed.
+ * Accepts a file and stores it in the private Supabase Storage bucket under
+ * the caller's own org prefix. The returned URL points back at this app's
+ * download route rather than at storage directly, so every read stays behind
+ * the org check there — see lib/uploads.ts for why.
  */
 export async function POST(request: Request) {
   try {
     const member = await requireWritableMember();
-    // Uploads land on local disk with no per-org storage quota — cap request
-    // rate so one account can't fill the shared disk (affects every org).
+    // There is no per-org storage quota yet — cap request rate so one
+    // account can't run up unbounded storage cost for the whole project.
     const rateLimit = checkRateLimit(`upload:${member.id}`, 30, 10 * 60_000);
     if (!rateLimit.allowed) {
       throw new ApiError(429, "Too many uploads. Try again in a few minutes.");
@@ -44,7 +42,7 @@ export async function POST(request: Request) {
       throw new ApiError(400, "Unsupported file type");
     }
     if (file.size > MAX_BYTES) {
-      throw new ApiError(400, "File too large (max 8MB)");
+      throw new ApiError(400, `File too large (max ${MAX_BYTES / 1024 / 1024}MB)`);
     }
 
     const EXT_BY_TYPE: Record<string, string> = {
@@ -60,12 +58,12 @@ export async function POST(request: Request) {
       "text/plain": "txt",
     };
     const ext = EXT_BY_TYPE[file.type] || "bin";
+    // Server-generated name: never trust file.name, which is client-supplied
+    // and could carry path separators or a misleading double extension.
     const filename = `${randomUUID()}.${ext}`;
-    const orgDir = path.join(uploadsRoot(), member.orgId);
-    await mkdir(orgDir, { recursive: true });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(orgDir, filename), buffer);
+    await putObject(member.orgId, filename, buffer, file.type);
 
     return NextResponse.json(
       { url: `/api/uploads/${member.orgId}/${filename}` },

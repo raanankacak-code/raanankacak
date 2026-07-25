@@ -37,7 +37,7 @@ yarn-error.log*
 .env*
 !.env.example
 
-# local file uploads (Phase 1 storage)
+# legacy local upload dir (files now live in Supabase Storage — see README)
 /uploads
 
 # vercel
