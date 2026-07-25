@@ -11,6 +11,33 @@ const seed: SeedInfo = JSON.parse(readFileSync(SEED_INFO_PATH, "utf8"));
 // how a contractor would actually use the app end to end.
 test.describe.configure({ mode: "serial" });
 
+/**
+ * Fail loudly on a Content-Security-Policy violation anywhere in the flow.
+ *
+ * Without this a too-strict CSP shows up only indirectly — a blocked script
+ * means a dead button, which surfaces as a confusing timeout somewhere far
+ * from the cause. The browser reports the actual violation, so assert on it.
+ */
+test.beforeEach(async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (/Content Security Policy|Refused to (load|execute|apply)/i.test(text)) {
+      violations.push(text);
+    }
+  });
+  page.on("pageerror", (err) => violations.push(`pageerror: ${err.message}`));
+
+  // Playwright has no afterEach hook on `page`, so surface them at teardown
+  // of the fixture by attaching to the test's own info object.
+  (page as unknown as { __violations: string[] }).__violations = violations;
+});
+
+test.afterEach(async ({ page }) => {
+  const violations = (page as unknown as { __violations?: string[] }).__violations ?? [];
+  expect(violations, `CSP or page errors:\n${violations.join("\n")}`).toEqual([]);
+});
+
 test.describe("golden path: signup through approval", () => {
   test("dashboard loads for the seeded org", async ({ page }) => {
     await page.goto("/dashboard");

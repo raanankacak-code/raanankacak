@@ -11,25 +11,26 @@ a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
 
 - **Next.js 16** (App Router, TypeScript, Turbopack)
 - **Supabase** — Postgres database + Auth (email/password)
-- **supabase-js** (service-role client, server-only) — all data access; no ORM
+- **supabase-js**, no ORM — reads via a session-bound client (subject to RLS),
+  writes via a server-only service-role client
 - Plain CSS design system ported from the original prototype (no Tailwind)
 - **Supabase Storage** (private bucket) for uploaded photos/documents/logos
 
-## Phase 1 scope
+## What's built
 
-The current build covers the core daily-use loop end to end:
-
-- Sign up (creates a company workspace, you become Owner) / sign in
-- Multi-tenant orgs with role-based permissions (`lib/permissions.ts`)
-- Projects — create/edit/delete, worker roster per project
+- Sign up (creates a company workspace, you become Owner) / sign in / invites
+- Multi-tenant orgs with role-based permissions (`lib/permissions.ts`),
+  enforced in the app *and* by Postgres row-level security
+- Projects — create/edit/delete, worker roster, documents, cost reports
 - Daily reports — weather, manpower by trade, work completed, site photos
 - Attendance — daily check-in grid (Present/Half/Absent), CIDB Green Card
-  expiry flags
-
-Not yet built (from the original design): materials/procurement, calendar,
-team invitations UI, company settings UI, notifications, global search, help
-center. The data model and permission system are already set up to extend
-into these.
+  expiry flags, monthly summary + CSV export
+- Materials/procurement with an approval workflow and full audit trail
+- Calendar, notifications, team management, company settings, global search,
+  help centre, bug reports
+- Billing — trials, plan limits, Stripe checkout and webhooks, read-only mode
+  when a subscription lapses
+- Audit log (append-only at the database level)
 
 ## Setup
 
@@ -168,6 +169,72 @@ setErrorReporter((err, context) => Sentry.captureException(err, { extra: context
 
 No SDK is installed yet: one that isn't configured is just weight in the
 bundle.
+
+## Deploying
+
+The app runs as a normal Node server (`npm run build && npm run start`). No
+persistent filesystem is needed — uploads live in Supabase Storage.
+
+### Put it behind a reverse proxy, and don't expose it directly
+
+This matters for more than TLS. Route Handlers expose no socket address, so
+`X-Forwarded-For` is the only client-IP signal available, and every IP-keyed
+rate limit depends on it. If clients can reach the app directly they control
+that header outright and can bypass those limits by rotating it.
+
+- Bind the app to localhost (or a private network) and let the proxy be the
+  only way in.
+- Set `TRUSTED_PROXY_HOPS` to the number of proxies in front of the app —
+  `1` for a single nginx/Caddy, `2` behind a CDN as well. The client IP is
+  read that many entries in from the right of the header; anything to the
+  left is caller-supplied and ignored.
+
+### One instance, for now
+
+Rate limiting keeps its buckets in process memory. Each replica would enforce
+its own budget, so N replicas means roughly N times every limit, and a
+restart forgets them. Run a single instance until that moves to a shared
+store (Redis/Upstash); the app logs a warning at boot in production as a
+reminder, silenced with `RATE_LIMIT_MULTI_INSTANCE_ACK=1`.
+
+### Required configuration
+
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
+`SUPABASE_SERVICE_ROLE_KEY` are checked at boot — the server refuses to start
+without them rather than failing on a user's first request. Everything else
+in `.env.example` is optional and degrades gracefully (no Stripe key means
+the Billing page says "contact support"; no Resend key means invites still
+work but send no email).
+
+The `uploads` storage bucket must exist — see **File uploads** above.
+
+### Security headers
+
+Set in `next.config.ts` (static) and `proxy.ts` (the per-request CSP):
+HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`,
+`Permissions-Policy`, and a Content-Security-Policy whose `script-src` uses a
+per-request nonce with `strict-dynamic`.
+
+Two consequences worth knowing:
+
+- **Every page is dynamically rendered** (`export const dynamic` in
+  `app/layout.tsx`). Nonces can only be applied while server-rendering, and
+  under `strict-dynamic` a nonce-less script is simply blocked — a
+  prerendered page would ship with no working JavaScript.
+- **`style-src` allows `'unsafe-inline'`.** The UI sets React `style` props
+  throughout, which render as inline style attributes a nonce cannot cover.
+  Locking this down would mean restyling the app; the exposure is style
+  injection, not code execution, and scripts stay strict.
+
+The e2e suite asserts that no CSP violation or page error occurs during the
+golden path, so tightening the policy too far fails the build rather than
+silently breaking a button in production.
+
+### Health check
+
+`GET /api/health` returns `{ status, db, latencyMs }` and actually queries the
+database, so it fails when Postgres is unreachable rather than only when the
+process is dead. Point your load balancer or uptime monitor at it.
 
 ## Project structure
 

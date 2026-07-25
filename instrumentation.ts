@@ -12,14 +12,44 @@ import { reportError, logger } from "@/lib/logger";
  * logs to say what broke.
  */
 
+/** Config the app cannot serve a single request without. */
+const REQUIRED_ENV = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+] as const;
+
 export function register() {
   // Where a hosted error tracker gets initialised, e.g.
   //   setErrorReporter((err, ctx) => Sentry.captureException(err, { extra: ctx }))
   // Nothing is configured yet, so this deliberately stays a no-op rather than
   // shipping an inert SDK.
+
+  // Fail at boot rather than on the first user request. A missing key
+  // otherwise surfaces as an opaque runtime error somewhere deep in a route,
+  // long after the deploy looked successful.
+  const missing = REQUIRED_ENV.filter((name) => !process.env[name]);
+  if (missing.length > 0) {
+    const message = `Missing required environment variable(s): ${missing.join(", ")}. See .env.example.`;
+    logger.error("Startup configuration invalid", { missing });
+    throw new Error(message);
+  }
+
+  // The rate limiter keeps its buckets in this process's memory, so each
+  // replica enforces its own budget and every restart forgets them — N
+  // replicas means roughly N times the intended limit. Fine for the
+  // single-instance deployment this is built for; say so loudly otherwise.
+  if (process.env.NODE_ENV === "production" && process.env.RATE_LIMIT_MULTI_INSTANCE_ACK !== "1") {
+    logger.warn("Rate limiting is per-process", {
+      detail:
+        "In-memory buckets are not shared between instances. Running more than one replica multiplies every limit — move to a shared store (Redis/Upstash) before scaling out. Set RATE_LIMIT_MULTI_INSTANCE_ACK=1 to silence.",
+    });
+  }
+
   logger.info("Server starting", {
     runtime: process.env.NEXT_RUNTIME,
     nodeEnv: process.env.NODE_ENV,
+    trustedProxyHops: Number(process.env.TRUSTED_PROXY_HOPS ?? "1"),
   });
 }
 
