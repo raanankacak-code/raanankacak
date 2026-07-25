@@ -13,7 +13,7 @@ a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
 - **Supabase** — Postgres database + Auth (email/password)
 - **supabase-js** (service-role client, server-only) — all data access; no ORM
 - Plain CSS design system ported from the original prototype (no Tailwind)
-- Local-disk file storage for uploaded photos/logos (Phase 1 — see below)
+- **Supabase Storage** (private bucket) for uploaded photos/documents/logos
 
 ## Phase 1 scope
 
@@ -59,10 +59,14 @@ Fill in `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
 
 Open `supabase/schema.sql` and run its contents in the Supabase SQL Editor
 (Project → SQL Editor → New query). This creates the tables, enums, and
-indexes the app expects, with RLS enabled and no public policies — all data
-access goes through the server-only service-role client (`lib/supabase/admin.ts`),
-which bypasses RLS, so the app's own auth/permission checks in `lib/auth.ts`
-and `lib/permissions.ts` are what actually gate access.
+indexes the app expects, along with the row-level security policies.
+
+Every tenant-scoped **read** goes through a session-bound client (anon key +
+the caller's JWT), so those RLS policies are load-bearing: a query that lost
+its `org_id` filter would still only ever return the caller's own org's rows.
+**Writes** use the server-only service-role client (`lib/supabase/admin.ts`),
+which bypasses RLS, so the app's own checks in `lib/auth.ts` and
+`lib/permissions.ts` are what gate those.
 
 ### 4. Run the app
 
@@ -127,6 +131,43 @@ Creating the bucket on a fresh Supabase project:
 ```js
 await admin.storage.createBucket("uploads", { public: false, fileSizeLimit: 20971520 });
 ```
+
+## Logging & error tracking
+
+Server code logs one JSON object per line (`lib/logger.ts`), so any collector
+(Docker, journald, CloudWatch, Loki) can parse fields without regexes.
+
+Unexpected failures reach the logs two ways:
+
+- **API routes** funnel through `apiErrorResponse`, which logs the full stack
+  under a random `errorId` and returns only that id to the client. A user
+  quoting the id (e.g. via the bug-report form) is enough to find the exact
+  trace.
+- **Everything else** — errors thrown while rendering a page or Server
+  Component, or inside the proxy — is caught by `onRequestError` in
+  `instrumentation.ts`, which adds the route path, method and route type.
+  Without it those failed with a generic error page and nothing in the logs.
+
+Requests that end because the **caller went away** (navigated mid-fetch,
+closed the tab, lost signal on site) are logged at `info` with
+`reason: "client-disconnect"`, not as errors. They are routine on a
+mobile-heavy app, and counting them as errors would bury real failures — this
+was the recurring `aborted`/`ECONNRESET` noise visible in every test run.
+
+### Adding a hosted error tracker
+
+`lib/logger.ts` exposes one seam, `setErrorReporter`. Call it once from
+`register()` in `instrumentation.ts` and every `reportError` call site starts
+reporting — no per-route wiring, and client disconnects are filtered out for
+you:
+
+```ts
+import * as Sentry from "@sentry/nextjs";
+setErrorReporter((err, context) => Sentry.captureException(err, { extra: context }));
+```
+
+No SDK is installed yet: one that isn't configured is just weight in the
+bundle.
 
 ## Project structure
 

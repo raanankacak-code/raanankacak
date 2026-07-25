@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getMemberByUserId } from "@/lib/db/organizations";
 import { can, type Permission } from "@/lib/permissions";
-import { logger, errorFields } from "@/lib/logger";
+import { reportError, isClientDisconnect } from "@/lib/logger";
 import { getSubscriptionForOrgViaSession, isSubscriptionWritable } from "@/lib/db/subscriptions";
 import type { OrgMember } from "@/lib/db/types";
 
@@ -63,10 +63,19 @@ export function apiErrorResponse(err: unknown) {
   if (err instanceof ApiError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
+  // The caller hung up mid-request: there is nobody left to receive a
+  // response and nothing went wrong, so don't mint a correlation id or raise
+  // an alert for it. 499 is nginx's "client closed request" — never actually
+  // delivered, but it keeps access logs honest about what happened.
+  if (isClientDisconnect(err)) {
+    reportError("Unhandled API error", err);
+    return NextResponse.json({ error: "Client closed request" }, { status: 499 });
+  }
+
   // Unexpected error: log the full detail server-side under a correlation id,
   // and return only that id to the client — a user quoting it (e.g. via the
   // bug-report form) lets us find the exact stack trace in the logs.
   const errorId = randomUUID();
-  logger.error("Unhandled API error", { errorId, ...errorFields(err) });
+  reportError("Unhandled API error", err, { errorId });
   return NextResponse.json({ error: "Internal server error", errorId }, { status: 500 });
 }

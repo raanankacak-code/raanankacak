@@ -162,3 +162,48 @@ describe("apiErrorResponse", () => {
     expect(a.errorId).not.toBe(b.errorId);
   });
 });
+
+describe("apiErrorResponse: client disconnects", () => {
+  it("does not mint a correlation id or log an error when the caller hung up", async () => {
+    // A browser navigating away mid-request is routine. Treating it as a
+    // server error would make it the loudest thing in the error stream.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const infoSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const res = apiErrorResponse(new Error("aborted"));
+    const body = await res.json();
+
+    expect(res.status).toBe(499);
+    expect(body.errorId).toBeUndefined();
+    expect(errorSpy).not.toHaveBeenCalled();
+    const parsed = JSON.parse(infoSpy.mock.calls[0][0] as string);
+    expect(parsed.level).toBe("info");
+    expect(parsed.reason).toBe("client-disconnect");
+
+    errorSpy.mockRestore();
+    infoSpy.mockRestore();
+  });
+
+  it("treats ECONNRESET the same way", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const res = apiErrorResponse(Object.assign(new Error("socket hang up"), { code: "ECONNRESET" }));
+
+    expect(res.status).toBe(499);
+    expect(errorSpy).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it("still returns 500 with a correlation id for a genuine failure", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = apiErrorResponse(new Error("column does not exist"));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.errorId).toEqual(expect.any(String));
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
+  });
+});
