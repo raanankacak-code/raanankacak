@@ -32,7 +32,7 @@ const createSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const member = await requireWritableMember();
+    const member = await requireWritableMember("manageCalendar");
     const body = createSchema.parse(await request.json());
     if (body.projectId) {
       const project = await getProjectById(member.orgId, body.projectId);

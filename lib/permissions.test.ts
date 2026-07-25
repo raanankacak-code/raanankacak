@@ -84,3 +84,53 @@ describe("can()", () => {
     expect(can("NOT_A_REAL_ROLE" as Role, "manageProjects")).toBe(false);
   });
 });
+
+describe("manageCalendar", () => {
+  it("is granted only to the roles that run the schedule", () => {
+    for (const role of ["OWNER", "ADMIN", "PROJECT_MANAGER", "SITE_SUPERVISOR"] as const) {
+      expect(can(role, "manageCalendar"), role).toBe(true);
+    }
+  });
+
+  it("is withheld from every read-oriented and specialist role", () => {
+    // Verified live before this existed: with no permission check on the
+    // calendar routes, a Viewer could create, edit and delete the whole
+    // company's calendar despite being documented as having no editing
+    // rights.
+    for (const role of [
+      "VIEWER",
+      "FINANCE",
+      "QUANTITY_SURVEYOR",
+      "SAFETY_OFFICER",
+      "STOREKEEPER",
+      "ENGINEER",
+    ] as const) {
+      expect(can(role, "manageCalendar"), role).toBe(false);
+    }
+  });
+});
+
+describe("VIEWER is genuinely read-only", () => {
+  it("holds no permission that mutates company data", () => {
+    const mutating = [
+      "manageProjects",
+      "deleteProjects",
+      "manageWorkers",
+      "submitReports",
+      "reviewReports",
+      "takeAttendance",
+      "manageOrg",
+      "manageUsers",
+      "updateProgress",
+      "approveRequests",
+      "submitRequests",
+      "uploadDocs",
+      "manageDocs",
+      "manageCalendar",
+    ] as const;
+
+    for (const permission of mutating) {
+      expect(can("VIEWER", permission), permission).toBe(false);
+    }
+  });
+});

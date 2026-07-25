@@ -20,7 +20,7 @@ const patchSchema = z.object({
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireWritableMember();
+    const member = await requireWritableMember("manageCalendar");
     const { id } = await params;
     const existing = await getEventById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Event not found");
@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const member = await requireWritableMember();
+    const member = await requireWritableMember("manageCalendar");
     const { id } = await params;
     const existing = await getEventById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Event not found");

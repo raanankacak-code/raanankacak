@@ -30,6 +30,7 @@ export type Permission =
   | "uploadDocs"
   | "manageDocs"
   | "costReports"
+  | "manageCalendar"
   | "viewAuditLog";
 
 /** Role -> permission matrix, mirroring the BinaWorks design prototype's ROLE_PERMS. */
@@ -51,6 +52,7 @@ const MATRIX: Record<Role, Permission[]> = {
     "uploadDocs",
     "costReports",
     "manageOrg",
+    "manageCalendar",
     "viewAuditLog",
   ],
   ADMIN: [
@@ -61,6 +63,7 @@ const MATRIX: Record<Role, Permission[]> = {
     "manageDocs",
     "uploadDocs",
     "manageOrg",
+    "manageCalendar",
     "viewAuditLog",
   ],
   PROJECT_MANAGER: [
@@ -71,8 +74,16 @@ const MATRIX: Record<Role, Permission[]> = {
     "viewReports",
     "manageWorkers",
     "viewMaterials",
+    "manageCalendar",
   ],
-  SITE_SUPERVISOR: ["submitReports", "takeAttendance", "submitRequests", "viewReports", "viewMaterials"],
+  SITE_SUPERVISOR: [
+    "submitReports",
+    "takeAttendance",
+    "submitRequests",
+    "viewReports",
+    "viewMaterials",
+    "manageCalendar",
+  ],
   ENGINEER: ["viewReports", "submitReports", "uploadDocs", "updateProgress"],
   QUANTITY_SURVEYOR: ["viewMaterials", "costReports"],
   SAFETY_OFFICER: ["viewReports", "submitReports"],
@@ -109,6 +120,7 @@ export const PERM_LABELS: [Permission, string][] = [
   ["uploadDocs", "Upload Documents"],
   ["manageDocs", "Manage Documents"],
   ["costReports", "Cost Reports"],
+  ["manageCalendar", "Manage Calendar"],
   ["viewAuditLog", "View Audit Log"],
 ];
 

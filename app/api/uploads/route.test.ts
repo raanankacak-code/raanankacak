@@ -31,9 +31,10 @@ const MEMBER_ORG_A: OrgMember = {
   id: "member-1",
   orgId: "org-A",
   userId: "user-1",
-  name: "Org A Manager",
-  email: "manager@org-a.test",
-  role: "PROJECT_MANAGER",
+  name: "Org A Engineer",
+  email: "engineer@org-a.test",
+  // ENGINEER has uploadDocs + submitReports, so it can legitimately upload.
+  role: "ENGINEER",
   active: true,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -186,5 +187,49 @@ describe("GET /api/uploads/[...path]", () => {
 
     expect(res.headers.get("Content-Disposition")).toBe("attachment");
     expect(res.headers.get("Content-Type")).toBe("application/octet-stream");
+  });
+});
+
+describe("POST /api/uploads: role gate", () => {
+  function memberWithRole(role: OrgMember["role"]): OrgMember {
+    return { ...MEMBER_ORG_A, role };
+  }
+
+  it("refuses a role that cannot attach a file anywhere", async () => {
+    // A Viewer is documented as read-only for clients, consultants and
+    // auditors. Storing bytes it could never attach only burns the org's
+    // storage quota.
+    requireMemberMock.mockResolvedValue(memberWithRole("VIEWER"));
+
+    const res = await POST(uploadRequest(pngFile()));
+
+    expect(res.status).toBe(403);
+    expect(putObjectMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses Finance and Quantity Surveyor for the same reason", async () => {
+    for (const role of ["FINANCE", "QUANTITY_SURVEYOR"] as const) {
+      putObjectMock.mockClear();
+      requireMemberMock.mockResolvedValue(memberWithRole(role));
+
+      const res = await POST(uploadRequest(pngFile()));
+
+      expect(res.status, role).toBe(403);
+      expect(putObjectMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("allows the roles that do attach files", async () => {
+    // Owner (logo + everything), Engineer (documents), Site Supervisor
+    // (daily report photos).
+    for (const role of ["OWNER", "ENGINEER", "SITE_SUPERVISOR"] as const) {
+      putObjectMock.mockClear();
+      requireMemberMock.mockResolvedValue(memberWithRole(role));
+
+      const res = await POST(uploadRequest(pngFile()));
+
+      expect(res.status, role).toBe(201);
+      expect(putObjectMock).toHaveBeenCalledTimes(1);
+    }
   });
 });

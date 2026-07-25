@@ -4,6 +4,7 @@ import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { putObject } from "@/lib/uploads";
 import { assertCanStoreFile } from "@/lib/billing/limits";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { can } from "@/lib/permissions";
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20MB
 const ALLOWED_TYPES = new Set([
@@ -28,8 +29,22 @@ const ALLOWED_TYPES = new Set([
 export async function POST(request: Request) {
   try {
     const member = await requireWritableMember();
-    // There is no per-org storage quota yet — cap request rate so one
-    // account can't run up unbounded storage cost for the whole project.
+
+    // This route only stores bytes; attaching them to a document, report or
+    // company logo is permission-checked separately. But a role that can't
+    // attach a file anywhere has no reason to store one either, and letting
+    // it would let a read-only account burn the org's storage quota.
+    const canAttachSomewhere =
+      can(member.role, "uploadDocs") ||
+      can(member.role, "manageDocs") ||
+      can(member.role, "submitReports") ||
+      can(member.role, "manageOrg");
+    if (!canAttachSomewhere) {
+      throw new ApiError(403, "Your role can't upload files");
+    }
+
+    // Rate-limit regardless of the storage quota below: that quota is a
+    // ceiling, not a defence against one account churning through it.
     const rateLimit = checkRateLimit(`upload:${member.id}`, 30, 10 * 60_000);
     if (!rateLimit.allowed) {
       throw new ApiError(429, "Too many uploads. Try again in a few minutes.");
