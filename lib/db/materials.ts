@@ -65,6 +65,84 @@ export async function listRequestsForOrgViaSession(
   }));
 }
 
+/**
+ * Counts requests per status without fetching a single row.
+ *
+ * The dashboard, the sidebar badge and the cost report all used to fetch the
+ * whole list and count it in JavaScript. PostgREST caps an unbounded select
+ * at 1000 rows and reports no error when it does, so past that point those
+ * numbers silently under-reported — a contractor with 3000 requests could be
+ * shown 12 pending approvals when they had 40. Counting in the database is
+ * both correct at any size and far cheaper.
+ */
+export async function countRequestsByStatusForOrg(
+  orgId: string,
+): Promise<Record<MaterialRequestStatus, number>> {
+  const supabase = await createSessionClient();
+  const statuses: MaterialRequestStatus[] = [
+    "DRAFT",
+    "SUBMITTED",
+    "APPROVED",
+    "REJECTED",
+    "ORDERED",
+    "DELIVERED",
+  ];
+
+  const results = await Promise.all(
+    statuses.map(async (status) => {
+      const { count, error } = await supabase
+        .from("material_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", status);
+      if (error) throw error;
+      return [status, count ?? 0] as const;
+    }),
+  );
+
+  return Object.fromEntries(results) as Record<MaterialRequestStatus, number>;
+}
+
+/** Requests needed within `throughDate` that are still outstanding. */
+export async function countUrgentRequestsForOrg(orgId: string, throughDate: string): Promise<number> {
+  const supabase = await createSessionClient();
+  const { count, error } = await supabase
+    .from("material_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .lte("needed_by", throughDate)
+    .not("status", "in", "(DELIVERED,REJECTED)");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Per-project counts for the cost report, so its figures stay right at any size. */
+export async function countRequestsByStatusForProject(
+  projectId: string,
+): Promise<Record<MaterialRequestStatus, number>> {
+  const supabase = createAdminClient();
+  const statuses: MaterialRequestStatus[] = [
+    "DRAFT",
+    "SUBMITTED",
+    "APPROVED",
+    "REJECTED",
+    "ORDERED",
+    "DELIVERED",
+  ];
+  const results = await Promise.all(
+    statuses.map(async (status) => {
+      const { count, error } = await supabase
+        .from("material_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("project_id", projectId)
+        .eq("status", status);
+      if (error) throw error;
+      return [status, count ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(results) as Record<MaterialRequestStatus, number>;
+}
+
 export async function listRequestsForProject(projectId: string): Promise<MaterialRequest[]> {
   const { data, error } = await createAdminClient()
     .from("material_requests")

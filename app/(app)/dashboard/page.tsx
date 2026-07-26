@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth";
 import { getOrganizationById } from "@/lib/db/organizations";
-import { listProjectsForOrgViaSession } from "@/lib/db/projects";
+import { listProjectsForOrgViaSession, countProjectsByStatusForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
 import { listAttendanceForOrgDate, sumLaborCostForOrg } from "@/lib/db/attendance";
 import { listRecentReportsForOrg, listReportsViaSession } from "@/lib/db/reports";
-import { listRequestsForOrgViaSession } from "@/lib/db/materials";
+import { countRequestsByStatusForOrg, countUrgentRequestsForOrg } from "@/lib/db/materials";
 import { listEventsForOrgViaSession } from "@/lib/db/calendar";
 import { listNotificationsForOrgViaSession } from "@/lib/db/notifications";
 import { can } from "@/lib/permissions";
@@ -35,7 +35,20 @@ export default async function DashboardPage() {
   const member = await getCurrentMember();
   if (!member) return null;
 
-  const [org, projects, workerCount, todaysAttendance, recentReports, allReports, requests, events, notifications, laborCost] =
+  const [
+    org,
+    projects,
+    workerCount,
+    todaysAttendance,
+    recentReports,
+    allReports,
+    events,
+    notifications,
+    laborCost,
+    projectCounts,
+    requestCounts,
+    urgentRequestCount,
+  ] =
     await Promise.all([
       getOrganizationById(member.orgId),
       listProjectsForOrgViaSession(member.orgId),
@@ -43,10 +56,19 @@ export default async function DashboardPage() {
       listAttendanceForOrgDate(member.orgId, todayISO()),
       listRecentReportsForOrg(member.orgId, 6),
       listReportsViaSession(member.orgId, { from: daysAgo(6) }),
-      can(member.role, "viewMaterials") ? listRequestsForOrgViaSession(member.orgId) : Promise.resolve([]),
       listEventsForOrgViaSession(member.orgId, { from: todayISO(), to: daysAhead(30) }),
       listNotificationsForOrgViaSession(member.orgId, 6),
       sumLaborCostForOrg(member.orgId),
+      // Counted in the database. Filtering the fetched lists below would be
+      // wrong for any workspace past 1000 rows, since an unbounded select is
+      // silently capped there.
+      countProjectsByStatusForOrg(member.orgId),
+      can(member.role, "viewMaterials")
+        ? countRequestsByStatusForOrg(member.orgId)
+        : Promise.resolve(null),
+      can(member.role, "viewMaterials")
+        ? countUrgentRequestsForOrg(member.orgId, daysAhead(2))
+        : Promise.resolve(0),
     ]);
 
   if (projects.length === 0) {
@@ -74,8 +96,9 @@ export default async function DashboardPage() {
     );
   }
 
-  const activeProjects = projects.filter((p) => p.status === "ACTIVE");
-  const completedProjects = projects.filter((p) => p.status === "COMPLETED");
+  const totalProjectCount = Object.values(projectCounts).reduce((a, b) => a + b, 0);
+  const activeProjectCount = projectCounts.ACTIVE;
+  const completedProjectCount = projectCounts.COMPLETED;
   const presentToday = todaysAttendance.filter((a) => a.status === "PRESENT" || a.status === "HALF_DAY").length;
   const absentToday = todaysAttendance.filter((a) => a.status === "ABSENT").length;
   const halfDayToday = todaysAttendance.filter((a) => a.status === "HALF_DAY").length;
@@ -85,12 +108,9 @@ export default async function DashboardPage() {
   const totalContractValue = ongoingProjects.reduce((sum, p) => sum + (p.contractValue ? Number(p.contractValue) : 0), 0);
   const budgetUsage = totalContractValue ? Math.min(100, Math.round((laborCost / totalContractValue) * 100)) : 0;
 
-  const pendingRequests = requests.filter((r) => r.status === "SUBMITTED");
-  const approvedRequests = requests.filter((r) => r.status === "APPROVED");
-  const rejectedRequests = requests.filter((r) => r.status === "REJECTED");
-  const urgentRequests = requests.filter(
-    (r) => r.neededBy && r.neededBy.toISOString().slice(0, 10) <= daysAhead(2) && !["DELIVERED", "REJECTED"].includes(r.status),
-  );
+  const pendingRequestCount = requestCounts?.SUBMITTED ?? 0;
+  const approvedRequestCount = requestCounts?.APPROVED ?? 0;
+  const rejectedRequestCount = requestCounts?.REJECTED ?? 0;
 
   const todayReportsCount = allReports.filter((r) => r.date.toISOString().slice(0, 10) === todayISO()).length;
   const weekReportsCount = allReports.length;
@@ -135,22 +155,22 @@ export default async function DashboardPage() {
       <div className="kpis">
         <div className="kpi" style={{ ["--kpi-c" as string]: "var(--amber)" }}>
           <div className="k-lbl">Total Projects</div>
-          <div className="k-val">{projects.length}</div>
+          <div className="k-val">{totalProjectCount}</div>
           <div className="k-sub">{formatCurrency(totalContractValue)} under management</div>
         </div>
         <div className="kpi" style={{ ["--kpi-c" as string]: "var(--ok)" }}>
           <div className="k-lbl">Active Projects</div>
-          <div className="k-val">{activeProjects.length}</div>
-          <div className="k-sub">{completedProjects.length} completed</div>
+          <div className="k-val">{activeProjectCount}</div>
+          <div className="k-sub">{completedProjectCount} completed</div>
         </div>
         <div className="kpi" style={{ ["--kpi-c" as string]: "var(--info)" }}>
           <div className="k-lbl">Workers Today</div>
           <div className="k-val">{presentToday}</div>
           <div className="k-sub">of {workerCount} on roster</div>
         </div>
-        <div className="kpi" style={{ ["--kpi-c" as string]: pendingRequests.length ? "var(--bad)" : "var(--ok)" }}>
+        <div className="kpi" style={{ ["--kpi-c" as string]: pendingRequestCount ? "var(--bad)" : "var(--ok)" }}>
           <div className="k-lbl">Pending Requests</div>
-          <div className="k-val">{pendingRequests.length}</div>
+          <div className="k-val">{pendingRequestCount}</div>
           <div className="k-sub">awaiting decision</div>
         </div>
         <div className="kpi" style={{ ["--kpi-c" as string]: "var(--info)" }}>
@@ -310,10 +330,10 @@ export default async function DashboardPage() {
               <div className="card-b">
                 <div className="mini-cards">
                   {[
-                    { l: "Pending", v: pendingRequests.length, c: "var(--amber-deep)" },
-                    { l: "Approved", v: approvedRequests.length, c: "var(--info)" },
-                    { l: "Rejected", v: rejectedRequests.length, c: "var(--bad)" },
-                    { l: "Urgent", v: urgentRequests.length, c: "var(--bad)" },
+                    { l: "Pending", v: pendingRequestCount, c: "var(--amber-deep)" },
+                    { l: "Approved", v: approvedRequestCount, c: "var(--info)" },
+                    { l: "Rejected", v: rejectedRequestCount, c: "var(--bad)" },
+                    { l: "Urgent", v: urgentRequestCount, c: "var(--bad)" },
                   ].map((c) => (
                     <Link key={c.l} href="/materials" className="mini-card">
                       <div className="mc-l">{c.l}</div>

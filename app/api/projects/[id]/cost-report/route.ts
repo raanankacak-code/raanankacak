@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getProjectById } from "@/lib/db/projects";
 import { listActiveWorkersForOrgViaSession } from "@/lib/db/workers";
 import { sumLaborCostForProject, getDaysWorkedByWorkerForProject } from "@/lib/db/attendance";
-import { listRequestsForProject } from "@/lib/db/materials";
+import { countRequestsByStatusForProject } from "@/lib/db/materials";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { assertCostReportsIncluded } from "@/lib/billing/limits";
 
@@ -14,17 +14,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const project = await getProjectById(member.orgId, projectId);
     if (!project) throw new ApiError(404, "Project not found");
 
-    const [workers, laborCost, daysByWorker, requests] = await Promise.all([
+    const [workers, laborCost, daysByWorker, requestCounts] = await Promise.all([
       listActiveWorkersForOrgViaSession(member.orgId, projectId),
       sumLaborCostForProject(projectId),
       getDaysWorkedByWorkerForProject(projectId),
-      listRequestsForProject(projectId),
+      // Counted in the database: these are cost figures, and filtering a
+      // fetched list would quietly undercount past 1000 requests.
+      countRequestsByStatusForProject(projectId),
     ]);
 
     const contractValue = project.contractValue ?? 0;
     const earnedValue = Math.round((contractValue * project.progressPct) / 100);
-    const delivered = requests.filter((r) => r.status === "DELIVERED").length;
-    const committed = requests.filter((r) => r.status === "APPROVED" || r.status === "ORDERED").length;
+    const delivered = requestCounts.DELIVERED;
+    const committed = requestCounts.APPROVED + requestCounts.ORDERED;
 
     const workerRows = workers.map((w) => {
       const daysWorked = daysByWorker[w.id] ?? 0;

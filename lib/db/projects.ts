@@ -67,6 +67,30 @@ export async function listProjectsForOrgViaSession(orgId: string): Promise<Proje
   return (data ?? []).map(mapProjectWithWorkerCount);
 }
 
+/**
+ * Project counts per status, done in the database.
+ *
+ * Same reason as countRequestsByStatusForOrg: filtering a fetched list is
+ * wrong once the list is capped at 1000 rows, and it silently stays wrong.
+ */
+export async function countProjectsByStatusForOrg(orgId: string): Promise<Record<ProjectStatus, number>> {
+  const supabase = await createSessionClient();
+  const statuses: ProjectStatus[] = ["PLANNING", "ACTIVE", "COMPLETED", "ON_HOLD"];
+
+  const results = await Promise.all(
+    statuses.map(async (status) => {
+      const { count, error } = await supabase
+        .from("projects")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", status);
+      if (error) throw error;
+      return [status, count ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(results) as Record<ProjectStatus, number>;
+}
+
 /** Projects that count against the plan's active-project limit (everything not COMPLETED). */
 export async function countActiveProjectsForOrg(orgId: string): Promise<number> {
   const { count, error } = await createAdminClient()
