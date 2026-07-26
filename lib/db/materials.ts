@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { MaterialRequest, MaterialRequestEvent, MaterialRequestStatus, MaterialRequestWithTimeline } from "@/lib/db/types";
+import { DEFAULT_LIST_LIMIT } from "@/lib/db/reports";
 
 function mapRequest(row: Record<string, unknown>): MaterialRequest {
   return {
@@ -49,15 +50,18 @@ export async function listRequestsForOrg(
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+/** Most recent requests first, capped — see DEFAULT_LIST_LIMIT in reports.ts. */
 export async function listRequestsForOrgViaSession(
   orgId: string,
+  limit: number = DEFAULT_LIST_LIMIT,
 ): Promise<(MaterialRequest & { project: { id: string; name: string } })[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("material_requests")
     .select("*, project:projects(id, name)")
     .eq("org_id", orgId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(limit);
   if (error) throw error;
   return (data ?? []).map((row) => ({
     ...mapRequest(row),
@@ -263,4 +267,15 @@ export async function transitionRequest(
 export async function deleteRequest(orgId: string, id: string): Promise<void> {
   const { error } = await createAdminClient().from("material_requests").delete().eq("id", id).eq("org_id", orgId);
   if (error) throw error;
+}
+
+/** Total requests in the org, for telling the user how much a capped list is hiding. */
+export async function countRequestsForOrg(orgId: string): Promise<number> {
+  const supabase = await createSessionClient();
+  const { count, error } = await supabase
+    .from("material_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId);
+  if (error) throw error;
+  return count ?? 0;
 }

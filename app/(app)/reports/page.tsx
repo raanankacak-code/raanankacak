@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth";
-import { listReportsViaSession } from "@/lib/db/reports";
+import { listReportsViaSession, countReportsForOrg, DEFAULT_LIST_LIMIT } from "@/lib/db/reports";
 import { listProjectNamesForOrg } from "@/lib/db/projects";
 import { can } from "@/lib/permissions";
 import ProjectFilterSelect from "@/components/app/ProjectFilterSelect";
@@ -16,10 +16,15 @@ export default async function ReportsPage({
 
   const { projectId } = await searchParams;
 
-  const [reports, projects] = await Promise.all([
+  const [reports, projects, totalReports] = await Promise.all([
     listReportsViaSession(member.orgId, { projectId: projectId || undefined }),
     listProjectNamesForOrg(member.orgId),
+    countReportsForOrg(member.orgId, { projectId: projectId || undefined }),
   ]);
+
+  // The list is capped. Saying so beats quietly showing a subset — before
+  // this, a workspace past the cap looked like it simply had fewer reports.
+  const capped = totalReports > reports.length;
 
   const filteredProject = projects.find((p) => p.id === projectId);
 
@@ -36,6 +41,9 @@ export default async function ReportsPage({
         )}
         <div className="sub">
           Site diary submitted from the field.{filteredProject ? ` Filtered to ${filteredProject.name}.` : ""}
+          {capped
+            ? ` Showing the ${DEFAULT_LIST_LIMIT} most recent of ${totalReports} — narrow by project to see older ones.`
+            : ""}
         </div>
       </div>
 

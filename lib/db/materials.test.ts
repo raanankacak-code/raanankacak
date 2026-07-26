@@ -20,6 +20,8 @@ function makeChain(result: { data: unknown; error: unknown } = { data: [], error
   const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
   chain.eq = eqMock.mockImplementation(() => chain);
   chain.order = orderMock.mockImplementation(() => chain);
+  // List queries are explicitly capped now, so the chain has to accept it.
+  chain.limit = vi.fn(() => chain);
   return chain;
 }
 

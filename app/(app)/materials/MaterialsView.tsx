@@ -65,15 +65,17 @@ export default function MaterialsView({
   const [openId, setOpenId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [sort, setSort] = useState<SortState<"ref" | "material" | "qty" | "needed" | "status" | "updated">>(null);
+  const [totalRequests, setTotalRequests] = useState(0);
 
   async function load() {
     setLoading(true);
     try {
       const [r, p] = await Promise.all([
-        apiFetch<{ requests: Request[] }>("/api/materials"),
+        apiFetch<{ requests: Request[]; total: number }>("/api/materials"),
         apiFetch<{ projects: Project[] }>("/api/projects"),
       ]);
       setRequests(r.requests);
+      setTotalRequests(r.total ?? r.requests.length);
       setProjects(p.projects);
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Failed to load material requests.");
@@ -120,7 +122,12 @@ export default function MaterialsView({
             </button>
           )}
         </div>
-        <div className="sub">Request from site, approve from anywhere — full audit trail.</div>
+        <div className="sub">
+          Request from site, approve from anywhere — full audit trail.
+          {totalRequests > requests.length
+            ? ` Showing the ${requests.length} most recent of ${totalRequests}.`
+            : ""}
+        </div>
       </div>
 
       {error && <div className="auth-err">{error}</div>}

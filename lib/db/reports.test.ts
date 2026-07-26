@@ -24,6 +24,8 @@ function makeChain(result: { data: unknown; error: unknown } = { data: [], error
   chain.gte = gteMock.mockImplementation(() => chain);
   chain.lte = lteMock.mockImplementation(() => chain);
   chain.order = orderMock.mockImplementation(() => chain);
+  // List queries are explicitly capped now, so the chain has to accept it.
+  chain.limit = vi.fn(() => chain);
   return chain;
 }
 

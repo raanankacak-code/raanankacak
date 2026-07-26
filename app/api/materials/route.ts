@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { listRequestsForOrgViaSession, createRequest } from "@/lib/db/materials";
+import { listRequestsForOrgViaSession, countRequestsForOrg, createRequest } from "@/lib/db/materials";
 import { getProjectById } from "@/lib/db/projects";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 
@@ -17,8 +17,12 @@ const createSchema = z.object({
 export async function GET() {
   try {
     const member = await requireMember("viewMaterials");
-    const requests = await listRequestsForOrgViaSession(member.orgId);
-    return NextResponse.json({ requests });
+    const [requests, total] = await Promise.all([
+      listRequestsForOrgViaSession(member.orgId),
+      countRequestsForOrg(member.orgId),
+    ]);
+    // `total` lets the client say how much the capped list is hiding.
+    return NextResponse.json({ requests, total });
   } catch (err) {
     return apiErrorResponse(err);
   }

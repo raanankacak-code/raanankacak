@@ -2,6 +2,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { DailyReport, DailyReportWithProject, ReportStatus } from "@/lib/db/types";
 
+/**
+ * How many rows a list screen asks for. Comfortably more than anyone scrolls
+ * in one sitting, and far below PostgREST's silent 1000-row ceiling so the
+ * cap is ours and is known.
+ */
+export const DEFAULT_LIST_LIMIT = 200;
+
 function mapDailyReport(row: Record<string, unknown>): DailyReport {
   return {
     id: row.id as string,
@@ -46,16 +53,25 @@ export async function listReports(
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
+/**
+ * Most recent reports first, capped.
+ *
+ * The cap is explicit on purpose. An unbounded select is silently truncated
+ * at 1000 rows by PostgREST with no error, so a workspace with more than
+ * that was quietly shown a subset with no way to tell. Asking for a known
+ * number, and counting separately, means the UI can say what it is showing.
+ */
 export async function listReportsViaSession(
   orgId: string,
-  filters: { projectId?: string; from?: string; to?: string } = {},
+  filters: { projectId?: string; from?: string; to?: string; limit?: number } = {},
 ): Promise<DailyReportWithProject[]> {
   const supabase = await createSessionClient();
   let query = supabase
     .from("daily_reports")
     .select("*, project:projects(id, name)")
     .eq("org_id", orgId)
-    .order("date", { ascending: false });
+    .order("date", { ascending: false })
+    .limit(filters.limit ?? DEFAULT_LIST_LIMIT);
   if (filters.projectId) query = query.eq("project_id", filters.projectId);
   if (filters.from) query = query.gte("date", filters.from);
   if (filters.to) query = query.lte("date", filters.to);
@@ -159,4 +175,23 @@ export async function updateReportStatus(orgId: string, id: string, status: Repo
 export async function deleteReport(orgId: string, id: string): Promise<void> {
   const { error } = await createAdminClient().from("daily_reports").delete().eq("id", id).eq("org_id", orgId);
   if (error) throw error;
+}
+
+/** Total matching reports, for telling the user how much a capped list is hiding. */
+export async function countReportsForOrg(
+  orgId: string,
+  filters: { projectId?: string; from?: string; to?: string } = {},
+): Promise<number> {
+  const supabase = await createSessionClient();
+  let query = supabase
+    .from("daily_reports")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId);
+  if (filters.projectId) query = query.eq("project_id", filters.projectId);
+  if (filters.from) query = query.gte("date", filters.from);
+  if (filters.to) query = query.lte("date", filters.to);
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
 }
