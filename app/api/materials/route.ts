@@ -14,15 +14,18 @@ const createSchema = z.object({
   status: z.enum(["DRAFT", "SUBMITTED"]).optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const member = await requireMember("viewMaterials");
+    const url = new URL(request.url);
+    const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0) || 0);
+
     const [requests, total] = await Promise.all([
-      listRequestsForOrgViaSession(member.orgId),
+      listRequestsForOrgViaSession(member.orgId, { offset }),
       countRequestsForOrg(member.orgId),
     ]);
-    // `total` lets the client say how much the capped list is hiding.
-    return NextResponse.json({ requests, total });
+    // `total` lets the client show progress through the full set.
+    return NextResponse.json({ requests, total, offset });
   } catch (err) {
     return apiErrorResponse(err);
   }

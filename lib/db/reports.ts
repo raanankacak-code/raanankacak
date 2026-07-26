@@ -34,6 +34,45 @@ function mapDailyReportWithProject(row: Record<string, unknown>): DailyReportWit
   return { ...mapDailyReport(rest), project };
 }
 
+/**
+ * What a report looks like in a list, as opposed to on its detail screen.
+ *
+ * A separate type rather than a partial DailyReport, for the same reason as
+ * MaterialRequestListItem: the list query does not select manpower, photos,
+ * delays or notes, and a type claiming them would be a lie the compiler
+ * happily accepts and the runtime does not. Those four are the bulk of a
+ * report's bytes and none of them are rendered in a list.
+ */
+export interface DailyReportListItem {
+  id: string;
+  projectId: string;
+  date: Date;
+  weather: string | null;
+  workCompleted: string | null;
+  status: ReportStatus;
+  submittedById: string;
+  submittedByName: string;
+  project: { id: string; name: string };
+}
+
+/** Exactly the columns DailyReportListItem needs, and no more. */
+const LIST_COLUMNS =
+  "id, project_id, date, weather, work_completed, status, submitted_by_id, submitted_by_name, project:projects(id, name)";
+
+function mapDailyReportListItem(row: Record<string, unknown>): DailyReportListItem {
+  return {
+    id: row.id as string,
+    projectId: row.project_id as string,
+    date: new Date(row.date as string),
+    weather: row.weather as string | null,
+    workCompleted: row.work_completed as string | null,
+    status: row.status as ReportStatus,
+    submittedById: row.submitted_by_id as string,
+    submittedByName: row.submitted_by_name as string,
+    project: row.project as { id: string; name: string },
+  };
+}
+
 export async function listReports(
   orgId: string,
   filters: { projectId?: string; from?: string; to?: string } = {},
@@ -54,31 +93,52 @@ export async function listReports(
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
 /**
- * Most recent reports first, capped.
+ * One page of reports, most recent first.
  *
- * The cap is explicit on purpose. An unbounded select is silently truncated
- * at 1000 rows by PostgREST with no error, so a workspace with more than
- * that was quietly shown a subset with no way to tell. Asking for a known
- * number, and counting separately, means the UI can say what it is showing.
+ * The page size is explicit on purpose. An unbounded select is silently
+ * truncated at 1000 rows by PostgREST with no error, so a workspace with more
+ * than that was quietly shown a subset with no way to tell. Asking for a
+ * known number, and counting separately, means the UI can say what it is
+ * showing.
+ *
+ * Sorted by date *and* id. date is a DATE column, so ties are the norm rather
+ * than the exception — a busy site files several reports a day — and Postgres
+ * orders tied rows arbitrarily. Without the id, page 2 could repeat a row
+ * from page 1 and drop another entirely.
  */
 export async function listReportsViaSession(
   orgId: string,
-  filters: { projectId?: string; from?: string; to?: string; limit?: number } = {},
-): Promise<DailyReportWithProject[]> {
+  filters: { projectId?: string; from?: string; to?: string; limit?: number; offset?: number } = {},
+): Promise<DailyReportListItem[]> {
   const supabase = await createSessionClient();
+  const limit = filters.limit ?? DEFAULT_LIST_LIMIT;
+  const offset = filters.offset ?? 0;
   let query = supabase
     .from("daily_reports")
-    .select("*, project:projects(id, name)")
+    .select(LIST_COLUMNS)
     .eq("org_id", orgId)
     .order("date", { ascending: false })
-    .limit(filters.limit ?? DEFAULT_LIST_LIMIT);
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
   if (filters.projectId) query = query.eq("project_id", filters.projectId);
   if (filters.from) query = query.gte("date", filters.from);
   if (filters.to) query = query.lte("date", filters.to);
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map(mapDailyReportWithProject);
+  return (data ?? []).map((row) => mapDailyReportListItem(row as unknown as Record<string, unknown>));
+}
+
+/** Reports in a given status for one project, counted in the database. */
+export async function countReportsByStatusForProject(projectId: string, status: ReportStatus): Promise<number> {
+  const supabase = await createSessionClient();
+  const { count, error } = await supabase
+    .from("daily_reports")
+    .select("*", { count: "exact", head: true })
+    .eq("project_id", projectId)
+    .eq("status", status);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function listRecentReportsForOrg(orgId: string, limit: number): Promise<DailyReportWithProject[]> {

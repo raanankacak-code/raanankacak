@@ -4,7 +4,7 @@ import { getOrganizationById } from "@/lib/db/organizations";
 import { listProjectsForOrgViaSession, countProjectsByStatusForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
 import { listAttendanceForOrgDate, sumLaborCostForOrg } from "@/lib/db/attendance";
-import { listRecentReportsForOrg, listReportsViaSession } from "@/lib/db/reports";
+import { listRecentReportsForOrg, countReportsForOrg } from "@/lib/db/reports";
 import { countRequestsByStatusForOrg, countUrgentRequestsForOrg } from "@/lib/db/materials";
 import { listEventsForOrgViaSession } from "@/lib/db/calendar";
 import { listNotificationsForOrgViaSession } from "@/lib/db/notifications";
@@ -41,7 +41,8 @@ export default async function DashboardPage() {
     workerCount,
     todaysAttendance,
     recentReports,
-    allReports,
+    todayReportsCount,
+    weekReportsCount,
     events,
     notifications,
     laborCost,
@@ -55,7 +56,12 @@ export default async function DashboardPage() {
       countActiveWorkersForOrg(member.orgId),
       listAttendanceForOrgDate(member.orgId, todayISO()),
       listRecentReportsForOrg(member.orgId, 6),
-      listReportsViaSession(member.orgId, { from: daysAgo(6) }),
+      // Counted rather than fetched-and-filtered. These two numbers used to
+      // come from the length of a week's worth of full report rows, which
+      // both shipped every photo array and notes field the dashboard never
+      // renders, and under-reported once the list hit its page size.
+      countReportsForOrg(member.orgId, { from: todayISO(), to: todayISO() }),
+      countReportsForOrg(member.orgId, { from: daysAgo(6) }),
       listEventsForOrgViaSession(member.orgId, { from: todayISO(), to: daysAhead(30) }),
       listNotificationsForOrgViaSession(member.orgId, 6),
       sumLaborCostForOrg(member.orgId),
@@ -112,8 +118,6 @@ export default async function DashboardPage() {
   const approvedRequestCount = requestCounts?.APPROVED ?? 0;
   const rejectedRequestCount = requestCounts?.REJECTED ?? 0;
 
-  const todayReportsCount = allReports.filter((r) => r.date.toISOString().slice(0, 10) === todayISO()).length;
-  const weekReportsCount = allReports.length;
   const upcomingInspections = events.filter((e) => e.type === "INSPECTION" && e.status === "SCHEDULED").length;
   const upcomingDeadlines = events
     .filter((e) => e.status === "SCHEDULED")

@@ -23,6 +23,50 @@ function mapRequest(row: Record<string, unknown>): MaterialRequest {
   };
 }
 
+/**
+ * What a request looks like in a list, as opposed to on its detail screen.
+ *
+ * Deliberately a separate type rather than a partial MaterialRequest: the
+ * list query selects fewer columns, and a type claiming fields the query
+ * never asks for would be a lie that only shows up at runtime. The detail
+ * modal fetches the full record separately when a row is opened.
+ */
+export interface MaterialRequestListItem {
+  id: string;
+  code: string;
+  projectId: string;
+  material: string;
+  qty: number;
+  unit: string;
+  neededBy: Date | null;
+  status: MaterialRequestStatus;
+  receivedQty: number | null;
+  requestedById: string;
+  updatedAt: Date;
+  project: { id: string; name: string };
+}
+
+/** Exactly the columns MaterialRequestListItem needs, and no more. */
+const LIST_COLUMNS =
+  "id, code, project_id, material, qty, unit, needed_by, status, received_qty, requested_by_id, updated_at, project:projects(id, name)";
+
+function mapRequestListItem(row: Record<string, unknown>): MaterialRequestListItem {
+  return {
+    id: row.id as string,
+    code: row.code as string,
+    projectId: row.project_id as string,
+    material: row.material as string,
+    qty: Number(row.qty),
+    unit: row.unit as string,
+    neededBy: row.needed_by ? new Date(row.needed_by as string) : null,
+    status: row.status as MaterialRequestStatus,
+    receivedQty: row.received_qty === null || row.received_qty === undefined ? null : Number(row.received_qty),
+    requestedById: row.requested_by_id as string,
+    updatedAt: new Date(row.updated_at as string),
+    project: row.project as { id: string; name: string },
+  };
+}
+
 function mapEvent(row: Record<string, unknown>): MaterialRequestEvent {
   return {
     id: row.id as string,
@@ -50,23 +94,33 @@ export async function listRequestsForOrg(
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
-/** Most recent requests first, capped — see DEFAULT_LIST_LIMIT in reports.ts. */
+/**
+ * One page of requests, most recent first.
+ *
+ * Selects only the columns the list renders. The full record — including the
+ * justification, which is free text and by far the largest field — is
+ * fetched only when a row is actually opened.
+ *
+ * Sorted by created_at *and* id. The id is not decoration: created_at is not
+ * unique, and Postgres orders tied rows arbitrarily between statements, so
+ * paging on created_at alone can hand the same row out twice and skip
+ * another. A live check with 450 requests inserted in bulk did exactly that.
+ * Adding id makes the ordering total, which makes offsets mean something.
+ */
 export async function listRequestsForOrgViaSession(
   orgId: string,
-  limit: number = DEFAULT_LIST_LIMIT,
-): Promise<(MaterialRequest & { project: { id: string; name: string } })[]> {
+  { limit = DEFAULT_LIST_LIMIT, offset = 0 }: { limit?: number; offset?: number } = {},
+): Promise<MaterialRequestListItem[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("material_requests")
-    .select("*, project:projects(id, name)")
+    .select(LIST_COLUMNS)
     .eq("org_id", orgId)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
   if (error) throw error;
-  return (data ?? []).map((row) => ({
-    ...mapRequest(row),
-    project: row.project as { id: string; name: string },
-  }));
+  return (data ?? []).map((row) => mapRequestListItem(row as unknown as Record<string, unknown>));
 }
 
 /**

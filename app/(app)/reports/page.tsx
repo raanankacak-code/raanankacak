@@ -6,25 +6,41 @@ import { can } from "@/lib/permissions";
 import ProjectFilterSelect from "@/components/app/ProjectFilterSelect";
 import ReportsTable from "./ReportsTable";
 
+/** One page of the list. Stepping by this rather than by the number of rows
+ *  returned keeps "Newer" landing on real page boundaries from a short last
+ *  page. */
+const PAGE_SIZE = DEFAULT_LIST_LIMIT;
+
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ projectId?: string }>;
+  searchParams: Promise<{ projectId?: string; offset?: string }>;
 }) {
   const member = await getCurrentMember();
   if (!member) return null;
 
-  const { projectId } = await searchParams;
+  const { projectId, offset: offsetParam } = await searchParams;
+  const offset = Math.max(0, Number(offsetParam) || 0);
 
   const [reports, projects, totalReports] = await Promise.all([
-    listReportsViaSession(member.orgId, { projectId: projectId || undefined }),
+    listReportsViaSession(member.orgId, { projectId: projectId || undefined, offset }),
     listProjectNamesForOrg(member.orgId),
     countReportsForOrg(member.orgId, { projectId: projectId || undefined }),
   ]);
 
-  // The list is capped. Saying so beats quietly showing a subset — before
-  // this, a workspace past the cap looked like it simply had fewer reports.
-  const capped = totalReports > reports.length;
+  // Real offsets rather than a hard cap: a workspace past DEFAULT_LIST_LIMIT
+  // used to be shown its most recent page with no way to reach anything
+  // older, which for a site diary is the half that matters at audit time.
+  const firstShown = reports.length === 0 ? 0 : offset + 1;
+  const lastShown = offset + reports.length;
+  const hasOlder = lastShown < totalReports;
+  const pageHref = (nextOffset: number) => {
+    const params = new URLSearchParams();
+    if (projectId) params.set("projectId", projectId);
+    if (nextOffset > 0) params.set("offset", String(nextOffset));
+    const qs = params.toString();
+    return `/reports${qs ? `?${qs}` : ""}`;
+  };
 
   const filteredProject = projects.find((p) => p.id === projectId);
 
@@ -41,9 +57,7 @@ export default async function ReportsPage({
         )}
         <div className="sub">
           Site diary submitted from the field.{filteredProject ? ` Filtered to ${filteredProject.name}.` : ""}
-          {capped
-            ? ` Showing the ${DEFAULT_LIST_LIMIT} most recent of ${totalReports} — narrow by project to see older ones.`
-            : ""}
+          {totalReports > reports.length ? ` Showing ${firstShown}–${lastShown} of ${totalReports}.` : ""}
         </div>
       </div>
 
@@ -52,7 +66,18 @@ export default async function ReportsPage({
       </div>
 
       <div className="card">
-        {reports.length === 0 ? (
+        {reports.length === 0 && offset > 0 ? (
+          // Only reachable by editing the URL past the end. Saying so beats
+          // claiming the workspace has no reports when it plainly does.
+          <div className="empty">
+            <div className="e-ic">📋</div>
+            <div className="e-t">Nothing on this page</div>
+            <p>There are {totalReports} reports in total — go back to see them.</p>
+            <Link href={pageHref(0)} className="btn btn-amber">
+              Back to the latest
+            </Link>
+          </div>
+        ) : reports.length === 0 ? (
           <div className="empty">
             <div className="e-ic">📋</div>
             <div className="e-t">No daily reports yet</div>
@@ -77,6 +102,21 @@ export default async function ReportsPage({
           />
         )}
       </div>
+
+      {(offset > 0 || hasOlder) && (
+        <div className="filters">
+          {offset > 0 && (
+            <Link href={pageHref(Math.max(0, offset - PAGE_SIZE))} className="btn">
+              ← Newer
+            </Link>
+          )}
+          {hasOlder && (
+            <Link href={pageHref(offset + PAGE_SIZE)} className="btn">
+              Older →
+            </Link>
+          )}
+        </div>
+      )}
     </>
   );
 }

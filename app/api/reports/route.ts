@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
-import { listReportsViaSession, createReport } from "@/lib/db/reports";
+import { listReportsViaSession, countReportsForOrg, createReport } from "@/lib/db/reports";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { safeUrlSchema } from "@/lib/url-validation";
@@ -24,13 +24,18 @@ export async function GET(request: Request) {
     const projectId = searchParams.get("projectId") ?? undefined;
     const from = searchParams.get("from");
     const to = searchParams.get("to");
+    const offset = Math.max(0, Number(searchParams.get("offset")) || 0);
 
-    const reports = await listReportsViaSession(member.orgId, {
+    const filters = {
       projectId: projectId || undefined,
       from: from || undefined,
       to: to || undefined,
-    });
-    return NextResponse.json({ reports });
+    };
+    const [reports, total] = await Promise.all([
+      listReportsViaSession(member.orgId, { ...filters, offset }),
+      countReportsForOrg(member.orgId, filters),
+    ]);
+    return NextResponse.json({ reports, total, offset });
   } catch (err) {
     return apiErrorResponse(err);
   }

@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
 import { getProjectWithWorkers } from "@/lib/db/projects";
-import { getLatestReportForProject, countReportsForProject, listReportsViaSession } from "@/lib/db/reports";
-import { listRequestsForProject } from "@/lib/db/materials";
+import { getLatestReportForProject, countReportsForProject, countReportsByStatusForProject } from "@/lib/db/reports";
+import { countRequestsByStatusForProject } from "@/lib/db/materials";
 import { can } from "@/lib/permissions";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import RemoveWorkerButton from "@/components/app/RemoveWorkerButton";
@@ -44,16 +44,20 @@ export default async function ProjectDetailPage({
   const project = await getProjectWithWorkers(member.orgId, id);
   if (!project) notFound();
 
-  const [latestReport, reportCount, projectReports, projectRequests] = await Promise.all([
+  // Both "needs attention" figures are counted in the database. They used to
+  // come from fetching every report and every request for the project and
+  // filtering in JavaScript, which shipped two full tables' worth of rows —
+  // photos, notes, justifications and all — to produce two integers.
+  const [latestReport, reportCount, unreviewedReports, pendingRequests] = await Promise.all([
     getLatestReportForProject(id),
     countReportsForProject(id),
-    listReportsViaSession(member.orgId, { projectId: id }),
-    can(member.role, "viewMaterials") ? listRequestsForProject(id) : Promise.resolve([]),
+    countReportsByStatusForProject(id, "SUBMITTED"),
+    can(member.role, "viewMaterials")
+      ? countRequestsByStatusForProject(id).then((c) => c.SUBMITTED)
+      : Promise.resolve(0),
   ]);
 
   const now = nowMs();
-  const pendingRequests = projectRequests.filter((r) => r.status === "SUBMITTED").length;
-  const unreviewedReports = projectReports.filter((r) => r.status === "SUBMITTED").length;
   const expiringWorkers = project.workers.filter((w) => {
     const d = daysBetween(now, w.cidbExpiry);
     return d !== null && d <= 30 && d >= 0;

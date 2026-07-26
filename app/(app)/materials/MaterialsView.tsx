@@ -66,6 +66,7 @@ export default function MaterialsView({
   const [newOpen, setNewOpen] = useState(false);
   const [sort, setSort] = useState<SortState<"ref" | "material" | "qty" | "needed" | "status" | "updated">>(null);
   const [totalRequests, setTotalRequests] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -81,6 +82,23 @@ export default function MaterialsView({
       setError(err instanceof ApiClientError ? err.message : "Failed to load material requests.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const r = await apiFetch<{ requests: Request[]; total: number }>(
+        `/api/materials?offset=${requests.length}`,
+      );
+      // Append rather than replace: the point is to reach older records
+      // without losing the ones already on screen.
+      setRequests((current) => [...current, ...r.requests]);
+      setTotalRequests(r.total ?? totalRequests);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Failed to load more requests.");
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -124,9 +142,7 @@ export default function MaterialsView({
         </div>
         <div className="sub">
           Request from site, approve from anywhere — full audit trail.
-          {totalRequests > requests.length
-            ? ` Showing the ${requests.length} most recent of ${totalRequests}.`
-            : ""}
+          {totalRequests > requests.length ? ` Showing ${requests.length} of ${totalRequests}.` : ""}
         </div>
       </div>
 
@@ -197,6 +213,13 @@ export default function MaterialsView({
                 })}
               </tbody>
             </table>
+          </div>
+        ) : null}
+        {!loading && requests.length > 0 && totalRequests > requests.length ? (
+          <div className="card-b" style={{ textAlign: "center" }}>
+            <button className="btn" disabled={loadingMore} onClick={loadMore}>
+              {loadingMore ? "Loading…" : `Load older requests (${totalRequests - requests.length} more)`}
+            </button>
           </div>
         ) : (
           <div className="empty">
