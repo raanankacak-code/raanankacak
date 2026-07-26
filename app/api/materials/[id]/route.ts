@@ -4,7 +4,7 @@ import { getRequestById, transitionRequest, deleteRequest } from "@/lib/db/mater
 import { notify } from "@/lib/db/notifications";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { recordAuditEvent } from "@/lib/db/auditLog";
+import { recordAuditEvent, recordMemberAction } from "@/lib/db/auditLog";
 import type { AuditAction } from "@/lib/db/types";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -92,6 +92,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       throw new ApiError(403, "Your role can't delete this material request");
     }
     await deleteRequest(member.orgId, id);
+
+    await recordMemberAction(member, {
+      action: "MATERIAL_REQUEST_DELETED",
+      entityType: "material_request",
+      entityId: id,
+      summary: `${member.name} deleted material request ${existing.code} (${existing.qty} ${existing.unit} of ${existing.material}) at status ${existing.status}`,
+      metadata: { code: existing.code, material: existing.material, status: existing.status, ownDraft: isOwnDraft },
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

@@ -12,6 +12,7 @@ import { logger } from "@/lib/logger";
 import { getOrganizationById } from "@/lib/db/organizations";
 import { removeObjectsByUrl } from "@/lib/uploads";
 import { safeUrlSchema } from "@/lib/url-validation";
+import { recordMemberAction } from "@/lib/db/auditLog";
 
 const createOrgSchema = z.object({
   name: z.string().min(2).max(200),
@@ -109,6 +110,17 @@ export async function PATCH(request: Request) {
 
     if (previousLogoUrl && previousLogoUrl !== org.logoUrl) {
       await removeObjectsByUrl(member.orgId, [previousLogoUrl]);
+    }
+
+    const changedFields = Object.keys(body).filter((k) => body[k as keyof typeof body] !== undefined);
+    if (changedFields.length > 0) {
+      await recordMemberAction(member, {
+        action: "ORG_SETTINGS_CHANGED",
+        entityType: "organization",
+        entityId: member.orgId,
+        summary: `${member.name} changed company settings (${changedFields.join(", ")})`,
+        metadata: { fields: changedFields },
+      });
     }
     return NextResponse.json({ org });
   } catch (err) {

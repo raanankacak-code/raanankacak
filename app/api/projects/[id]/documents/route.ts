@@ -6,6 +6,7 @@ import { notify } from "@/lib/db/notifications";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { safeUrlSchema } from "@/lib/url-validation";
+import { recordMemberAction } from "@/lib/db/auditLog";
 
 const createSchema = z.object({
   folder: z.string().min(1).max(60).default("Other"),
@@ -45,6 +46,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       uploadedByName: member.name,
     });
     await notify(member.orgId, "document", "Document Uploaded", `${document.name} added to ${document.folder} — ${project.name}.`);
+    await recordMemberAction(member, {
+      action: "DOCUMENT_UPLOADED",
+      entityType: "document",
+      entityId: document.id,
+      summary: `${member.name} uploaded "${document.name}" to ${document.folder} on "${project.name}"`,
+      metadata: { name: document.name, folder: document.folder, projectId, sizeBytes: document.sizeBytes },
+    });
     return NextResponse.json({ document }, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {

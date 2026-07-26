@@ -6,7 +6,7 @@ const getMemberByIdMock = vi.fn();
 const updateMemberMock = vi.fn();
 const removeMemberMock = vi.fn();
 const countOwnersMock = vi.fn();
-const recordAuditEventMock = vi.fn();
+const recordMemberActionMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
@@ -27,7 +27,7 @@ vi.mock("@/lib/db/team", () => ({
 }));
 
 vi.mock("@/lib/db/auditLog", () => ({
-  recordAuditEvent: recordAuditEventMock,
+  recordMemberAction: recordMemberActionMock,
 }));
 
 const { PATCH, DELETE } = await import("@/app/api/team/[id]/route");
@@ -70,7 +70,7 @@ beforeEach(() => {
   updateMemberMock.mockReset();
   removeMemberMock.mockReset();
   countOwnersMock.mockReset();
-  recordAuditEventMock.mockReset();
+  recordMemberActionMock.mockReset();
   requireMemberMock.mockResolvedValue(ME);
   getMemberByIdMock.mockResolvedValue(TARGET);
   countOwnersMock.mockResolvedValue(2);
@@ -82,8 +82,8 @@ describe("PATCH /api/team/[id] audit logging", () => {
 
     await PATCH(patchRequest({ role: "PROJECT_MANAGER" }), paramsFor("member-target"));
 
-    expect(recordAuditEventMock).toHaveBeenCalledWith(
-      "org-A",
+    expect(recordMemberActionMock).toHaveBeenCalledWith(
+      ME,
       expect.objectContaining({ action: "MEMBER_ROLE_CHANGED", entityId: "member-target" }),
     );
   });
@@ -93,8 +93,8 @@ describe("PATCH /api/team/[id] audit logging", () => {
 
     await PATCH(patchRequest({ active: false }), paramsFor("member-target"));
 
-    expect(recordAuditEventMock).toHaveBeenCalledWith(
-      "org-A",
+    expect(recordMemberActionMock).toHaveBeenCalledWith(
+      ME,
       expect.objectContaining({ action: "MEMBER_DEACTIVATED" }),
     );
   });
@@ -105,8 +105,8 @@ describe("PATCH /api/team/[id] audit logging", () => {
 
     await PATCH(patchRequest({ active: true }), paramsFor("member-target"));
 
-    expect(recordAuditEventMock).toHaveBeenCalledWith(
-      "org-A",
+    expect(recordMemberActionMock).toHaveBeenCalledWith(
+      ME,
       expect.objectContaining({ action: "MEMBER_REACTIVATED" }),
     );
   });
@@ -116,7 +116,7 @@ describe("PATCH /api/team/[id] audit logging", () => {
 
     await PATCH(patchRequest({ name: "Jane S." }), paramsFor("member-target"));
 
-    expect(recordAuditEventMock).not.toHaveBeenCalled();
+    expect(recordMemberActionMock).not.toHaveBeenCalled();
   });
 });
 
@@ -124,8 +124,8 @@ describe("DELETE /api/team/[id] audit logging", () => {
   it("records MEMBER_REMOVED with the removed member's role and email", async () => {
     await DELETE(new Request("http://localhost/api/team/member-target", { method: "DELETE" }), paramsFor("member-target"));
 
-    expect(recordAuditEventMock).toHaveBeenCalledWith(
-      "org-A",
+    expect(recordMemberActionMock).toHaveBeenCalledWith(
+      ME,
       expect.objectContaining({
         action: "MEMBER_REMOVED",
         entityId: "member-target",

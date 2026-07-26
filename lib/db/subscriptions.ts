@@ -145,8 +145,8 @@ export async function syncSubscriptionFromStripe(
     status: SubscriptionStatus;
     currentPeriodEnd: Date | null;
   },
-): Promise<void> {
-  const { error } = await createAdminClient()
+): Promise<string | null> {
+  const { data, error } = await createAdminClient()
     .from("org_subscriptions")
     .update({
       stripe_subscription_id: input.stripeSubscriptionId,
@@ -154,6 +154,12 @@ export async function syncSubscriptionFromStripe(
       status: input.status,
       current_period_end: input.currentPeriodEnd ? input.currentPeriodEnd.toISOString() : null,
     })
-    .eq("stripe_customer_id", stripeCustomerId);
+    .eq("stripe_customer_id", stripeCustomerId)
+    .select("org_id");
   if (error) throw error;
+  // Null means the customer id matched no org. That is not an error — Stripe
+  // will happily send events for customers this deployment has never heard of
+  // — but the caller needs to know, both to audit against the right org and
+  // to avoid claiming it applied something it didn't.
+  return (data?.[0]?.org_id as string | undefined) ?? null;
 }

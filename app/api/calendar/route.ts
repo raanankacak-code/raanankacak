@@ -3,6 +3,7 @@ import { z } from "zod";
 import { listEventsForOrgViaSession, createEvent } from "@/lib/db/calendar";
 import { getProjectById } from "@/lib/db/projects";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { recordMemberAction } from "@/lib/db/auditLog";
 
 export async function GET(request: Request) {
   try {
@@ -39,6 +40,17 @@ export async function POST(request: Request) {
       if (!project) throw new ApiError(404, "Project not found");
     }
     const event = await createEvent(member.orgId, { ...body, createdByName: member.name });
+
+    // Summarised from the validated input rather than the returned row: these
+    // are exactly the values that were just written, and the route has no
+    // business depending on which columns the mapper happens to hand back.
+    await recordMemberAction(member, {
+      action: "CALENDAR_EVENT_CREATED",
+      entityType: "calendar_event",
+      entityId: event.id,
+      summary: `${member.name} scheduled the ${body.type.toLowerCase()} "${body.title}" for ${body.date}`,
+      metadata: { title: body.title, type: body.type, date: body.date, priority: body.priority },
+    });
     return NextResponse.json({ event }, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {

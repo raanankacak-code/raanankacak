@@ -47,6 +47,31 @@ export async function recordAuditEvent(
   if (error) throw error;
 }
 
+/**
+ * recordAuditEvent with the actor filled in from the signed-in member.
+ *
+ * Almost every call site is a route handler that has just done
+ * `requireWritableMember(...)`, and was otherwise repeating the same two
+ * lines of actor plumbing. Getting those wrong is silent — the entry still
+ * writes, it just attributes the change to nobody.
+ */
+export async function recordMemberAction(
+  member: { id: string; orgId: string; name: string },
+  input: {
+    action: AuditAction;
+    entityType: string;
+    entityId?: string | null;
+    summary: string;
+    metadata?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await recordAuditEvent(member.orgId, {
+    actorMemberId: member.id,
+    actorName: member.name,
+    ...input,
+  });
+}
+
 export async function listAuditLogForOrg(orgId: string, limit = 200): Promise<AuditLogEntry[]> {
   const { data, error } = await createAdminClient()
     .from("audit_log")

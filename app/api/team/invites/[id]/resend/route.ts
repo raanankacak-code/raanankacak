@@ -5,6 +5,7 @@ import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { recordMemberAction } from "@/lib/db/auditLog";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,6 +30,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         invitedByName: member.name,
         link,
       }),
+    });
+
+    // Recorded because resending mints a fresh token and extends the expiry —
+    // it is a new way into the workspace, not just another email.
+    await recordMemberAction(member, {
+      action: "MEMBER_INVITE_RESENT",
+      entityType: "org_invite",
+      entityId: invite.id,
+      summary: `${member.name} resent the invitation for ${invite.email} as ${ROLE_LABELS[invite.role]}`,
+      metadata: { email: invite.email, role: invite.role },
     });
 
     return NextResponse.json({ invite });

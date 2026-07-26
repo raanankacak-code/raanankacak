@@ -6,6 +6,9 @@ const getProjectByIdMock = vi.fn();
 const getProjectWithWorkersMock = vi.fn();
 const updateProjectMock = vi.fn();
 const recordAuditEventMock = vi.fn();
+const recordMemberActionMock = vi.fn();
+const listDocumentsForProjectMock = vi.fn();
+const listReportsMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
@@ -27,9 +30,22 @@ vi.mock("@/lib/db/projects", () => ({
 
 vi.mock("@/lib/db/auditLog", () => ({
   recordAuditEvent: recordAuditEventMock,
+  recordMemberAction: recordMemberActionMock,
 }));
 
-const { PATCH } = await import("@/app/api/projects/[id]/route");
+vi.mock("@/lib/db/documents", () => ({
+  listDocumentsForProject: listDocumentsForProjectMock,
+}));
+
+vi.mock("@/lib/db/reports", () => ({
+  listReports: listReportsMock,
+}));
+
+vi.mock("@/lib/uploads", () => ({
+  removeObjectsByUrl: vi.fn(),
+}));
+
+const { PATCH, DELETE } = await import("@/app/api/projects/[id]/route");
 
 const MEMBER: OrgMember = {
   id: "member-1",
@@ -58,8 +74,54 @@ beforeEach(() => {
   getProjectByIdMock.mockReset();
   updateProjectMock.mockReset();
   recordAuditEventMock.mockReset();
+  recordMemberActionMock.mockReset();
+  listDocumentsForProjectMock.mockReset();
+  listReportsMock.mockReset();
   requireMemberMock.mockResolvedValue(MEMBER);
   getProjectByIdMock.mockResolvedValue(PROJECT);
+  listDocumentsForProjectMock.mockResolvedValue([]);
+  listReportsMock.mockResolvedValue([]);
+});
+
+describe("DELETE /api/projects/[id] audit logging", () => {
+  it("records what the cascade took with it, not just that a project went", async () => {
+    listDocumentsForProjectMock.mockResolvedValue([
+      { url: "https://x/doc-a.pdf" },
+      { url: "https://x/doc-b.pdf" },
+    ]);
+    listReportsMock.mockResolvedValue([
+      { photos: ["https://x/p1.jpg"] },
+      { photos: [] },
+      { photos: ["https://x/p2.jpg", "https://x/p3.jpg"] },
+    ]);
+
+    await DELETE(new Request("http://localhost/api/projects/project-1", { method: "DELETE" }), paramsFor("project-1"));
+
+    expect(recordMemberActionMock).toHaveBeenCalledWith(
+      MEMBER,
+      expect.objectContaining({
+        action: "PROJECT_DELETED",
+        entityType: "project",
+        entityId: "project-1",
+        metadata: { name: "Riverside Phase 2", reports: 3, documents: 2, files: 5 },
+      }),
+    );
+    // The summary is what a person actually reads in the audit table.
+    expect(recordMemberActionMock.mock.calls[0][1].summary).toContain("Riverside Phase 2");
+    expect(recordMemberActionMock.mock.calls[0][1].summary).toContain("3 daily reports");
+  });
+
+  it("records nothing when the project was not there to delete", async () => {
+    getProjectByIdMock.mockResolvedValue(null);
+
+    const res = await DELETE(
+      new Request("http://localhost/api/projects/nope", { method: "DELETE" }),
+      paramsFor("nope"),
+    );
+
+    expect(res.status).toBe(404);
+    expect(recordMemberActionMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("PATCH /api/projects/[id] audit logging", () => {

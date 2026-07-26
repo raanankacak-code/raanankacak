@@ -5,6 +5,7 @@ const requireMemberMock = vi.fn();
 const createEventMock = vi.fn();
 const listEventsForOrgViaSessionMock = vi.fn();
 const getProjectByIdMock = vi.fn();
+const recordMemberActionMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
@@ -24,6 +25,10 @@ vi.mock("@/lib/db/calendar", () => ({
 
 vi.mock("@/lib/db/projects", () => ({
   getProjectById: getProjectByIdMock,
+}));
+
+vi.mock("@/lib/db/auditLog", () => ({
+  recordMemberAction: recordMemberActionMock,
 }));
 
 const { POST } = await import("@/app/api/calendar/route");

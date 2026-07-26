@@ -9,6 +9,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   worker: "Worker",
   material_request: "Material Request",
   daily_report: "Daily Report",
+  document: "Document",
+  calendar_event: "Calendar",
+  attendance: "Attendance",
+  organization: "Company",
+  subscription: "Billing",
   org_member: "Team",
   org_invite: "Invitation",
 };
@@ -23,7 +28,10 @@ export default async function AuditLogPage() {
     <>
       <div className="topbar">
         <h2>Audit Log</h2>
-        <div className="sub">Compliance trail of financial edits, approvals and membership changes.</div>
+        <div className="sub">
+          Compliance trail of every change to the company record — projects, workers, requests, reports, documents,
+          attendance, membership and billing.
+        </div>
       </div>
 
       <div className="card">
@@ -31,7 +39,7 @@ export default async function AuditLogPage() {
           <div className="empty">
             <div className="e-ic">🗒️</div>
             <div className="e-t">No activity recorded yet</div>
-            <p>Financial edits, approvals and membership changes will appear here as they happen.</p>
+            <p>Changes to projects, workers, requests, reports, documents and team members appear here as they happen.</p>
           </div>
         ) : (
           <div className="tbl-wrap">

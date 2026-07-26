@@ -244,19 +244,49 @@ export interface BugReport {
   createdAt: Date;
 }
 
+/**
+ * Everything the compliance trail records.
+ *
+ * Deliberately not "every write". Trivial personal writes — notification read
+ * state, your own display name, bug reports — are excluded for the same
+ * reason requireWritableMember excludes them: they are not changes to the
+ * company's record, and burying a role change under a thousand
+ * marked-as-read rows makes the trail worse, not better.
+ *
+ * The column is plain text with no CHECK constraint, so adding a value here
+ * needs no migration.
+ */
 export type AuditAction =
+  | "PROJECT_CREATED"
   | "PROJECT_CONTRACT_VALUE_CHANGED"
+  | "PROJECT_DELETED"
+  | "WORKER_ADDED"
   | "WORKER_RATE_CHANGED"
+  | "WORKER_REMOVED"
+  | "MATERIAL_REQUEST_CREATED"
   | "MATERIAL_REQUEST_APPROVED"
   | "MATERIAL_REQUEST_REJECTED"
   | "MATERIAL_REQUEST_ORDERED"
   | "MATERIAL_REQUEST_DELIVERED"
+  | "MATERIAL_REQUEST_DELETED"
+  | "REPORT_SUBMITTED"
   | "REPORT_REVIEWED"
+  | "REPORT_DELETED"
+  | "DOCUMENT_UPLOADED"
+  | "DOCUMENT_DELETED"
+  | "CALENDAR_EVENT_CREATED"
+  | "CALENDAR_EVENT_UPDATED"
+  | "CALENDAR_EVENT_DELETED"
+  | "ATTENDANCE_RECORDED"
+  | "ORG_SETTINGS_CHANGED"
+  | "SUBSCRIPTION_CHANGED"
   | "MEMBER_ROLE_CHANGED"
   | "MEMBER_DEACTIVATED"
   | "MEMBER_REACTIVATED"
   | "MEMBER_REMOVED"
   | "MEMBER_INVITED"
+  | "MEMBER_INVITE_REVOKED"
+  | "MEMBER_INVITE_RESENT"
   | "MEMBER_JOINED";
 
 export interface AuditLogEntry {

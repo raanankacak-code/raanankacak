@@ -5,6 +5,7 @@ const requireMemberMock = vi.fn();
 const getWorkerByIdMock = vi.fn();
 const updateWorkerMock = vi.fn();
 const recordAuditEventMock = vi.fn();
+const recordMemberActionMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
@@ -25,6 +26,7 @@ vi.mock("@/lib/db/workers", () => ({
 
 vi.mock("@/lib/db/auditLog", () => ({
   recordAuditEvent: recordAuditEventMock,
+  recordMemberAction: recordMemberActionMock,
 }));
 
 const { PATCH } = await import("@/app/api/workers/[id]/route");

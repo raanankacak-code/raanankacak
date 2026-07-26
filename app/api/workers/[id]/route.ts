@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getWorkerById, updateWorker, deleteWorker } from "@/lib/db/workers";
 import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
-import { recordAuditEvent } from "@/lib/db/auditLog";
+import { recordAuditEvent, recordMemberAction } from "@/lib/db/auditLog";
 import { formatCurrency } from "@/lib/format";
 
 const updateSchema = z.object({
@@ -62,6 +62,14 @@ export async function DELETE(
     const existing = await getWorkerById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Worker not found");
     await deleteWorker(member.orgId, id);
+
+    await recordMemberAction(member, {
+      action: "WORKER_REMOVED",
+      entityType: "worker",
+      entityId: id,
+      summary: `${member.name} removed ${existing.name} from the workforce`,
+      metadata: { name: existing.name, dailyRate: existing.dailyRate },
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

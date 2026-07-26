@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getStripeClient, planForPriceId } from "@/lib/billing/stripe";
 import { syncSubscriptionFromStripe, type SubscriptionStatus } from "@/lib/db/subscriptions";
 import { logger, errorFields } from "@/lib/logger";
+import { recordAuditEvent } from "@/lib/db/auditLog";
 
 /**
  * Maps a Stripe subscription status to our internal one. Returns null for
@@ -47,11 +48,30 @@ async function handleSubscriptionEvent(subscription: Stripe.Subscription) {
     return;
   }
 
-  await syncSubscriptionFromStripe(customerId, {
+  const orgId = await syncSubscriptionFromStripe(customerId, {
     stripeSubscriptionId: subscription.id,
     plan,
     status,
     currentPeriodEnd: item ? new Date(item.current_period_end * 1000) : null,
+  });
+
+  if (!orgId) {
+    logger.info("Stripe subscription event matched no organization", { customerId, subscriptionId: subscription.id });
+    return;
+  }
+
+  // Attributed to Stripe rather than a member, because no member did it. The
+  // actor_member_id column is nullable precisely for this. Billing state
+  // changing under a customer's feet is the sort of thing they will later ask
+  // to see dated evidence of.
+  await recordAuditEvent(orgId, {
+    actorMemberId: null,
+    actorName: "Stripe",
+    action: "SUBSCRIPTION_CHANGED",
+    entityType: "subscription",
+    entityId: null,
+    summary: `Subscription set to ${plan} (${status}) by Stripe`,
+    metadata: { plan, status, customerId, subscriptionId: subscription.id },
   });
 }
 

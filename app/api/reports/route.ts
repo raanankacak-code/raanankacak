@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getProjectById } from "@/lib/db/projects";
 import { listReportsViaSession, countReportsForOrg, createReport } from "@/lib/db/reports";
 import { notify } from "@/lib/db/notifications";
+import { recordMemberAction } from "@/lib/db/auditLog";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { safeUrlSchema } from "@/lib/url-validation";
 
@@ -62,6 +63,13 @@ export async function POST(request: Request) {
       submittedByName: member.name,
     });
     await notify(member.orgId, "report", "Daily Report Submitted", `${member.name} filed a report for ${project.name}.`);
+    await recordMemberAction(member, {
+      action: "REPORT_SUBMITTED",
+      entityType: "daily_report",
+      entityId: report.id,
+      summary: `${member.name} filed the ${body.date} daily report for "${project.name}"`,
+      metadata: { date: body.date, projectId: project.id, photos: body.photos?.length ?? 0 },
+    });
     return NextResponse.json({ report }, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {

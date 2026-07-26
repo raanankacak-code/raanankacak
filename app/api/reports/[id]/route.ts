@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getReportById, updateReportStatus, deleteReport } from "@/lib/db/reports";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
-import { recordAuditEvent } from "@/lib/db/auditLog";
+import { recordAuditEvent, recordMemberAction } from "@/lib/db/auditLog";
 import { removeObjectsByUrl } from "@/lib/uploads";
 import { formatDate } from "@/lib/format";
 
@@ -71,6 +71,18 @@ export async function DELETE(
     if (!existing) throw new ApiError(404, "Report not found");
     await deleteReport(member.orgId, id);
     await removeObjectsByUrl(member.orgId, existing.photos ?? []);
+
+    await recordMemberAction(member, {
+      action: "REPORT_DELETED",
+      entityType: "daily_report",
+      entityId: id,
+      summary: `${member.name} deleted the ${existing.date.toISOString().slice(0, 10)} daily report for "${existing.project.name}"`,
+      metadata: {
+        date: existing.date.toISOString().slice(0, 10),
+        projectId: existing.projectId,
+        photos: existing.photos?.length ?? 0,
+      },
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

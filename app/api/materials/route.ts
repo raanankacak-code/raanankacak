@@ -3,6 +3,7 @@ import { z } from "zod";
 import { listRequestsForOrgViaSession, countRequestsForOrg, createRequest } from "@/lib/db/materials";
 import { getProjectById } from "@/lib/db/projects";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { recordMemberAction } from "@/lib/db/auditLog";
 
 const createSchema = z.object({
   projectId: z.string().uuid(),
@@ -42,6 +43,14 @@ export async function POST(request: Request) {
       ...body,
       requestedById: member.id,
       requestedByName: member.name,
+    });
+
+    await recordMemberAction(member, {
+      action: "MATERIAL_REQUEST_CREATED",
+      entityType: "material_request",
+      entityId: created.id,
+      summary: `${member.name} raised ${created.code} for ${created.qty} ${created.unit} of ${created.material} on "${project.name}"`,
+      metadata: { code: created.code, material: created.material, qty: created.qty, unit: created.unit, status: created.status },
     });
     return NextResponse.json({ request: created }, { status: 201 });
   } catch (err) {

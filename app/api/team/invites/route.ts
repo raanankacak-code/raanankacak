@@ -7,7 +7,7 @@ import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from
 import { ROLE_LABELS } from "@/lib/permissions";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { recordAuditEvent } from "@/lib/db/auditLog";
+import { recordMemberAction } from "@/lib/db/auditLog";
 import { assertCanAddTeamAccount } from "@/lib/billing/limits";
 
 const ROLES = [
@@ -59,9 +59,7 @@ export async function POST(request: Request) {
     }
     const invite = await createInvite(member.orgId, { ...body, invitedByName: member.name });
     await notify(member.orgId, "invite", "User Invited", `${body.email} invited as ${ROLE_LABELS[body.role]} by ${member.name}.`);
-    await recordAuditEvent(member.orgId, {
-      actorMemberId: member.id,
-      actorName: member.name,
+    await recordMemberAction(member, {
       action: "MEMBER_INVITED",
       entityType: "org_invite",
       entityId: invite.id,

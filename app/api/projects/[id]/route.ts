@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getProjectById, getProjectWithWorkers, updateProject, deleteProject } from "@/lib/db/projects";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
-import { recordAuditEvent } from "@/lib/db/auditLog";
+import { recordAuditEvent, recordMemberAction } from "@/lib/db/auditLog";
 import { listDocumentsForProject } from "@/lib/db/documents";
 import { listReports } from "@/lib/db/reports";
 import { removeObjectsByUrl } from "@/lib/uploads";
@@ -86,7 +86,7 @@ export async function DELETE(
   try {
     const member = await requireWritableMember("deleteProjects");
     const { id } = await params;
-    await loadProjectOrThrow(member.orgId, id);
+    const existing = await loadProjectOrThrow(member.orgId, id);
 
     // Deleting the project cascades its documents and daily reports away, so
     // collect the files they point at first — afterwards there is nothing
@@ -99,6 +99,17 @@ export async function DELETE(
 
     await deleteProject(member.orgId, id);
     await removeObjectsByUrl(member.orgId, fileUrls);
+
+    // Recorded after the fact, and with counts, because this is the most
+    // destructive thing a member can do short of deleting the workspace:
+    // every report, request and document under the project goes with it.
+    await recordMemberAction(member, {
+      action: "PROJECT_DELETED",
+      entityType: "project",
+      entityId: id,
+      summary: `${member.name} deleted the project "${existing.name}", along with ${reports.length} daily reports and ${documents.length} documents`,
+      metadata: { name: existing.name, reports: reports.length, documents: documents.length, files: fileUrls.length },
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

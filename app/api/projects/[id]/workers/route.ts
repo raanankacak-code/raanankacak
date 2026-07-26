@@ -4,6 +4,8 @@ import { getProjectById } from "@/lib/db/projects";
 import { createWorker } from "@/lib/db/workers";
 import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { assertCanAddWorker } from "@/lib/billing/limits";
+import { recordMemberAction } from "@/lib/db/auditLog";
+import { formatCurrency } from "@/lib/format";
 
 const workerSchema = z.object({
   name: z.string().min(1).max(160),
@@ -33,6 +35,14 @@ export async function POST(
       icNumber: body.icNumber,
       cidbNumber: body.cidbNumber,
       cidbExpiry: body.cidbExpiry || undefined,
+    });
+
+    await recordMemberAction(member, {
+      action: "WORKER_ADDED",
+      entityType: "worker",
+      entityId: worker.id,
+      summary: `${member.name} added ${worker.name}${worker.trade ? ` (${worker.trade})` : ""} to "${project.name}"${worker.dailyRate ? ` at ${formatCurrency(worker.dailyRate)}/day` : ""}`,
+      metadata: { name: worker.name, trade: worker.trade, dailyRate: worker.dailyRate, projectId },
     });
     return NextResponse.json({ worker }, { status: 201 });
   } catch (err) {

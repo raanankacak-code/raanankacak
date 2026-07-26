@@ -6,6 +6,7 @@ const getRequestByIdMock = vi.fn();
 const transitionRequestMock = vi.fn();
 const notifyMock = vi.fn();
 const recordAuditEventMock = vi.fn();
+const recordMemberActionMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
@@ -30,6 +31,7 @@ vi.mock("@/lib/db/notifications", () => ({
 
 vi.mock("@/lib/db/auditLog", () => ({
   recordAuditEvent: recordAuditEventMock,
+  recordMemberAction: recordMemberActionMock,
 }));
 
 const { PATCH } = await import("@/app/api/materials/[id]/route");

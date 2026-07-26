@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getEventById, updateEvent, deleteEvent } from "@/lib/db/calendar";
 import { getProjectById } from "@/lib/db/projects";
 import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { recordMemberAction } from "@/lib/db/auditLog";
 
 const patchSchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
@@ -30,6 +31,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (!project) throw new ApiError(404, "Project not found");
     }
     const event = await updateEvent(member.orgId, id, body);
+
+    // Only the fields that actually moved, so the trail says what changed
+    // rather than restating the whole event on every save.
+    const before = existing as unknown as Record<string, unknown>;
+    const changed = (Object.keys(body) as (keyof typeof body)[]).filter(
+      (k) => body[k] !== undefined && body[k] !== before[k],
+    );
+    if (changed.length > 0) {
+      await recordMemberAction(member, {
+        action: "CALENDAR_EVENT_UPDATED",
+        entityType: "calendar_event",
+        entityId: id,
+        summary: `${member.name} updated the ${existing.type.toLowerCase()} "${existing.title}" (${changed.join(", ")})`,
+        metadata: { changed, before: Object.fromEntries(changed.map((k) => [k, before[k]])) },
+      });
+    }
     return NextResponse.json({ event });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -46,6 +63,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const existing = await getEventById(member.orgId, id);
     if (!existing) throw new ApiError(404, "Event not found");
     await deleteEvent(member.orgId, id);
+
+    await recordMemberAction(member, {
+      action: "CALENDAR_EVENT_DELETED",
+      entityType: "calendar_event",
+      entityId: id,
+      summary: `${member.name} deleted the ${existing.type.toLowerCase()} "${existing.title}" scheduled for ${existing.date}`,
+      metadata: { title: existing.title, type: existing.type, date: existing.date },
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return apiErrorResponse(err);

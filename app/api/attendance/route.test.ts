@@ -8,6 +8,7 @@ const listWorkerIdsForProjectMock = vi.fn();
 const listAttendanceForProjectDateViaSessionMock = vi.fn();
 const upsertAttendanceRecordsMock = vi.fn();
 const notifyMock = vi.fn();
+const recordMemberActionMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
@@ -36,6 +37,10 @@ vi.mock("@/lib/db/attendance", () => ({
 
 vi.mock("@/lib/db/notifications", () => ({
   notify: notifyMock,
+}));
+
+vi.mock("@/lib/db/auditLog", () => ({
+  recordMemberAction: recordMemberActionMock,
 }));
 
 const { PUT } = await import("@/app/api/attendance/route");
@@ -69,9 +74,55 @@ beforeEach(() => {
   listAttendanceForProjectDateViaSessionMock.mockReset();
   upsertAttendanceRecordsMock.mockReset();
   notifyMock.mockReset();
+  recordMemberActionMock.mockReset();
   requireMemberMock.mockResolvedValue(MEMBER);
   getProjectByIdMock.mockResolvedValue(PROJECT_A);
   notifyMock.mockResolvedValue(undefined);
+});
+
+describe("PUT /api/attendance audit logging", () => {
+  it("records who marked attendance, for which day, and the present/absent split", async () => {
+    // Attendance is what payroll is computed from, so a wage dispute comes
+    // down to exactly this: who said what about which day.
+    listWorkerIdsForProjectMock.mockResolvedValue(new Set(["w-1", "w-2", "w-3"]));
+    upsertAttendanceRecordsMock.mockResolvedValue([]);
+
+    await PUT(
+      putRequest({
+        projectId: "project-A",
+        date: "2026-07-19",
+        records: [
+          { workerId: "w-1", status: "PRESENT" },
+          { workerId: "w-2", status: "HALF_DAY" },
+          { workerId: "w-3", status: "ABSENT" },
+        ],
+      }),
+    );
+
+    expect(recordMemberActionMock).toHaveBeenCalledWith(
+      MEMBER,
+      expect.objectContaining({
+        action: "ATTENDANCE_RECORDED",
+        entityType: "attendance",
+        // A half day counts as turning up, the same way the notification counts it.
+        metadata: { date: "2026-07-19", projectId: "project-A", present: 2, absent: 1, total: 3 },
+      }),
+    );
+  });
+
+  it("records nothing when the write was rejected", async () => {
+    listWorkerIdsForProjectMock.mockResolvedValue(new Set(["w-1"]));
+
+    await PUT(
+      putRequest({
+        projectId: "project-A",
+        date: "2026-07-19",
+        records: [{ workerId: "worker-from-org-B", status: "PRESENT" }],
+      }),
+    );
+
+    expect(recordMemberActionMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("PUT /api/attendance", () => {

@@ -5,6 +5,7 @@ import { listActiveWorkersForProject, listWorkerIdsForProject } from "@/lib/db/w
 import { listAttendanceForProjectDateViaSession, upsertAttendanceRecords } from "@/lib/db/attendance";
 import { notify } from "@/lib/db/notifications";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
+import { recordMemberAction } from "@/lib/db/auditLog";
 
 const upsertSchema = z.object({
   projectId: z.string().min(1),
@@ -68,6 +69,19 @@ export async function PUT(request: Request) {
       "Attendance Completed",
       `${present} of ${body.records.length} workers checked in at ${project.name} for ${body.date}.`,
     );
+
+    // Attendance drives payroll, so who marked whom present on which day is
+    // exactly the kind of thing a wage dispute turns on. Recorded as one
+    // entry per submission rather than per worker — a per-worker trail would
+    // bury everything else in the log.
+    const absent = body.records.length - present;
+    await recordMemberAction(member, {
+      action: "ATTENDANCE_RECORDED",
+      entityType: "attendance",
+      entityId: project.id,
+      summary: `${member.name} recorded attendance for "${project.name}" on ${body.date} — ${present} present, ${absent} absent`,
+      metadata: { date: body.date, projectId: project.id, present, absent, total: body.records.length },
+    });
     return NextResponse.json({ records });
   } catch (err) {
     if (err instanceof z.ZodError) {

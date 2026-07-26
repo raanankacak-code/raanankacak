@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getMemberById, updateMember, removeMember, countOwners } from "@/lib/db/team";
 import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
-import { recordAuditEvent } from "@/lib/db/auditLog";
+import { recordMemberAction } from "@/lib/db/auditLog";
 
 const ROLES = [
   "OWNER",
@@ -51,9 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const member = await updateMember(me.orgId, id, body);
 
     if (body.role && body.role !== target.role) {
-      await recordAuditEvent(me.orgId, {
-        actorMemberId: me.id,
-        actorName: me.name,
+      await recordMemberAction(me, {
         action: "MEMBER_ROLE_CHANGED",
         entityType: "org_member",
         entityId: member.id,
@@ -62,9 +60,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       });
     }
     if (body.active !== undefined && body.active !== target.active) {
-      await recordAuditEvent(me.orgId, {
-        actorMemberId: me.id,
-        actorName: me.name,
+      await recordMemberAction(me, {
         action: body.active ? "MEMBER_REACTIVATED" : "MEMBER_DEACTIVATED",
         entityType: "org_member",
         entityId: member.id,
@@ -95,9 +91,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       throw new ApiError(400, "Your company needs at least one active Owner");
     }
     await removeMember(me.orgId, id);
-    await recordAuditEvent(me.orgId, {
-      actorMemberId: me.id,
-      actorName: me.name,
+    await recordMemberAction(me, {
       action: "MEMBER_REMOVED",
       entityType: "org_member",
       entityId: target.id,
