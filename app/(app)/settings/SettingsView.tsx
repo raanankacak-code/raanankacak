@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
+import type { Role } from "@/lib/db/types";
 
 const MY_STATES = [
   "Sarawak",
@@ -87,18 +88,64 @@ function toForm(org: Org): FormState {
   };
 }
 
-export default function SettingsView({ org }: { org: Org }) {
+export default function SettingsView({ org, role }: { org: Org; role: Role }) {
   const router = useRouter();
   const initial = useMemo(() => toForm(org), [org]);
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [error, setError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function exportData() {
+    setExporting(true);
+    setError("");
+    try {
+      // Streamed as a file download rather than parsed as JSON — a large
+      // workspace should not be held in memory twice just to save it.
+      const res = await fetch("/api/orgs/export");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "Export failed.");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `binaworks-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function deleteWorkspace() {
+    if (!confirm(`Permanently delete ${org.name}? This cannot be undone.`)) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await apiFetch("/api/orgs", { method: "DELETE", body: JSON.stringify({ confirmName }) });
+      // The workspace is gone; the account still exists, so send them to the
+      // create-a-company screen rather than to a dashboard that no longer has
+      // anything to show.
+      router.push("/signup/company");
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "Could not delete the company.");
+      setDeleting(false);
+    }
   }
 
   async function uploadLogo(file: File | null) {
@@ -386,6 +433,58 @@ export default function SettingsView({ org }: { org: Org }) {
               </div>
             </div>
           </div>
+
+          <div className="card">
+            <div className="card-h">
+              <h3>Your data</h3>
+            </div>
+            <div className="card-b" style={{ display: "grid", gap: 10 }}>
+              <p className="small mut" style={{ margin: 0 }}>
+                Download everything in this workspace as a single JSON file — projects, reports,
+                attendance, workers, materials, documents and the audit log. Useful as a backup, or
+                to move to another system. Pending invitation codes are left out for security.
+              </p>
+              <div>
+                <button className="btn" disabled={exporting} onClick={exportData}>
+                  {exporting ? "Preparing…" : "Download my data"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {role === "OWNER" && (
+            <div className="card" style={{ borderColor: "var(--bad)" }}>
+              <div className="card-h">
+                <h3 style={{ color: "var(--bad-text)" }}>Delete this company</h3>
+              </div>
+              <div className="card-b" style={{ display: "grid", gap: 10 }}>
+                <p className="small mut" style={{ margin: 0 }}>
+                  Permanently deletes <b>{org.name}</b> and everything in it — every project, daily
+                  report, photo, worker record and material request. This cannot be undone, so
+                  download your data first if you might want it. Your team keep their sign-in
+                  accounts; they just lose access to this workspace.
+                </p>
+                <div className="full" style={{ maxWidth: 380 }}>
+                  <label>Type the company name to confirm</label>
+                  <input
+                    value={confirmName}
+                    onChange={(e) => setConfirmName(e.target.value)}
+                    placeholder={org.name}
+                    aria-label="Type the company name to confirm deletion"
+                  />
+                </div>
+                <div>
+                  <button
+                    className="btn btn-danger"
+                    disabled={deleting || confirmName.trim().toLowerCase() !== org.name.trim().toLowerCase()}
+                    onClick={deleteWorkspace}
+                  >
+                    {deleting ? "Deleting…" : "Delete this company permanently"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className={`card cs-bar${dirty ? " dirty" : ""}`}>
             <div className="card-b" style={{ display: "flex", gap: 9, flexWrap: "wrap", alignItems: "center" }}>

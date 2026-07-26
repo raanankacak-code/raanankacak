@@ -108,8 +108,9 @@ itself with a warning if they're missing.
 
 ### What the e2e suite covers
 
-Setup seeds three orgs, because the things worth regression-testing can't be
-reached from one Owner in one healthy workspace:
+Setup seeds four orgs, because the things worth regression-testing can't be
+reached from one Owner in one healthy workspace — a second tenant, an expired
+trial, and a Stripe customer are each needed:
 
 - **`golden-path`** — the daily loop end to end: create a project, add a
   worker, file a report, take attendance, raise and approve a material
@@ -127,9 +128,21 @@ reached from one Owner in one healthy workspace:
 - **`read-only-mode`** — an org whose trial has already expired can still
   read and export everything but is refused every write with a 402, and a
   healthy org is unaffected.
+- **`invites`** — issue, public lookup, and acceptance, pinning the three
+  bugs found in that flow: token length, an account the invitation was not
+  addressed to, and an account already in a workspace.
+- **`stripe-webhook`** — signatures are produced in the spec, so forged and
+  mismatched signatures, activation, `past_due`, transient statuses,
+  unrecognised prices and unknown customers are all covered without a Stripe
+  account or a network call.
+- **`export-and-delete`** — the export is complete, tenant-scoped, redacts
+  invite tokens and works while read-only; deletion is refused for non-Owners
+  and for a mistyped name, and when it does run it removes storage objects
+  while leaving sign-in accounts intact.
 
-Teardown removes all three orgs, their users, and any objects they uploaded
-to storage.
+Teardown removes every seeded org, their users, and any objects they
+uploaded to storage. Specs that create users mid-run (an invitee does not
+exist until the test runs) clean those up themselves.
 
 ## File uploads
 
@@ -157,6 +170,34 @@ Creating the bucket on a fresh Supabase project:
 ```js
 await admin.storage.createBucket("uploads", { public: false, fileSizeLimit: 20971520 });
 ```
+
+## Export and deletion
+
+**Export** — Company Settings → *Your data* downloads the whole workspace as
+one JSON file (`GET /api/orgs/export`): every project, report, worker,
+attendance record, material request, document record, calendar event and the
+audit log. Requires `manageOrg`.
+
+It works while the workspace is read-only, on purpose — the Billing page
+promises that when a trial lapses "all data is safe and can still be viewed
+and exported", and being locked out of your own site records over a lapsed
+card would be far worse than being refused a write.
+
+Pending invitation tokens are redacted. A token is a bearer credential, and
+an export is a file that gets emailed around.
+
+**Deletion** — Company Settings → *Delete this company* removes the
+organisation and everything in it, including uploaded files (the database
+cascade does not reach the storage bucket, so that is done explicitly).
+
+Owner-only, and the company name has to be typed to confirm. `manageOrg` is
+deliberately not enough: an Admin can run the workspace day to day without
+being able to end it.
+
+**Sign-in accounts survive.** Members lose their membership and land back on
+the create-a-company screen, but keep their login — one Owner should not be
+able to destroy a colleague's account, which may be used for another
+workspace or a future invitation.
 
 ## Logging & error tracking
 

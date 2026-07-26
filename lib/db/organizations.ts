@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { UPLOADS_BUCKET } from "@/lib/uploads";
 import type { Organization, OrgMember, Role } from "@/lib/db/types";
 
 function mapOrganization(row: Record<string, unknown>): Organization {
@@ -163,4 +164,34 @@ export async function createOrganizationWithOwner(input: {
   }
 
   return { org: mapOrganization(orgRow), member: mapOrgMember(memberRow) };
+}
+
+/**
+ * Permanently deletes an organisation and everything belonging to it.
+ *
+ * Sign-in accounts are deliberately left alone. One Owner should not be able
+ * to destroy a colleague's login — which may be used for another workspace,
+ * or to accept a future invitation — so members simply lose their membership
+ * and land back on the "create a company" screen.
+ *
+ * Uploaded files are removed first: the database cascade knows nothing about
+ * the storage bucket, so deleting the org first would orphan every object
+ * with no record left of which they were.
+ */
+export async function deleteOrganization(orgId: string): Promise<void> {
+  const supabase = createAdminClient();
+
+  const { data: objects, error: listError } = await supabase.storage.from(UPLOADS_BUCKET).list(orgId);
+  if (listError) throw listError;
+  if (objects && objects.length > 0) {
+    const { error: removeError } = await supabase.storage
+      .from(UPLOADS_BUCKET)
+      .remove(objects.map((o) => `${orgId}/${o.name}`));
+    if (removeError) throw removeError;
+  }
+
+  // organizations -> members, projects, workers, reports, materials,
+  // documents, calendar, notifications, audit log, subscription all cascade.
+  const { error } = await supabase.from("organizations").delete().eq("id", orgId);
+  if (error) throw error;
 }

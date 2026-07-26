@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { getMemberByUserId, createOrganizationWithOwner, updateOrganization } from "@/lib/db/organizations";
-import { apiErrorResponse, ApiError, requireWritableMember } from "@/lib/auth";
+import {
+  getMemberByUserId,
+  createOrganizationWithOwner,
+  updateOrganization,
+  deleteOrganization,
+} from "@/lib/db/organizations";
+import { apiErrorResponse, ApiError, requireMember, requireWritableMember } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { getOrganizationById } from "@/lib/db/organizations";
 import { removeObjectsByUrl } from "@/lib/uploads";
 import { safeUrlSchema } from "@/lib/url-validation";
@@ -105,6 +111,57 @@ export async function PATCH(request: Request) {
       await removeObjectsByUrl(member.orgId, [previousLogoUrl]);
     }
     return NextResponse.json({ org });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    return apiErrorResponse(err);
+  }
+}
+
+const deleteSchema = z.object({
+  /** The company's exact name, typed by the user, as the confirmation. */
+  confirmName: z.string().min(1),
+});
+
+/**
+ * Permanently deletes the caller's company workspace.
+ *
+ * Owner-only and irreversible: this destroys every project, report, photo
+ * and record the company has. `manageOrg` is not enough — an Admin can run
+ * the workspace day to day without being able to end it.
+ *
+ * Sign-in accounts survive (see deleteOrganization) so no Owner can delete a
+ * colleague's login.
+ */
+export async function DELETE(request: Request) {
+  try {
+    // requireMember, not requireWritableMember: someone whose trial lapsed
+    // must still be able to close their account rather than being trapped by
+    // read-only mode.
+    const member = await requireMember();
+    if (member.role !== "OWNER") {
+      throw new ApiError(403, "Only the Owner can delete the company workspace");
+    }
+
+    const body = deleteSchema.parse(await request.json());
+    const org = await getOrganizationById(member.orgId);
+    if (!org) throw new ApiError(404, "Company not found");
+
+    // Typing the name is the guard against a mis-click on something with no
+    // undo. Compared leniently on case and surrounding space only.
+    if (body.confirmName.trim().toLowerCase() !== org.name.trim().toLowerCase()) {
+      throw new ApiError(400, "The name you typed does not match the company name");
+    }
+
+    logger.warn("Company workspace deleted", {
+      orgId: member.orgId,
+      orgName: org.name,
+      byMemberId: member.id,
+    });
+
+    await deleteOrganization(member.orgId);
+    return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0]?.message ?? "Invalid input" }, { status: 400 });

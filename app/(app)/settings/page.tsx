@@ -10,5 +10,5 @@ export default async function SettingsPage() {
   const org = await getOrganizationById(member.orgId);
   if (!org) redirect("/dashboard");
 
-  return <SettingsView org={org} />;
+  return <SettingsView org={org} role={member.role} />;
 }
