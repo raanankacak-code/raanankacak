@@ -47,6 +47,7 @@ export interface SeedInfo {
   orgA: { id: string; name: string; members: Record<string, SeededMember> };
   orgB: { id: string; name: string; owner: SeededMember };
   orgC: { id: string; name: string; owner: SeededMember };
+  orgD: { id: string; name: string; owner: SeededMember; stripeCustomerId: string };
 
   /** Everything to remove at teardown, whatever shape the fixtures take. */
   orgIds: string[];
@@ -145,6 +146,53 @@ async function createMember(
   return { role, email, userId: created.user.id, authStatePath };
 }
 
+/**
+ * Admin client for specs that need to set up or clean up their own fixtures
+ * (an invitee who does not exist until the test runs, for instance). Tests
+ * are the one place the service-role key is legitimately used directly.
+ */
+export function adminClient() {
+  return admin();
+}
+
+/** Creates a confirmed auth user with no org membership, and signs them in. */
+export async function createAuthedUser(email: string): Promise<{ userId: string; cookie: string }> {
+  const password = `E2eUser!${Date.now()}`;
+  const { data, error } = await admin().auth.admin.createUser({ email, password, email_confirm: true });
+  if (error || !data.user) throw error ?? new Error("createUser returned no user");
+
+  const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const jar: { name: string; value: string }[] = [];
+  const browserClient = createBrowserClient(url, anonKey, {
+    isSingleton: false,
+    cookies: {
+      getAll: () => jar.map((c) => ({ ...c })),
+      setAll: (cookiesToSet) => {
+        for (const c of cookiesToSet) {
+          const idx = jar.findIndex((existing) => existing.name === c.name);
+          const entry = { name: c.name, value: c.value };
+          if (idx >= 0) jar[idx] = entry;
+          else jar.push(entry);
+        }
+      },
+    },
+  });
+  const { error: signInErr } = await browserClient.auth.signInWithPassword({ email, password });
+  if (signInErr) throw signInErr;
+
+  return {
+    userId: data.user.id,
+    cookie: jar.map((c) => `${c.name}=${c.value}`).join("; "),
+  };
+}
+
+export async function deleteUsers(userIds: string[]): Promise<void> {
+  for (const id of userIds) {
+    await admin().auth.admin.deleteUser(id);
+  }
+}
+
 export async function seedOwnerSession(): Promise<SeedInfo> {
   const runId = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const orgIds: string[] = [];
@@ -186,6 +234,23 @@ export async function seedOwnerSession(): Promise<SeedInfo> {
   });
   if (subErr) throw subErr;
 
+  // --- Org D: has a Stripe customer, so webhook events have somewhere to land ---
+  const orgDName = `E2E Billing Co ${runId}`;
+  const orgDId = await createOrg(orgDName);
+  orgIds.push(orgDId);
+  const orgDOwner = await createMember(orgDId, "OWNER", `d-${runId}`, "orgd-owner.json");
+  userIds.push(orgDOwner.userId);
+
+  const stripeCustomerId = `cus_e2e_${runId.replace(/-/g, "")}`;
+  const { error: subDErr } = await admin().from("org_subscriptions").insert({
+    org_id: orgDId,
+    plan: "STARTER",
+    status: "TRIALING",
+    trial_ends_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    stripe_customer_id: stripeCustomerId,
+  });
+  if (subDErr) throw subDErr;
+
   const info: SeedInfo = {
     userId: members.OWNER.userId,
     orgId: orgAId,
@@ -194,6 +259,7 @@ export async function seedOwnerSession(): Promise<SeedInfo> {
     orgA: { id: orgAId, name: orgAName, members },
     orgB: { id: orgBId, name: orgBName, owner: orgBOwner },
     orgC: { id: orgCId, name: orgCName, owner: orgCOwner },
+    orgD: { id: orgDId, name: orgDName, owner: orgDOwner, stripeCustomerId },
     orgIds,
     userIds,
   };

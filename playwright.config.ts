@@ -52,6 +52,18 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 180_000,
-    env: { PORT: String(PORT) },
+    env: {
+      PORT: String(PORT),
+      // Test-only Stripe config. The webhook route verifies signatures with
+      // HMAC-SHA256, which the spec can produce itself — so the real
+      // verification, event routing and price->plan mapping all get
+      // exercised without a Stripe account or any network call. The secret
+      // key is only used to construct the client object.
+      STRIPE_SECRET_KEY: "sk_test_e2e_not_a_real_key",
+      STRIPE_WEBHOOK_SECRET: "whsec_e2e_test_secret",
+      STRIPE_PRICE_STARTER: "price_e2e_starter",
+      STRIPE_PRICE_PROFESSIONAL: "price_e2e_professional",
+      STRIPE_PRICE_BUSINESS: "price_e2e_business",
+    },
   },
 });
