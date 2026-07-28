@@ -41,12 +41,19 @@ create type report_status as enum (
   'REVIEWED'
 );
 
-create function set_updated_at() returns trigger as $$
+-- search_path is pinned, as it is on every other function here. A trigger
+-- function without it resolves unqualified names against whatever search_path
+-- the *calling* session happens to have, which is the standard way a
+-- privileged function gets pointed at an attacker's table.
+create function set_updated_at() returns trigger
+language plpgsql
+set search_path = ''
+as $$
 begin
-  new.updated_at = now();
+  new.updated_at = pg_catalog.now();
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 -- organizations --------------------------------------------------------
 
@@ -669,3 +676,65 @@ create policy "select_own_org_audit_log" on audit_log
 create policy "select_own_org_subscription" on org_subscriptions
   for select to authenticated
   using (org_id = auth_org_id());
+
+-- rls safety net ---------------------------------------------------------
+-- Enables row level security on any table created in `public`, so a new
+-- table cannot be added without it. This lived only in the live database
+-- until now: it was applied directly and never written down, which meant
+-- rebuilding from this file would have produced a database that looked
+-- right and had lost the guardrail. Restoring the schema and restoring the
+-- protections have to be the same operation.
+--
+-- The function is SECURITY DEFINER because enabling RLS needs table
+-- ownership, and EXECUTE is revoked from every client role: it returns
+-- event_trigger and errors outside a trigger context, but there is no reason
+-- for it to be reachable over PostgREST at all.
+
+create function rls_auto_enable() returns event_trigger
+language plpgsql
+security definer
+set search_path = 'pg_catalog'
+as $$
+declare
+  cmd record;
+begin
+  for cmd in
+    select * from pg_event_trigger_ddl_commands()
+    where command_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      and object_type in ('table', 'partitioned table')
+  loop
+    if cmd.schema_name = 'public' then
+      begin
+        execute format('alter table if exists %s enable row level security', cmd.object_identity);
+        raise log 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
+      exception
+        when others then
+          raise log 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
+      end;
+    else
+      raise log 'rls_auto_enable: skipped % (schema %)', cmd.object_identity, cmd.schema_name;
+    end if;
+  end loop;
+end;
+$$;
+
+revoke execute on function rls_auto_enable() from public;
+revoke execute on function rls_auto_enable() from anon;
+revoke execute on function rls_auto_enable() from authenticated;
+
+create event trigger ensure_rls
+  on ddl_command_end
+  execute function rls_auto_enable();
+
+-- scheduled maintenance --------------------------------------------------
+-- Rate-limit buckets keyed by IP accumulate one row per distinct address
+-- that has ever hit a limited endpoint, so the table grows without bound
+-- unless something sweeps it. 03:17 rather than 03:00, to sit outside the
+-- crowd of jobs everyone schedules on the hour.
+
+create extension if not exists pg_cron;
+
+select cron.schedule('prune-rate-limits', '17 3 * * *', $$select public.prune_rate_limits(24)$$);
+
+comment on table rate_limits is
+  'Deny-all by design: RLS enabled with no policies. Reached only by the service role through check_rate_limit().';

@@ -318,6 +318,101 @@ silently breaking a button in production.
 database, so it fails when Postgres is unreachable rather than only when the
 process is dead. Point your load balancer or uptime monitor at it.
 
+The health check is also how a bad config keeps traffic away. The app
+validates its environment at boot (`lib/config.ts`); when something fatal is
+missing the process stays up but every request — including `/api/health` —
+returns 500, so a load balancer never routes to that instance and a rolling
+deploy stops rather than half-completing.
+
+What is fatal, and why each one:
+
+| Setting | Missing | Reason |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL`, `..._ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | fatal | Nothing works without them |
+| `NEXT_PUBLIC_APP_URL` | fatal in production | Invite links fall back to the `Host` header, which a caller can forge |
+| `TRUSTED_PROXY_HOPS` | warning | `1` is a defensible default; a *malformed* value is fatal |
+| `STRIPE_SECRET_KEY` without `STRIPE_WEBHOOK_SECRET` | fatal | Checkout would succeed and the subscription never activate |
+
+The middle two are the interesting ones: the app runs perfectly well without
+either, and does the wrong thing quietly. That is precisely why they fail
+loudly instead of being left to a code review.
+
+### Before you go live
+
+Run `get_advisors` (or Supabase → Advisors) and expect exactly three findings,
+each a decision rather than an oversight:
+
+- **`rate_limits` has RLS enabled and no policies** (INFO). Deliberate
+  deny-all. The table is reached only by the service role through
+  `check_rate_limit()`, so there is no policy to write — a policy would be
+  the thing that opened it up. Documented in a table comment; the linter
+  still reports it, because a comment cannot clear a lint.
+- **`auth_org_id()` is executable by `authenticated`** (WARN). Required, not
+  an oversight: RLS policy expressions are evaluated with the *caller's*
+  privileges, so revoking this grant would break every tenant-scoped read in
+  the app. Calling it over RPC returns the caller's own org id — something
+  they already know.
+- **Leaked password protection is disabled** (WARN). This one is worth
+  fixing and cannot be done from SQL. Turn it on at
+  **Authentication → Policies → Password protection**; it checks new
+  passwords against HaveIBeenPwned. Do this before real customers sign up.
+
+Two more manual steps, neither expressible in a migration:
+
+- Confirm the automated backup retention on your plan (Project → Database →
+  Backups) and write the number down somewhere that is not this file.
+- Set up a backup for the `uploads` storage bucket. Database backups do not
+  include it — see below.
+
+## Backup and restore
+
+Two things have to survive, and they are backed up by different mechanisms.
+Losing track of that is the usual way a "we have backups" turns out not to.
+
+**1. The database.** Supabase takes automated backups; the retention window
+depends on the plan, so check Project → Database → Backups and know your
+number before you need it. Backups are point-in-time restores of Postgres —
+they cover every table, every row, and the auth schema.
+
+**2. Storage objects.** Uploaded photos, documents and logos live in the
+private `uploads` bucket, which is **not** part of a database backup.
+Restoring the database alone gives you rows whose `url` columns point at
+objects that no longer exist. Back the bucket up separately.
+
+### Restoring
+
+```bash
+# 1. Restore the database from the Supabase dashboard
+#    (Project -> Database -> Backups -> Restore).
+
+# 2. Confirm the guardrails came back, not just the tables. This is the
+#    check that matters: a schema can restore looking correct while having
+#    lost the things that keep it safe.
+psql "$DATABASE_URL" -c "select count(*) from pg_policies where schemaname='public';"
+psql "$DATABASE_URL" -c "select evtname from pg_event_trigger where evtname='ensure_rls';"
+psql "$DATABASE_URL" -c "select jobname, schedule from cron.job;"
+
+# 3. Restore the storage bucket, then verify nothing dangles:
+#    every document row should have a matching object.
+```
+
+`supabase/schema.sql` is the source of truth for schema *and* for those
+guardrails — the RLS policies, the append-only audit triggers, the
+`ensure_rls` event trigger and the pruning job are all in it. That was not
+always true: `ensure_rls` existed only in the live database for a while,
+which meant a rebuild from this file would have produced a database that
+looked right and silently no longer enforced RLS on new tables. If you apply
+something directly to the database, put it in this file in the same sitting.
+
+### What to check after any restore
+
+- `select count(*) from pg_policies where schemaname = 'public'` — should be 15.
+- `ensure_rls` event trigger present.
+- `cron.job` contains `prune-rate-limits`.
+- `GET /api/health` returns 200.
+- Sign in, open a project, and open one uploaded document — that exercises
+  the database, the session, and storage in one go.
+
 ## Project structure
 
 ```

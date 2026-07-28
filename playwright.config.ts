@@ -54,6 +54,13 @@ export default defineConfig({
     timeout: 180_000,
     env: {
       PORT: String(PORT),
+      // The production build now refuses to boot without this, because
+      // falling back to the Host header is a security regression that is
+      // invisible at runtime. Setting it here also pins the origin of the
+      // invite links the suite generates, instead of whatever Host the
+      // request happened to carry.
+      NEXT_PUBLIC_APP_URL: BASE_URL,
+      TRUSTED_PROXY_HOPS: "1",
       // Test-only Stripe config. The webhook route verifies signatures with
       // HMAC-SHA256, which the spec can produce itself — so the real
       // verification, event routing and price->plan mapping all get

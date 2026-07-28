@@ -1,5 +1,6 @@
 import type { Instrumentation } from "next";
 import { reportError, logger } from "@/lib/logger";
+import { checkConfig } from "@/lib/config";
 
 /**
  * Server-side observability entry point (see the Next.js instrumentation.js
@@ -12,13 +13,6 @@ import { reportError, logger } from "@/lib/logger";
  * logs to say what broke.
  */
 
-/** Config the app cannot serve a single request without. */
-const REQUIRED_ENV = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
-] as const;
-
 export function register() {
   // Where a hosted error tracker gets initialised, e.g.
   //   setErrorReporter((err, ctx) => Sentry.captureException(err, { extra: ctx }))
@@ -27,12 +21,17 @@ export function register() {
 
   // Fail at boot rather than on the first user request. A missing key
   // otherwise surfaces as an opaque runtime error somewhere deep in a route,
-  // long after the deploy looked successful.
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name]);
-  if (missing.length > 0) {
-    const message = `Missing required environment variable(s): ${missing.join(", ")}. See .env.example.`;
-    logger.error("Startup configuration invalid", { missing });
-    throw new Error(message);
+  // long after the deploy looked successful — or, worse, as no error at all
+  // while the app quietly does the wrong thing (see checkConfig).
+  const { fatal, warnings } = checkConfig();
+
+  for (const warning of warnings) {
+    logger.warn("Startup configuration warning", { detail: warning });
+  }
+
+  if (fatal.length > 0) {
+    logger.error("Startup configuration invalid", { problems: fatal });
+    throw new Error(`Startup configuration invalid:\n  - ${fatal.join("\n  - ")}`);
   }
 
   logger.info("Server starting", {
