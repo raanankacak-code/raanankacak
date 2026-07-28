@@ -322,6 +322,13 @@ export interface SafetyInspectionItem {
   item: string;
   result: SafetyItemResult;
   note?: string;
+  /**
+   * Evidence for this specific finding. Attached per item rather than only to
+   * the inspection, because "the scaffold on level 3" and "the blocked exit"
+   * are different findings and a pile of photos at the bottom does not say
+   * which is which.
+   */
+  photos?: string[];
 }
 
 export interface SafetyInspection {

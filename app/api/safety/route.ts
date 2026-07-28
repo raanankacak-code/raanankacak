@@ -16,6 +16,10 @@ const itemSchema = z.object({
   item: z.string().min(1).max(200),
   result: z.enum(["PASS", "FAIL", "NA"]),
   note: z.string().max(500).optional(),
+  // Capped per finding as well as overall: the checklist has ~27 items, and
+  // an unbounded array on each would let one request reference hundreds of
+  // objects.
+  photos: z.array(safeUrlSchema).max(6).optional(),
 });
 
 // `outcome`, `status` and `failedCount` are deliberately absent: they are

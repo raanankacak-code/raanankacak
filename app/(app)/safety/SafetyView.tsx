@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
 import Modal from "@/components/app/Modal";
+import PhotoStrip from "@/components/app/PhotoStrip";
 import ProjectFilterSelect from "@/components/app/ProjectFilterSelect";
 import SortableTh, { type SortState, toggleSort, sortRows } from "@/components/app/SortableTh";
 import { SAFETY_CHECKLIST } from "@/lib/safetyChecklist";
@@ -239,6 +240,8 @@ function NewInspectionModal({
   // how a site walk actually goes — you note what is wrong, not what is fine.
   const [results, setResults] = useState<SafetyItemResult[]>(() => SAFETY_CHECKLIST.map(() => "PASS"));
   const [notesByIndex, setNotesByIndex] = useState<Record<number, string>>({});
+  const [photosByIndex, setPhotosByIndex] = useState<Record<number, string[]>>({});
+  const [photos, setPhotos] = useState<string[]>([]);
 
   const failed = results.filter((r) => r === "FAIL").length;
 
@@ -257,11 +260,15 @@ function NewInspectionModal({
           projectId,
           date,
           notes: notes || undefined,
+          photos: photos.length ? photos : undefined,
           items: SAFETY_CHECKLIST.map((t, i) => ({
             category: t.category,
             item: t.item,
             result: results[i],
             note: notesByIndex[i] || undefined,
+            // Only failures carry evidence. A photo of something that passed
+            // is noise in a record someone has to read under time pressure.
+            photos: results[i] === "FAIL" && photosByIndex[i]?.length ? photosByIndex[i] : undefined,
           })),
         }),
       });
@@ -342,13 +349,23 @@ function NewInspectionModal({
                 </div>
               </div>
               {results[i] === "FAIL" && (
-                <input
-                  aria-label={`What is wrong: ${SAFETY_CHECKLIST[i].item}`}
-                  placeholder="What is wrong, and where"
-                  value={notesByIndex[i] ?? ""}
-                  onChange={(e) => setNotesByIndex((p) => ({ ...p, [i]: e.target.value }))}
-                  style={{ marginTop: 7 }}
-                />
+                <>
+                  <input
+                    aria-label={`What is wrong: ${SAFETY_CHECKLIST[i].item}`}
+                    placeholder="What is wrong, and where"
+                    value={notesByIndex[i] ?? ""}
+                    onChange={(e) => setNotesByIndex((p) => ({ ...p, [i]: e.target.value }))}
+                    style={{ marginTop: 7 }}
+                  />
+                  <div style={{ marginTop: 7 }}>
+                    <PhotoStrip
+                      label={SAFETY_CHECKLIST[i].item}
+                      max={6}
+                      photos={photosByIndex[i] ?? []}
+                      onChange={(next) => setPhotosByIndex((p) => ({ ...p, [i]: next }))}
+                    />
+                  </div>
+                </>
               )}
             </div>
           ))}
@@ -358,6 +375,11 @@ function NewInspectionModal({
       <div>
         <label htmlFor="safety-notes">General notes (optional)</label>
         <textarea id="safety-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <div className="field-label">General site photos (optional)</div>
+        <PhotoStrip label="the site overall" max={20} photos={photos} onChange={setPhotos} />
       </div>
     </Modal>
   );
@@ -443,9 +465,19 @@ function DetailModal({
       ) : (
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {failures.map((f, i) => (
-            <li key={i} style={{ marginBottom: 6, fontSize: 13.5 }}>
+            <li key={i} style={{ marginBottom: 12, fontSize: 13.5 }}>
               <b>{f.category}</b> — {f.item}
               {f.note ? <div className="small mut">{f.note}</div> : null}
+              {f.photos && f.photos.length > 0 && (
+                <div className="photo-strip" style={{ marginTop: 6 }}>
+                  {f.photos.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noreferrer" className="thumb-box">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`Evidence: ${f.item}`} className="thumb" />
+                    </a>
+                  ))}
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -457,6 +489,22 @@ function DetailModal({
             Notes
           </div>
           <p style={{ fontSize: 13.5 }}>{inspection.notes}</p>
+        </>
+      )}
+
+      {inspection.photos.length > 0 && (
+        <>
+          <div className="field-label" style={{ marginTop: 16 }}>
+            Site photos
+          </div>
+          <div className="photo-strip">
+            {inspection.photos.map((url) => (
+              <a key={url} href={url} target="_blank" rel="noreferrer" className="thumb-box">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="Site photo" className="thumb" />
+              </a>
+            ))}
+          </div>
         </>
       )}
     </Modal>

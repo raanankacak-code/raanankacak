@@ -6,6 +6,7 @@ import type {
   SafetyInspectionOutcome,
   SafetyInspectionStatus,
 } from "@/lib/db/types";
+import { deriveOutcome } from "@/lib/safety";
 
 /** One page of the list, matching the cap used by reports and materials. */
 export const DEFAULT_LIST_LIMIT = 200;
@@ -146,24 +147,6 @@ async function nextCode(orgId: string): Promise<string> {
   return "SI-" + String((count ?? 0) + 1).padStart(3, "0");
 }
 
-/**
- * The outcome is derived, never supplied by the caller.
- *
- * If the client sent it, a failing inspection could be filed as a pass — and
- * the one thing a safety record has to be is not editable into saying
- * something convenient.
- */
-export function deriveOutcome(items: SafetyInspectionItem[]): {
-  outcome: SafetyInspectionOutcome;
-  failedCount: number;
-} {
-  const failedCount = items.filter((i) => i.result === "FAIL").length;
-  if (failedCount === 0) return { outcome: "PASS", failedCount: 0 };
-  // Anything beyond a handful of failures is not "a few actions" — it is a
-  // site that should not be working in that state.
-  return { outcome: failedCount >= 5 ? "FAIL" : "ACTIONS_REQUIRED", failedCount };
-}
-
 export async function createInspection(
   orgId: string,
   input: {
@@ -257,3 +240,4 @@ export async function listInspectionsForProject(orgId: string, projectId: string
   if (error) throw error;
   return (data ?? []).map(mapInspection);
 }
+

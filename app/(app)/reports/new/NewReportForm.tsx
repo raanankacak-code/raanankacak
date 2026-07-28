@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import PhotoStrip from "@/components/app/PhotoStrip";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 
 type Project = { id: string; name: string };
@@ -25,7 +26,6 @@ export default function NewReportForm() {
     { trade: "", count: "" },
   ]);
   const [photos, setPhotos] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -38,26 +38,6 @@ export default function NewReportForm() {
 
   function updateManpowerRow(i: number, key: "trade" | "count", value: string) {
     setManpower((rows) => rows.map((r, idx) => (idx === i ? { ...r, [key]: value } : r)));
-  }
-
-  async function handlePhotoUpload(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    setError("");
-    try {
-      for (const file of Array.from(files)) {
-        const form = new FormData();
-        form.append("file", file);
-        const res = await fetch("/api/uploads", { method: "POST", body: form });
-        const body = await res.json();
-        if (!res.ok) throw new Error(body?.error || "Upload failed");
-        setPhotos((p) => [...p, body.url]);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Photo upload failed.");
-    } finally {
-      setUploading(false);
-    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -176,31 +156,7 @@ export default function NewReportForm() {
 
             <div style={{ marginTop: 16 }}>
               <div className="field-label">Site photos</div>
-              <div className="photo-strip">
-                {photos.map((url) => (
-                  <div className="thumb-box" key={url}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="Site photo" className="thumb" />
-                    <button
-                      type="button"
-                      className="thumb-x"
-                      onClick={() => setPhotos((p) => p.filter((u) => u !== url))}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-                <label className="thumb-add" style={{ display: "grid", placeItems: "center" }}>
-                  {uploading ? "…" : "+"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    hidden
-                    onChange={(e) => handlePhotoUpload(e.target.files)}
-                  />
-                </label>
-              </div>
+              <PhotoStrip label="the site" max={20} photos={photos} onChange={setPhotos} />
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>

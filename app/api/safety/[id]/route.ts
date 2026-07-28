@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getInspectionById, closeInspection, deleteInspection } from "@/lib/db/safety";
+import { inspectionPhotoUrls } from "@/lib/safety";
 import { recordMemberAction } from "@/lib/db/auditLog";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { removeObjectsByUrl } from "@/lib/uploads";
@@ -70,7 +71,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     if (!existing) throw new ApiError(404, "Inspection not found");
 
     await deleteInspection(member.orgId, id);
-    await removeObjectsByUrl(member.orgId, existing.photos ?? []);
+    await removeObjectsByUrl(member.orgId, inspectionPhotoUrls(existing));
 
     await recordMemberAction(member, {
       action: "SAFETY_INSPECTION_DELETED",

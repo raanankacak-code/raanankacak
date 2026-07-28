@@ -6,6 +6,7 @@ import { recordAuditEvent, recordMemberAction } from "@/lib/db/auditLog";
 import { listDocumentsForProject } from "@/lib/db/documents";
 import { listReports } from "@/lib/db/reports";
 import { listInspectionsForProject } from "@/lib/db/safety";
+import { inspectionPhotoUrls } from "@/lib/safety";
 import { removeObjectsByUrl } from "@/lib/uploads";
 import { formatCurrency } from "@/lib/format";
 
@@ -100,7 +101,7 @@ export async function DELETE(
     const fileUrls = [
       ...documents.map((d) => d.url),
       ...reports.flatMap((r) => r.photos),
-      ...inspections.flatMap((i) => i.photos),
+      ...inspections.flatMap(inspectionPhotoUrls),
     ];
 
     await deleteProject(member.orgId, id);

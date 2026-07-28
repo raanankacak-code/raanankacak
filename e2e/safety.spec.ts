@@ -140,6 +140,55 @@ test.describe("safety inspections", () => {
     await ctx.dispose();
   });
 
+  test("evidence attached to a finding survives, and is swept when the record goes", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({
+      storageState: AUTH_STATE_PATH,
+      baseURL: test.info().project.use.baseURL,
+    });
+
+    const png = { name: "finding.png", mimeType: "image/png", buffer: Buffer.from([1, 2, 3, 4]) };
+    const findingUrl = (await (await ctx.post("/api/uploads", { multipart: { file: png } })).json()).url;
+    const siteUrl = (await (await ctx.post("/api/uploads", { multipart: { file: png } })).json()).url;
+
+    const filed = await ctx.post("/api/safety", {
+      data: {
+        projectId,
+        date: today,
+        photos: [siteUrl],
+        items: [
+          { category: "PPE", item: "Hard hats", result: "FAIL", note: "two without", photos: [findingUrl] },
+          { category: "PPE", item: "Boots", result: "PASS" },
+        ],
+      },
+    });
+    expect(filed.status()).toBe(201);
+    const id = (await filed.json()).inspection.id;
+
+    // The evidence has to come back attached to the finding it belongs to,
+    // not pooled at the bottom of the record.
+    const fetched = (await (await ctx.get(`/api/safety/${id}`)).json()).inspection;
+    expect(fetched.photos).toEqual([siteUrl]);
+    expect(fetched.items[0].photos).toEqual([findingUrl]);
+    expect(fetched.items[1].photos).toBeUndefined();
+
+    const removed = await ctx.delete(`/api/safety/${id}`);
+    expect(removed.status(), await removed.text()).toBe(200);
+
+    // These URLs are deliberately not read before the delete. Uploaded objects
+    // are served `immutable, max-age=31536000` — correct, since their names
+    // are UUIDs and their bytes never change — and Playwright honours it, so
+    // a read beforehand is answered from cache afterwards and the assertion
+    // passes whether or not the sweep ran. A fresh request context does not
+    // help; the cache outlives it. Read them only once, here.
+    //
+    // Per-finding photos are the ones easy to miss when sweeping storage,
+    // which is why they get their own assertion.
+    expect((await ctx.get(findingUrl)).status(), "per-finding evidence was orphaned").toBe(404);
+    expect((await ctx.get(siteUrl)).status(), "site photo was orphaned").toBe(404);
+
+    await ctx.dispose();
+  });
+
   test("a signed-out visitor gets nothing", async ({ playwright }) => {
     const ctx = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
 
