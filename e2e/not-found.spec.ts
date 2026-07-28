@@ -7,15 +7,18 @@ import { AUTH_STATE_PATH } from "./seed";
  * server-side exception has occurred" page — no branding, no way back, and
  * nothing to quote to support.
  *
- * On the status codes: these pages answer 200, not 404. The root layout is
- * force-dynamic so the CSP nonce can be stamped per request (see
- * app/layout.tsx), and Next streams a dynamic response — headers are flushed
- * before rendering reaches notFound(). That predates this suite; removing
- * loading.tsx does not change it. It is a soft 404: correct for the person
- * looking at it, wrong for anything reading status codes. Everything here is
- * behind sign-in and not crawled, so it is recorded rather than worked
- * around. Asserted explicitly below so a future change either keeps it or
- * has to notice it changed.
+ * On the status codes: these pages answer 200, not 404, and an earlier
+ * version of this comment blamed the wrong thing. It is not force-dynamic and
+ * it is not loading.tsx — both were removed and rebuilt, and the status stayed
+ * 200. Next streams any dynamic App Router response, and per its own docs
+ * "once streaming begins, the HTTP response headers (including the status
+ * code) have already been sent"; a real status would need notFound() to fire
+ * before the first await, which a database lookup cannot do.
+ *
+ * What matters about a soft 404 is that a crawler indexes it, and Next
+ * already handles that: it injects <meta name="robots" content="noindex">
+ * when notFound() fires mid-stream. That is asserted below, because it is the
+ * property actually worth having — everything here is behind sign-in anyway.
  */
 test.describe("not found", () => {
   test("a signed-out visitor is sent to sign in, not told which URLs exist", async ({ page }) => {
@@ -60,14 +63,28 @@ test.describe("not found", () => {
       await expect(page.getByText(/nothing here|something went wrong/i).first()).toBeVisible();
     });
 
-    test("the soft-404 status is recorded, so a change to it is noticed", async ({ page }) => {
+    test("a soft 404 still tells crawlers not to index it", async ({ page }) => {
       const res = await page.goto("/projects/00000000-0000-0000-0000-000000000000");
 
       // 200 because the response streams (see the note at the top of this
       // file). If this ever becomes 404, that is an improvement — update the
       // note and this assertion rather than assuming the test is broken.
       expect(res?.status()).toBe(200);
-      expect(res?.headers()["transfer-encoding"]).toBe("chunked");
+
+      // The part that actually matters, injected by Next when notFound()
+      // fires mid-stream.
+      await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(1);
+    });
+
+    test("a malformed id reaches the 404, not the error boundary", async ({ page }) => {
+      // Postgres rejects a non-uuid for a uuid column, so this used to throw
+      // and render "Something went wrong" for what is simply a page that does
+      // not exist. lib/uuid.ts turns it into a miss before the query runs.
+      await page.goto("/projects/not-a-uuid");
+
+      await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(1);
+      await expect(page.getByText(/nothing here/i)).toBeVisible();
+      await expect(page.getByText(/something went wrong/i)).toHaveCount(0);
     });
   });
 });

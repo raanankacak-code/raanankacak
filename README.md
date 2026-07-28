@@ -337,6 +337,20 @@ The middle two are the interesting ones: the app runs perfectly well without
 either, and does the wrong thing quietly. That is precisely why they fail
 loudly instead of being left to a code review.
 
+### Soft 404s
+
+Pages that call `notFound()` answer `200`, not `404`. Next streams any dynamic
+App Router response, and once streaming begins the status has already been
+sent — a real status would need `notFound()` to fire before the first `await`,
+which a database lookup cannot do. This is not caused by `force-dynamic` or by
+`loading.tsx`; both were removed and rebuilt while checking, and the status
+stayed `200`.
+
+The consequence that matters is indexing, and Next handles it: it injects
+`<meta name="robots" content="noindex">` when `notFound()` fires mid-stream.
+The e2e suite asserts that rather than the status code. Everything affected is
+behind sign-in, so nothing crawls it in the first place.
+
 ### Before you go live
 
 Run `get_advisors` (or Supabase → Advisors) and expect exactly three findings,

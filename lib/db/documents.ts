@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { ProjectDocument } from "@/lib/db/types";
+import { isUuid } from "@/lib/uuid";
 
 function mapDocument(row: Record<string, unknown>): ProjectDocument {
   return {
@@ -83,6 +84,8 @@ export async function createDocument(
 }
 
 export async function getDocumentById(orgId: string, id: string): Promise<ProjectDocument | null> {
+  // A malformed id can match no row; do not let Postgres throw over it.
+  if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("documents")
     .select("*")

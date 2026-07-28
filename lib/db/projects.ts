@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { Project, ProjectStatus, ProjectWithWorkerCount, ProjectWithWorkers } from "@/lib/db/types";
 import { mapWorker } from "@/lib/db/workers";
+import { isUuid } from "@/lib/uuid";
 
 function toDate(value: unknown): Date | null {
   return value ? new Date(value as string) : null;
@@ -112,6 +113,8 @@ export async function listProjectNamesForOrg(orgId: string): Promise<{ id: strin
 }
 
 export async function getProjectById(orgId: string, id: string): Promise<Project | null> {
+  // A malformed id can match no row; do not let Postgres throw over it.
+  if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("projects")
     .select("*")
@@ -123,6 +126,8 @@ export async function getProjectById(orgId: string, id: string): Promise<Project
 }
 
 export async function getProjectWithWorkers(orgId: string, id: string): Promise<ProjectWithWorkers | null> {
+  // A malformed id can match no row; do not let Postgres throw over it.
+  if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("projects")
     .select("*, workers(*)")

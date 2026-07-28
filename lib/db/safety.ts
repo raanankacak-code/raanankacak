@@ -7,6 +7,7 @@ import type {
   SafetyInspectionStatus,
 } from "@/lib/db/types";
 import { deriveOutcome } from "@/lib/safety";
+import { isUuid } from "@/lib/uuid";
 
 /** One page of the list, matching the cap used by reports and materials. */
 export const DEFAULT_LIST_LIMIT = 200;
@@ -127,6 +128,8 @@ export async function countOpenFindingsForOrg(orgId: string): Promise<number> {
 }
 
 export async function getInspectionById(orgId: string, id: string): Promise<SafetyInspection | null> {
+  // A malformed id can match no row; do not let Postgres throw over it.
+  if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("safety_inspections")
     .select("*")

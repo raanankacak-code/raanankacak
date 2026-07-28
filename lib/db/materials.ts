@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { MaterialRequest, MaterialRequestEvent, MaterialRequestStatus, MaterialRequestWithTimeline } from "@/lib/db/types";
 import { DEFAULT_LIST_LIMIT } from "@/lib/db/reports";
+import { isUuid } from "@/lib/uuid";
 
 function mapRequest(row: Record<string, unknown>): MaterialRequest {
   return {
@@ -212,6 +213,8 @@ export async function listRequestsForProject(projectId: string): Promise<Materia
 }
 
 export async function getRequestById(orgId: string, id: string): Promise<MaterialRequestWithTimeline | null> {
+  // A malformed id can match no row; do not let Postgres throw over it.
+  if (!isUuid(id)) return null;
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("material_requests")

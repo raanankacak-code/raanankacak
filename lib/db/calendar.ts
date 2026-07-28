@@ -6,6 +6,7 @@ import type {
   CalendarEventStatus,
   CalendarEventType,
 } from "@/lib/db/types";
+import { isUuid } from "@/lib/uuid";
 
 function mapEvent(row: Record<string, unknown>): CalendarEvent {
   return {
@@ -53,6 +54,8 @@ export async function listEventsForOrgViaSession(
 }
 
 export async function getEventById(orgId: string, id: string): Promise<CalendarEvent | null> {
+  // A malformed id can match no row; do not let Postgres throw over it.
+  if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("calendar_events")
     .select("*")

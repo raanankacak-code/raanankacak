@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { DailyReport, DailyReportWithProject, ReportStatus } from "@/lib/db/types";
+import { isUuid } from "@/lib/uuid";
 
 /**
  * How many rows a list screen asks for. Comfortably more than anyone scrolls
@@ -153,6 +154,8 @@ export async function listRecentReportsForOrg(orgId: string, limit: number): Pro
 }
 
 export async function getReportById(orgId: string, id: string): Promise<DailyReportWithProject | null> {
+  // A malformed id can match no row; do not let Postgres throw over it.
+  if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("daily_reports")
     .select("*, project:projects(id, name)")

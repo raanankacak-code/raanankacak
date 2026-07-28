@@ -13,18 +13,22 @@
   --amber-ink:#3A2A05;
   --ok:#14985F;
   --bad:#DE3B41;
-  --info:#1F6FE0;
+  --info:#1F6EDE;
   --warn:#F5A800;
   --purple:#C9A7FF;
   --teal:#4FD8C8;
   /* Darker, text-safe variants of the accent colors above — the bright
      versions are correct for backgrounds/borders/icons but fail WCAG AA
-     (4.5:1) when used as small text, e.g. badges and links on white. */
-  --amber-text:#9D6B00;
-  --ok-text:#128654;
-  --bad-text:#DC3238;
-  --teal-text:#1D8377;
-  --purple-text:#8F49FF;
+     (4.5:1) when used as small text, e.g. badges and links on white.
+     These values are measured against the *composite* background, not plain
+     white: a badge sits on an 8% tint of its own colour, which shifts the
+     backdrop just enough that six of these were sitting at 4.25–4.46 and
+     failing. lib/contrast.test.ts checks every pair on every run. */
+  --amber-text:#9A6900;
+  --ok-text:#128352;
+  --bad-text:#D33036;
+  --teal-text:#1C8075;
+  --purple-text:#8C48FA;
   --hazard:repeating-linear-gradient(-45deg,var(--amber) 0 10px,#1B2430 10px 20px);
   --r:10px;
   --shadow:0 10px 26px -14px rgba(23,33,45,.14);

@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { Worker } from "@/lib/db/types";
+import { isUuid } from "@/lib/uuid";
 
 export function mapWorker(row: Record<string, unknown>): Worker {
   return {
@@ -68,6 +69,8 @@ export async function countActiveWorkersForOrg(orgId: string): Promise<number> {
 }
 
 export async function getWorkerById(orgId: string, id: string): Promise<Worker | null> {
+  // A malformed id can match no row; do not let Postgres throw over it.
+  if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("workers")
     .select("*")
