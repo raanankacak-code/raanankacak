@@ -16,8 +16,7 @@ import {
   GearIcon,
   HelpIcon,
   AuditIcon,
-  BillingIcon,
-} from "@/components/app/icons";
+  BillingIcon, SafetyIcon } from "@/components/app/icons";
 import NotificationBell from "@/components/app/NotificationBell";
 import GlobalSearch from "@/components/app/GlobalSearch";
 import KeyboardShortcuts from "@/components/app/KeyboardShortcuts";
@@ -48,6 +47,7 @@ export default function AppShell({
   orgShortName,
   orgLogoUrl,
   materialsBadge,
+  safetyBadge,
   billing,
 }: {
   children: React.ReactNode;
@@ -57,6 +57,7 @@ export default function AppShell({
   orgShortName: string | null;
   orgLogoUrl: string | null;
   materialsBadge: number;
+  safetyBadge: number;
   billing: { trialing: boolean; daysLeft: number; readOnly: boolean };
 }) {
   const pathname = usePathname();
@@ -79,6 +80,13 @@ export default function AppShell({
       icon: <MatIcon />,
       show: can(role, "viewMaterials"),
       badge: materialsBadge || undefined,
+    },
+    {
+      href: "/safety",
+      label: "Safety",
+      icon: <SafetyIcon />,
+      show: can(role, "viewReports"),
+      badge: safetyBadge || undefined,
     },
     { href: "/calendar", label: "Calendar", icon: <CalIcon />, show: true },
     { href: "/team", label: "Team", icon: <TeamIcon />, show: can(role, "manageUsers") },

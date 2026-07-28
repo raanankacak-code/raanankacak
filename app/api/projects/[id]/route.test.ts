@@ -9,6 +9,7 @@ const recordAuditEventMock = vi.fn();
 const recordMemberActionMock = vi.fn();
 const listDocumentsForProjectMock = vi.fn();
 const listReportsMock = vi.fn();
+const listInspectionsForProjectMock = vi.fn();
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth")>("@/lib/auth");
@@ -39,6 +40,10 @@ vi.mock("@/lib/db/documents", () => ({
 
 vi.mock("@/lib/db/reports", () => ({
   listReports: listReportsMock,
+}));
+
+vi.mock("@/lib/db/safety", () => ({
+  listInspectionsForProject: listInspectionsForProjectMock,
 }));
 
 vi.mock("@/lib/uploads", () => ({
@@ -77,10 +82,12 @@ beforeEach(() => {
   recordMemberActionMock.mockReset();
   listDocumentsForProjectMock.mockReset();
   listReportsMock.mockReset();
+  listInspectionsForProjectMock.mockReset();
   requireMemberMock.mockResolvedValue(MEMBER);
   getProjectByIdMock.mockResolvedValue(PROJECT);
   listDocumentsForProjectMock.mockResolvedValue([]);
   listReportsMock.mockResolvedValue([]);
+  listInspectionsForProjectMock.mockResolvedValue([]);
 });
 
 describe("DELETE /api/projects/[id] audit logging", () => {
@@ -94,6 +101,11 @@ describe("DELETE /api/projects/[id] audit logging", () => {
       { photos: [] },
       { photos: ["https://x/p2.jpg", "https://x/p3.jpg"] },
     ]);
+    // Safety inspection photos live in the same bucket and are cascaded away
+    // by the same delete, so they have to be collected before it runs.
+    listInspectionsForProjectMock.mockResolvedValue([
+      { photos: ["https://x/s1.jpg", "https://x/s2.jpg"] },
+    ]);
 
     await DELETE(new Request("http://localhost/api/projects/project-1", { method: "DELETE" }), paramsFor("project-1"));
 
@@ -103,12 +115,13 @@ describe("DELETE /api/projects/[id] audit logging", () => {
         action: "PROJECT_DELETED",
         entityType: "project",
         entityId: "project-1",
-        metadata: { name: "Riverside Phase 2", reports: 3, documents: 2, files: 5 },
+        metadata: { name: "Riverside Phase 2", reports: 3, inspections: 1, documents: 2, files: 7 },
       }),
     );
     // The summary is what a person actually reads in the audit table.
     expect(recordMemberActionMock.mock.calls[0][1].summary).toContain("Riverside Phase 2");
     expect(recordMemberActionMock.mock.calls[0][1].summary).toContain("3 daily reports");
+    expect(recordMemberActionMock.mock.calls[0][1].summary).toContain("1 safety inspections");
   });
 
   it("records nothing when the project was not there to delete", async () => {

@@ -12,6 +12,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   document: "Document",
   calendar_event: "Calendar",
   attendance: "Attendance",
+  safety_inspection: "Safety",
   organization: "Company",
   subscription: "Billing",
   org_member: "Team",

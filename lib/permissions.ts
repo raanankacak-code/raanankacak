@@ -31,6 +31,8 @@ export type Permission =
   | "manageDocs"
   | "costReports"
   | "manageCalendar"
+  | "submitInspections"
+  | "closeInspections"
   | "viewAuditLog";
 
 /** Role -> permission matrix, mirroring the BinaWorks design prototype's ROLE_PERMS. */
@@ -53,6 +55,8 @@ const MATRIX: Record<Role, Permission[]> = {
     "costReports",
     "manageOrg",
     "manageCalendar",
+    "submitInspections",
+    "closeInspections",
     "viewAuditLog",
   ],
   ADMIN: [
@@ -64,6 +68,8 @@ const MATRIX: Record<Role, Permission[]> = {
     "uploadDocs",
     "manageOrg",
     "manageCalendar",
+    "submitInspections",
+    "closeInspections",
     "viewAuditLog",
   ],
   PROJECT_MANAGER: [
@@ -81,6 +87,8 @@ const MATRIX: Record<Role, Permission[]> = {
     // are part of running a project, so the PM gets the same level as Admin.
     "uploadDocs",
     "manageDocs",
+    "submitInspections",
+    "closeInspections",
   ],
   SITE_SUPERVISOR: [
     "submitReports",
@@ -89,10 +97,11 @@ const MATRIX: Record<Role, Permission[]> = {
     "viewReports",
     "viewMaterials",
     "manageCalendar",
+    "submitInspections",
   ],
   ENGINEER: ["viewReports", "submitReports", "uploadDocs", "updateProgress"],
   QUANTITY_SURVEYOR: ["viewMaterials", "costReports"],
-  SAFETY_OFFICER: ["viewReports", "submitReports"],
+  SAFETY_OFFICER: ["viewReports", "submitReports", "submitInspections", "closeInspections"],
   STOREKEEPER: ["viewMaterials", "submitRequests"],
   FINANCE: ["viewMaterials", "costReports"],
   VIEWER: ["viewReports", "viewMaterials"],
@@ -105,7 +114,7 @@ export const ROLE_META: Record<Role, { icon: string; badgeClass: string; desc: s
   SITE_SUPERVISOR: { icon: "👷", badgeClass: "b-ok", desc: "The eyes and hands on site — files the daily record from the field.", resp: ["Submit daily reports with photos", "Take worker attendance", "Raise material requests", "Flag delays and site issues"] },
   ENGINEER: { icon: "🛠", badgeClass: "b-teal", desc: "Monitors technical progress and keeps drawings and records current.", resp: ["Update project progress", "Submit daily reports", "Upload drawings and technical documents", "Review reporting across sites"] },
   QUANTITY_SURVEYOR: { icon: "📐", badgeClass: "b-purple", desc: "Keeps the numbers honest — quantities, materials and cost.", resp: ["Generate cost reports", "Track material movement", "Monitor budget vs progress"] },
-  SAFETY_OFFICER: { icon: "🦺", badgeClass: "b-amber", desc: "Keeps the site safety record through the daily report.", resp: ["Submit daily reports, with site photos", "Record safety issues under delays and notes", "Review reports across every site"] },
+  SAFETY_OFFICER: { icon: "🦺", badgeClass: "b-amber", desc: "Owns the site safety record — inspections, findings and close-out.", resp: ["File safety inspections with photo evidence", "Close inspections once findings are actioned", "Submit daily reports", "Review reports across every site"] },
   STOREKEEPER: { icon: "📦", badgeClass: "b-mut", desc: "Raises what the site needs and follows it through to delivery.", resp: ["Raise material requests", "Track requests through to delivery", "Review material history by project"] },
   FINANCE: { icon: "💰", badgeClass: "b-ok", desc: "Watches the cost picture — contract value, labour and materials.", resp: ["Generate per-project cost reports", "Track material spend", "Compare budget against progress"] },
   VIEWER: { icon: "👁️", badgeClass: "b-mut", desc: "Read-only access to reports and materials across every project.", resp: ["View reports and material requests", "No editing rights", "Sees all projects — not for a client who should only see their own"] },
@@ -127,6 +136,8 @@ export const PERM_LABELS: [Permission, string][] = [
   ["manageDocs", "Manage Documents"],
   ["costReports", "Cost Reports"],
   ["manageCalendar", "Manage Calendar"],
+  ["submitInspections", "File Safety Inspections"],
+  ["closeInspections", "Close Safety Inspections"],
   ["viewAuditLog", "View Audit Log"],
 ];
 

@@ -5,6 +5,7 @@ import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from
 import { recordAuditEvent, recordMemberAction } from "@/lib/db/auditLog";
 import { listDocumentsForProject } from "@/lib/db/documents";
 import { listReports } from "@/lib/db/reports";
+import { listInspectionsForProject } from "@/lib/db/safety";
 import { removeObjectsByUrl } from "@/lib/uploads";
 import { formatCurrency } from "@/lib/format";
 
@@ -91,11 +92,16 @@ export async function DELETE(
     // Deleting the project cascades its documents and daily reports away, so
     // collect the files they point at first — afterwards there is nothing
     // left to tell us which objects belonged to this project.
-    const [documents, reports] = await Promise.all([
+    const [documents, reports, inspections] = await Promise.all([
       listDocumentsForProject(id),
       listReports(member.orgId, { projectId: id }),
+      listInspectionsForProject(member.orgId, id),
     ]);
-    const fileUrls = [...documents.map((d) => d.url), ...reports.flatMap((r) => r.photos)];
+    const fileUrls = [
+      ...documents.map((d) => d.url),
+      ...reports.flatMap((r) => r.photos),
+      ...inspections.flatMap((i) => i.photos),
+    ];
 
     await deleteProject(member.orgId, id);
     await removeObjectsByUrl(member.orgId, fileUrls);
@@ -107,8 +113,8 @@ export async function DELETE(
       action: "PROJECT_DELETED",
       entityType: "project",
       entityId: id,
-      summary: `${member.name} deleted the project "${existing.name}", along with ${reports.length} daily reports and ${documents.length} documents`,
-      metadata: { name: existing.name, reports: reports.length, documents: documents.length, files: fileUrls.length },
+      summary: `${member.name} deleted the project "${existing.name}", along with ${reports.length} daily reports, ${inspections.length} safety inspections and ${documents.length} documents`,
+      metadata: { name: existing.name, reports: reports.length, inspections: inspections.length, documents: documents.length, files: fileUrls.length },
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

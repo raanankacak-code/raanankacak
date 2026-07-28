@@ -183,7 +183,9 @@ describe("role descriptions describe features that exist", () => {
   const ABSENT_FEATURES = [
     "inventory",
     "stock level",
-    "safety inspection",
+    // "safety inspection" was here until the module was built. Removing an
+    // entry is the intended way to retire one of these — the list is what the
+    // app cannot do, not a permanent ban on the words.
     "incident report",
     "toolbox",
     "process payment",
@@ -222,6 +224,12 @@ describe("role descriptions describe features that exist", () => {
       }
       if (/upload .*(document|drawing)/.test(text)) {
         expect(can(role as Role, "uploadDocs"), `${role} claims uploads`).toBe(true);
+      }
+      if (/file safety inspection/.test(text)) {
+        expect(can(role as Role, "submitInspections"), `${role} claims inspections`).toBe(true);
+      }
+      if (/close inspection/.test(text)) {
+        expect(can(role as Role, "closeInspections"), `${role} claims close-out`).toBe(true);
       }
     }
   });

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentMember } from "@/lib/auth";
 import { getOrganizationById } from "@/lib/db/organizations";
 import { countRequestsByStatusForOrg } from "@/lib/db/materials";
+import { countOpenFindingsForOrg } from "@/lib/db/safety";
 import { getSubscriptionForOrgViaSession, isSubscriptionWritable, trialDaysLeft } from "@/lib/db/subscriptions";
 import { can } from "@/lib/permissions";
 import AppShell from "@/components/app/AppShell";
@@ -29,6 +30,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     materialsBadge = counts.SUBMITTED;
   }
 
+  // Open inspections that actually found something. Counted in the database
+  // for the same reason the materials badge is: an unbounded select is capped
+  // at 1000 rows without warning.
+  const safetyBadge = can(member.role, "viewReports") ? await countOpenFindingsForOrg(member.orgId) : 0;
+
   const subscription = await getSubscriptionForOrgViaSession(member.orgId);
   const billing = {
     trialing: subscription.status === "TRIALING",
@@ -44,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       orgShortName={org.shortName}
       orgLogoUrl={org.logoUrl}
       materialsBadge={materialsBadge}
+      safetyBadge={safetyBadge}
       billing={billing}
     >
       {children}

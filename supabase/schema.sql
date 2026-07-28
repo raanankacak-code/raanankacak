@@ -738,3 +738,53 @@ select cron.schedule('prune-rate-limits', '17 3 * * *', $$select public.prune_ra
 
 comment on table rate_limits is
   'Deny-all by design: RLS enabled with no policies. Reached only by the service role through check_rate_limit().';
+
+-- safety inspections -----------------------------------------------------
+-- Site safety records. Compliance is the thing a contractor is buying here,
+-- so an inspection is a dated, attributed record with evidence attached —
+-- not a checkbox someone can quietly revise later.
+
+create type safety_inspection_outcome as enum ('PASS', 'ACTIONS_REQUIRED', 'FAIL');
+create type safety_inspection_status as enum ('OPEN', 'CLOSED');
+
+create table safety_inspections (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid not null references projects(id) on delete cascade,
+  code text not null,
+  date date not null,
+  inspector_id uuid not null,
+  inspector_name text not null,
+  outcome safety_inspection_outcome not null,
+  status safety_inspection_status not null default 'OPEN',
+  -- The checklist as filled in: [{category, item, result, note}]. jsonb rather
+  -- than a child table for the same reason daily_reports stores manpower that
+  -- way: it is written once with the inspection and always read whole.
+  items jsonb not null default '[]'::jsonb,
+  -- Denormalised so "which sites are failing" is a count, not a jsonb scan
+  -- over every inspection in the workspace.
+  failed_count integer not null default 0,
+  notes text,
+  photos jsonb,
+  closed_at timestamptz,
+  closed_by_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (org_id, code)
+);
+
+create index safety_inspections_project_id_idx on safety_inspections (project_id);
+create index safety_inspections_org_id_idx on safety_inspections (org_id);
+-- Serves the open-actions badge and the list's default ordering.
+create index safety_inspections_org_status_date_idx
+  on safety_inspections (org_id, status, date desc);
+
+create trigger safety_inspections_set_updated_at
+  before update on safety_inspections
+  for each row execute function set_updated_at();
+
+alter table safety_inspections enable row level security;
+
+create policy "select_own_org_safety_inspections" on safety_inspections
+  for select to authenticated
+  using (org_id = auth_org_id());

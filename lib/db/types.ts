@@ -278,6 +278,9 @@ export type AuditAction =
   | "CALENDAR_EVENT_UPDATED"
   | "CALENDAR_EVENT_DELETED"
   | "ATTENDANCE_RECORDED"
+  | "SAFETY_INSPECTION_FILED"
+  | "SAFETY_INSPECTION_CLOSED"
+  | "SAFETY_INSPECTION_DELETED"
   | "ORG_SETTINGS_CHANGED"
   | "SUBSCRIPTION_CHANGED"
   | "MEMBER_ROLE_CHANGED"
@@ -300,4 +303,44 @@ export interface AuditLogEntry {
   summary: string;
   metadata: Record<string, unknown> | null;
   createdAt: Date;
+}
+
+/**
+ * Safety inspections.
+ *
+ * The checklist is stored as filled-in items rather than references to a
+ * template, because a template changes and a compliance record must not. An
+ * inspection filed in March has to still say what was actually checked in
+ * March, even after someone edits the checklist in June.
+ */
+export type SafetyInspectionOutcome = "PASS" | "ACTIONS_REQUIRED" | "FAIL";
+export type SafetyInspectionStatus = "OPEN" | "CLOSED";
+export type SafetyItemResult = "PASS" | "FAIL" | "NA";
+
+export interface SafetyInspectionItem {
+  category: string;
+  item: string;
+  result: SafetyItemResult;
+  note?: string;
+}
+
+export interface SafetyInspection {
+  id: string;
+  orgId: string;
+  projectId: string;
+  code: string;
+  /** Plain YYYY-MM-DD — the date inspected, which is what a record is filed under. */
+  date: string;
+  inspectorId: string;
+  inspectorName: string;
+  outcome: SafetyInspectionOutcome;
+  status: SafetyInspectionStatus;
+  items: SafetyInspectionItem[];
+  failedCount: number;
+  notes: string | null;
+  photos: string[];
+  closedAt: Date | null;
+  closedByName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
