@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, ROLE_LABELS, type Permission } from "@/lib/permissions";
+import { can, ROLE_LABELS, ROLE_META, type Permission } from "@/lib/permissions";
 import type { Role } from "@/lib/db/types";
 
 const ALL_ROLES = Object.keys(ROLE_LABELS) as Role[];
@@ -160,6 +160,69 @@ describe("document permissions", () => {
     ] as const) {
       expect(can(role, "uploadDocs"), role).toBe(false);
       expect(can(role, "manageDocs"), role).toBe(false);
+    }
+  });
+});
+
+/**
+ * The role descriptions shown in the Team UI are the only place the app
+ * explains what a role is for, and they were written from the prototype's
+ * ambitions rather than from the matrix below them. The Safety Officer
+ * promised safety inspections, incident reports and toolbox meetings — three
+ * features that do not exist. The Storekeeper promised inventory and stock
+ * levels, also absent, and "receive material requests", which needs
+ * approveRequests and it does not have. Finance promised to process payments;
+ * there is no payments feature.
+ *
+ * A wrong permission is caught by the tests above. A wrong *description* is
+ * caught by nobody, because it breaks no code — it only misleads whoever is
+ * choosing which role to give a new employee.
+ */
+describe("role descriptions describe features that exist", () => {
+  // Nothing in the app does any of these. If one is built, remove it here.
+  const ABSENT_FEATURES = [
+    "inventory",
+    "stock level",
+    "safety inspection",
+    "incident report",
+    "toolbox",
+    "process payment",
+    "defect",
+    "snag",
+    "equipment log",
+  ];
+
+  it.each(Object.entries(ROLE_META))("%s claims nothing the app cannot do", (role, meta) => {
+    const text = [meta.desc, ...meta.resp].join(" ").toLowerCase();
+    for (const feature of ABSENT_FEATURES) {
+      expect(text, `${role} mentions "${feature}", which the app does not have`).not.toContain(feature);
+    }
+  });
+
+  it("does not tell an Owner to give a client the Viewer role", () => {
+    // A Viewer reads every project in the org, so handing it to a client
+    // shows them every other client's work. The description used to
+    // recommend exactly that.
+    const viewer = [ROLE_META.VIEWER.desc, ...ROLE_META.VIEWER.resp].join(" ").toLowerCase();
+    expect(viewer).toContain("every project");
+    expect(viewer).not.toMatch(/read-only access for clients/);
+  });
+
+  it("only claims approval or review work for roles that can actually do it", () => {
+    for (const [role, meta] of Object.entries(ROLE_META)) {
+      const text = [meta.desc, ...meta.resp].join(" ").toLowerCase();
+      if (/\bapprove\b|\breject\b/.test(text)) {
+        expect(can(role as Role, "approveRequests"), `${role} claims approval`).toBe(true);
+      }
+      if (/take .*attendance|record attendance/.test(text)) {
+        expect(can(role as Role, "takeAttendance"), `${role} claims attendance`).toBe(true);
+      }
+      if (/cost report/.test(text)) {
+        expect(can(role as Role, "costReports"), `${role} claims cost reports`).toBe(true);
+      }
+      if (/upload .*(document|drawing)/.test(text)) {
+        expect(can(role as Role, "uploadDocs"), `${role} claims uploads`).toBe(true);
+      }
     }
   });
 });

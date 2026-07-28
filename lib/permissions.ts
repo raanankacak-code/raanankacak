@@ -103,12 +103,12 @@ export const ROLE_META: Record<Role, { icon: string; badgeClass: string; desc: s
   ADMIN: { icon: "🛡️", badgeClass: "b-purple", desc: "Back-office administrator who runs the workspace day to day on behalf of the Owner.", resp: ["Manage users and invitations", "Set up and maintain projects", "Keep company documents in order", "Review reporting across sites"] },
   PROJECT_MANAGER: { icon: "📋", badgeClass: "b-info", desc: "Runs one or more projects end to end — schedule, people and materials.", resp: ["Manage project setup and progress", "Approve or reject material requests", "Assign and manage workers", "Review daily site reports"] },
   SITE_SUPERVISOR: { icon: "👷", badgeClass: "b-ok", desc: "The eyes and hands on site — files the daily record from the field.", resp: ["Submit daily reports with photos", "Take worker attendance", "Raise material requests", "Flag delays and site issues"] },
-  ENGINEER: { icon: "🛠", badgeClass: "b-teal", desc: "Monitors technical progress and keeps drawings and records current.", resp: ["Monitor site progress", "Submit reports", "View drawings", "Upload technical documents"] },
+  ENGINEER: { icon: "🛠", badgeClass: "b-teal", desc: "Monitors technical progress and keeps drawings and records current.", resp: ["Update project progress", "Submit daily reports", "Upload drawings and technical documents", "Review reporting across sites"] },
   QUANTITY_SURVEYOR: { icon: "📐", badgeClass: "b-purple", desc: "Keeps the numbers honest — quantities, materials and cost.", resp: ["Generate cost reports", "Track material movement", "Monitor budget vs progress"] },
-  SAFETY_OFFICER: { icon: "🦺", badgeClass: "b-amber", desc: "Owns site safety compliance and record-keeping.", resp: ["Conduct safety inspections", "File incident reports", "Run toolbox meetings"] },
-  STOREKEEPER: { icon: "📦", badgeClass: "b-mut", desc: "Controls the store — what comes in, what goes out.", resp: ["Maintain inventory", "Raise and receive material requests", "Watch stock levels"] },
-  FINANCE: { icon: "💰", badgeClass: "b-ok", desc: "Looks after budgets, payments and the cost picture.", resp: ["Monitor budgets", "Process payments", "Review cost reports"] },
-  VIEWER: { icon: "👁️", badgeClass: "b-mut", desc: "Read-only access for clients, consultants or auditors.", resp: ["View dashboards and reports", "No editing rights"] },
+  SAFETY_OFFICER: { icon: "🦺", badgeClass: "b-amber", desc: "Keeps the site safety record through the daily report.", resp: ["Submit daily reports, with site photos", "Record safety issues under delays and notes", "Review reports across every site"] },
+  STOREKEEPER: { icon: "📦", badgeClass: "b-mut", desc: "Raises what the site needs and follows it through to delivery.", resp: ["Raise material requests", "Track requests through to delivery", "Review material history by project"] },
+  FINANCE: { icon: "💰", badgeClass: "b-ok", desc: "Watches the cost picture — contract value, labour and materials.", resp: ["Generate per-project cost reports", "Track material spend", "Compare budget against progress"] },
+  VIEWER: { icon: "👁️", badgeClass: "b-mut", desc: "Read-only access to reports and materials across every project.", resp: ["View reports and material requests", "No editing rights", "Sees all projects — not for a client who should only see their own"] },
 };
 
 export const PERM_LABELS: [Permission, string][] = [
