@@ -424,6 +424,9 @@ function DetailModal({
           <button className="btn" onClick={onClose}>
             Close
           </button>
+          <Link href={`/safety/${inspection.id}`} className="btn">
+            Open full record
+          </Link>
           {canClose && inspection.status === "OPEN" && (
             <button className="btn btn-amber" onClick={close} disabled={busy}>
               {busy ? "Closing…" : "Mark findings actioned"}

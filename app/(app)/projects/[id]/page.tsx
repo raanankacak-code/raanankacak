@@ -4,6 +4,7 @@ import { getCurrentMember } from "@/lib/auth";
 import { getProjectWithWorkers } from "@/lib/db/projects";
 import { getLatestReportForProject, countReportsForProject, countReportsByStatusForProject } from "@/lib/db/reports";
 import { countRequestsByStatusForProject } from "@/lib/db/materials";
+import { countOpenFindingsForProject } from "@/lib/db/safety";
 import { can } from "@/lib/permissions";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import RemoveWorkerButton from "@/components/app/RemoveWorkerButton";
@@ -48,13 +49,14 @@ export default async function ProjectDetailPage({
   // come from fetching every report and every request for the project and
   // filtering in JavaScript, which shipped two full tables' worth of rows —
   // photos, notes, justifications and all — to produce two integers.
-  const [latestReport, reportCount, unreviewedReports, pendingRequests] = await Promise.all([
+  const [latestReport, reportCount, unreviewedReports, pendingRequests, openFindings] = await Promise.all([
     getLatestReportForProject(id),
     countReportsForProject(id),
     countReportsByStatusForProject(id, "SUBMITTED"),
     can(member.role, "viewMaterials")
       ? countRequestsByStatusForProject(id).then((c) => c.SUBMITTED)
       : Promise.resolve(0),
+    countOpenFindingsForProject(member.orgId, id),
   ]);
 
   const now = nowMs();
@@ -64,7 +66,7 @@ export default async function ProjectDetailPage({
   });
   const daysLeftRaw = daysBetween(now, project.endDate);
   const daysLeft = daysLeftRaw !== null ? Math.max(0, daysLeftRaw) : null;
-  const allClear = !pendingRequests && !unreviewedReports && !expiringWorkers.length;
+  const allClear = !pendingRequests && !unreviewedReports && !expiringWorkers.length && !openFindings;
 
   const tabs = [
     { key: "overview", label: "Overview" },
@@ -109,6 +111,7 @@ export default async function ProjectDetailPage({
         <Link href={`/reports?projectId=${project.id}`}>Daily Reports</Link>
         <Link href={`/attendance?projectId=${project.id}`}>Attendance</Link>
         {can(member.role, "viewMaterials") && <Link href={`/materials?projectId=${project.id}`}>Material Requests</Link>}
+        {can(member.role, "viewReports") && <Link href={`/safety?projectId=${project.id}`}>Safety</Link>}
       </div>
 
       {tab === "documents" ? (
@@ -253,6 +256,20 @@ export default async function ProjectDetailPage({
                     </span>
                     <span className="small">material request{pendingRequests > 1 ? "s" : ""} awaiting approval</span>
                     <Link href={`/materials?projectId=${project.id}`} className="btn btn-sm btn-ghost" style={{ marginLeft: "auto" }}>
+                      View
+                    </Link>
+                  </div>
+                )}
+                {openFindings > 0 && (
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span className="badge b-bad">
+                      <span className="dot" />
+                      {openFindings}
+                    </span>
+                    <span className="small">
+                      safety inspection{openFindings > 1 ? "s" : ""} with findings still open
+                    </span>
+                    <Link href={`/safety?projectId=${project.id}`} className="btn btn-sm btn-ghost" style={{ marginLeft: "auto" }}>
                       View
                     </Link>
                   </div>

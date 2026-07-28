@@ -241,3 +241,17 @@ export async function listInspectionsForProject(orgId: string, projectId: string
   return (data ?? []).map(mapInspection);
 }
 
+
+/** Open inspections with findings on one project — for its attention card. */
+export async function countOpenFindingsForProject(orgId: string, projectId: string): Promise<number> {
+  const supabase = await createSessionClient();
+  const { count, error } = await supabase
+    .from("safety_inspections")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .eq("project_id", projectId)
+    .eq("status", "OPEN")
+    .gt("failed_count", 0);
+  if (error) throw error;
+  return count ?? 0;
+}

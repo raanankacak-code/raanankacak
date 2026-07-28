@@ -612,3 +612,39 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
    a label pointing at nothing is a promise to a screen reader that the app
    cannot keep. */
 .field-label{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
+
+/* --- Printable inspection record ---------------------------------------- */
+/* The compliance record is meant to leave the screen: printed, or saved as a
+   PDF and emailed to an officer who will never log in. Everything the app
+   uses to navigate is furniture on paper. */
+.print-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+.print-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.print-group{padding:14px 18px;border-bottom:1px solid var(--line)}
+.print-group:last-of-type{border-bottom:0}
+.print-table{width:100%;border-collapse:collapse}
+.print-table td{padding:5px 0;font-size:13.5px;border-bottom:1px solid var(--line)}
+.print-table tr:last-child td{border-bottom:0}
+.print-table tr.row-fail td{color:var(--bad-text);font-weight:600}
+.print-finding{margin-top:9px;padding:9px 11px;border-left:3px solid var(--bad);background:var(--panel2);border-radius:0 8px 8px 0}
+.print-sign{display:grid;grid-template-columns:1fr 1fr;gap:36px;padding:30px 18px 18px}
+.sign-line{border-bottom:1px solid var(--line2);height:34px;margin-bottom:5px}
+
+@media (max-width:720px){
+  .print-meta{grid-template-columns:1fr 1fr}
+  .print-sign{grid-template-columns:1fr;gap:20px}
+}
+
+@media print{
+  /* Navigation, banners and anything clickable are noise on paper. */
+  .side,.mobile-nav,.mobile-topchip,.billing-banner,.fab,.no-print,.skip-link{display:none!important}
+  .shell{display:block}
+  .main{padding:0}
+  body{background:#fff}
+  .print-card{border:0;box-shadow:none;border-radius:0}
+  .print-meta{grid-template-columns:repeat(3,1fr)}
+  /* A finding and its evidence belong together — splitting one across a page
+     break is exactly the confusion this document exists to prevent. */
+  .print-group,.print-finding{break-inside:avoid;page-break-inside:avoid}
+  .thumb{max-width:150px;max-height:150px}
+  a[href]::after{content:""}
+}

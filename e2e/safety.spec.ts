@@ -189,6 +189,34 @@ test.describe("safety inspections", () => {
     await ctx.dispose();
   });
 
+  test("the full record page shows everything checked, not only what failed", async ({ browser }) => {
+    // The artefact handed to an officer. "We looked at all of this" is half of
+    // what an inspection record is for, so passes must be on it too.
+    const page = await (await browser.newContext({ storageState: AUTH_STATE_PATH })).newPage();
+    await page.goto(`/safety/${cleanInspectionId}`);
+
+    await expect(page.getByRole("heading", { name: /safety inspection record/i })).toBeVisible();
+    await expect(page.getByText("SI-001")).toBeVisible();
+    await expect(page.getByRole("button", { name: /print/i })).toBeVisible();
+
+    // Six checklist rows were filed; all six appear.
+    for (let i = 1; i <= 6; i++) {
+      await expect(page.getByText(`Check ${i}`, { exact: true })).toBeVisible();
+    }
+
+    await page.close();
+  });
+
+  test("another tenant cannot open the record page either", async ({ browser }) => {
+    const page = await (await browser.newContext({ storageState: seed.orgB.owner.authStatePath })).newPage();
+    await page.goto(`/safety/${cleanInspectionId}`);
+
+    await expect(page.getByText(/nothing here/i)).toBeVisible();
+    await expect(page.getByText("SI-001")).toHaveCount(0);
+
+    await page.close();
+  });
+
   test("a signed-out visitor gets nothing", async ({ playwright }) => {
     const ctx = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
 
