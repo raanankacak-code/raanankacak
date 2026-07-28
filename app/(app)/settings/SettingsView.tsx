@@ -242,40 +242,40 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
             <div className="card-b">
               <div className="form-grid">
                 <div className="full">
-                  <label>Company name</label>
-                  <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Hashim Bina Sdn Bhd" />
+                  <label htmlFor="settingsview-company-name">Company name</label>
+                  <input id="settingsview-company-name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Hashim Bina Sdn Bhd" />
                 </div>
                 <div>
-                  <label>
+                  <label htmlFor="settingsview-ssm-registration-number-optional">
                     SSM registration number <span className="faint">(optional)</span>
                   </label>
-                  <input value={form.ssmNumber} onChange={(e) => set("ssmNumber", e.target.value)} placeholder="e.g. 201501034567" />
+                  <input id="settingsview-ssm-registration-number-optional" value={form.ssmNumber} onChange={(e) => set("ssmNumber", e.target.value)} placeholder="e.g. 201501034567" />
                 </div>
                 <div>
-                  <label>
+                  <label htmlFor="settingsview-cidb-registration-number-optional">
                     CIDB registration number <span className="faint">(optional)</span>
                   </label>
-                  <input value={form.cidbNumber} onChange={(e) => set("cidbNumber", e.target.value)} placeholder="e.g. 0198765-SR" />
+                  <input id="settingsview-cidb-registration-number-optional" value={form.cidbNumber} onChange={(e) => set("cidbNumber", e.target.value)} placeholder="e.g. 0198765-SR" />
                 </div>
                 <div>
-                  <label>Company email</label>
-                  <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="office@company.my" />
+                  <label htmlFor="settingsview-company-email">Company email</label>
+                  <input id="settingsview-company-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="office@company.my" />
                 </div>
                 <div>
-                  <label>Phone number</label>
-                  <input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="e.g. 085-431 220" />
+                  <label htmlFor="settingsview-phone-number">Phone number</label>
+                  <input id="settingsview-phone-number" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="e.g. 085-431 220" />
                 </div>
                 <div className="full">
-                  <label>
+                  <label htmlFor="settingsview-website-optional">
                     Website <span className="faint">(optional)</span>
                   </label>
-                  <input value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://yourcompany.my" />
+                  <input id="settingsview-website-optional" value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://yourcompany.my" />
                 </div>
                 <div className="full">
-                  <label>
+                  <label htmlFor="settingsview-company-description-optional">
                     Company description <span className="faint">(optional)</span>
                   </label>
-                  <textarea
+                  <textarea id="settingsview-company-description-optional"
                     value={form.description}
                     onChange={(e) => set("description", e.target.value)}
                     placeholder="What your company does, in a sentence or two…"
@@ -292,34 +292,34 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
             <div className="card-b">
               <div className="form-grid">
                 <div className="full">
-                  <label>Address line 1</label>
-                  <input value={form.addressLine1} onChange={(e) => set("addressLine1", e.target.value)} placeholder="e.g. Lot 1214, Jalan Cattleya 3" />
+                  <label htmlFor="settingsview-address-line-1">Address line 1</label>
+                  <input id="settingsview-address-line-1" value={form.addressLine1} onChange={(e) => set("addressLine1", e.target.value)} placeholder="e.g. Lot 1214, Jalan Cattleya 3" />
                 </div>
                 <div className="full">
-                  <label>
+                  <label htmlFor="settingsview-address-line-2-optional">
                     Address line 2 <span className="faint">(optional)</span>
                   </label>
-                  <input value={form.addressLine2} onChange={(e) => set("addressLine2", e.target.value)} placeholder="e.g. Piasau Light Industrial Estate" />
+                  <input id="settingsview-address-line-2-optional" value={form.addressLine2} onChange={(e) => set("addressLine2", e.target.value)} placeholder="e.g. Piasau Light Industrial Estate" />
                 </div>
                 <div>
-                  <label>City</label>
-                  <input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="e.g. Miri" />
+                  <label htmlFor="settingsview-city">City</label>
+                  <input id="settingsview-city" value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="e.g. Miri" />
                 </div>
                 <div>
-                  <label>Postcode</label>
-                  <input value={form.postcode} onChange={(e) => set("postcode", e.target.value)} placeholder="e.g. 98000" />
+                  <label htmlFor="settingsview-postcode">Postcode</label>
+                  <input id="settingsview-postcode" value={form.postcode} onChange={(e) => set("postcode", e.target.value)} placeholder="e.g. 98000" />
                 </div>
                 <div>
-                  <label>State</label>
-                  <select value={form.state} onChange={(e) => set("state", e.target.value)}>
+                  <label htmlFor="settingsview-state">State</label>
+                  <select id="settingsview-state" value={form.state} onChange={(e) => set("state", e.target.value)}>
                     {MY_STATES.map((s) => (
                       <option key={s}>{s}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label>Country</label>
-                  <select value={form.country} onChange={(e) => set("country", e.target.value)}>
+                  <label htmlFor="settingsview-country">Country</label>
+                  <select id="settingsview-country" value={form.country} onChange={(e) => set("country", e.target.value)}>
                     {COUNTRIES.map((c) => (
                       <option key={c}>{c}</option>
                     ))}
@@ -338,8 +338,8 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
             <div className="card-b">
               <div className="form-grid">
                 <div>
-                  <label>Currency</label>
-                  <select value={form.currency} onChange={(e) => set("currency", e.target.value)}>
+                  <label htmlFor="settingsview-currency">Currency</label>
+                  <select id="settingsview-currency" value={form.currency} onChange={(e) => set("currency", e.target.value)}>
                     {CURRENCIES.map((c) => (
                       <option key={c} value={c}>
                         {c}
@@ -348,8 +348,8 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
                   </select>
                 </div>
                 <div>
-                  <label>Timezone</label>
-                  <select value={form.timezone} onChange={(e) => set("timezone", e.target.value)}>
+                  <label htmlFor="settingsview-timezone">Timezone</label>
+                  <select id="settingsview-timezone" value={form.timezone} onChange={(e) => set("timezone", e.target.value)}>
                     {TIMEZONES.map((t) => (
                       <option key={t} value={t}>
                         {t}
@@ -366,7 +366,7 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
               <h3>Branding</h3>
             </div>
             <div className="card-b">
-              <label>Company logo</label>
+              <div className="field-label">Company logo</div>
               <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                 {form.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -394,8 +394,8 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
               </div>
               <div className="form-grid" style={{ marginTop: 16 }}>
                 <div className="full">
-                  <label>Company short name</label>
-                  <input value={form.shortName} onChange={(e) => set("shortName", e.target.value)} placeholder="e.g. Hashim Bina" />
+                  <label htmlFor="settingsview-company-short-name">Company short name</label>
+                  <input id="settingsview-company-short-name" value={form.shortName} onChange={(e) => set("shortName", e.target.value)} placeholder="e.g. Hashim Bina" />
                   <div className="small faint" style={{ marginTop: 5 }}>
                     Used in the sidebar, dashboard and report letterheads.
                   </div>
@@ -465,8 +465,8 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
                   accounts; they just lose access to this workspace.
                 </p>
                 <div className="full" style={{ maxWidth: 380 }}>
-                  <label>Type the company name to confirm</label>
-                  <input
+                  <label htmlFor="settingsview-type-the-company-name">Type the company name to confirm</label>
+                  <input id="settingsview-type-the-company-name"
                     value={confirmName}
                     onChange={(e) => setConfirmName(e.target.value)}
                     placeholder={org.name}

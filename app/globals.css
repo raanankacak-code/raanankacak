@@ -607,3 +607,8 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
    aria-hidden decoration, so without this a loading page would announce
    nothing at all. */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* A caption above read-only text. Styled like a form label because it reads
+   as one, but it is not a <label> — there is no control for it to label, and
+   a label pointing at nothing is a promise to a screen reader that the app
+   cannot keep. */
+.field-label{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin:0 0 6px}

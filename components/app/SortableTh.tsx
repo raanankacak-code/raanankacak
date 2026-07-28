@@ -31,11 +31,29 @@ export default function SortableTh<K extends string>({
   numeric?: boolean;
 }) {
   const active = sort?.key === sortKey;
+  const dir = active ? (sort!.dir === 1 ? "ascending" : "descending") : "none";
   return (
-    <th aria-sort={active ? (sort!.dir === 1 ? "ascending" : "descending") : undefined} style={numeric ? { textAlign: "right" } : undefined}>
-      <button type="button" className="th-sort" onClick={() => onSort(sortKey)}>
+    // "none" rather than undefined on the inactive columns: it is what tells a
+    // screen reader the column is sortable at all. Omitting the attribute
+    // makes an unsorted column indistinguishable from one that cannot sort.
+    <th aria-sort={dir} style={numeric ? { textAlign: "right" } : undefined}>
+      <button
+        type="button"
+        className="th-sort"
+        onClick={() => onSort(sortKey)}
+        // The visible arrow says which way it is sorted; this says the same
+        // thing to someone who cannot see it, and what pressing will do next.
+        aria-label={
+          active
+            ? `${label}, sorted ${dir}. Activate to sort ${sort!.dir === 1 ? "descending" : "ascending"}.`
+            : `${label}, not sorted. Activate to sort ascending.`
+        }
+      >
         {label}
-        <span className="th-ar">{active ? (sort!.dir === 1 ? "▲" : "▼") : ""}</span>
+        {/* Decorative: aria-sort and the label above already carry this. */}
+        <span className="th-ar" aria-hidden="true">
+          {active ? (sort!.dir === 1 ? "▲" : "▼") : ""}
+        </span>
       </button>
     </th>
   );

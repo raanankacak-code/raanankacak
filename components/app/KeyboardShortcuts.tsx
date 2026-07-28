@@ -79,7 +79,7 @@ export default function KeyboardShortcuts() {
     <Modal title="⌨ Keyboard Shortcuts" onClose={() => setOpen(false)} footer={<button className="btn btn-amber" onClick={() => setOpen(false)}>Close</button>}>
       <div className="two-col" style={{ gap: 20 }}>
         <div>
-          <label>Global</label>
+          <div className="field-label">Global</div>
           <div className="sc-row">
             <span>Search</span>
             <span className="sc-keys">
@@ -91,9 +91,9 @@ export default function KeyboardShortcuts() {
           <Row keys={["Esc"]} label="Close dialogs and panels" />
         </div>
         <div>
-          <label>
+          <div className="field-label">
             Go to… (press <kbd style={{ fontSize: 10 }}>G</kbd> first)
-          </label>
+          </div>
           <Row keys={["G", "D"]} label="Dashboard" />
           <Row keys={["G", "P"]} label="Projects" />
           <Row keys={["G", "R"]} label="Daily Reports" />

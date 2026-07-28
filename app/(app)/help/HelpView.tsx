@@ -395,16 +395,16 @@ function BugFormModal({ firstName, onClose }: { firstName: string; onClose: () =
       {error && <div className="auth-err">{error}</div>}
       <div className="form-grid">
         <div>
-          <label>Where did it happen?</label>
-          <select value={area} onChange={(e) => setArea(e.target.value)}>
+          <label htmlFor="helpview-where-did-it-happen">Where did it happen?</label>
+          <select id="helpview-where-did-it-happen" value={area} onChange={(e) => setArea(e.target.value)}>
             {AREAS.map((a) => (
               <option key={a}>{a}</option>
             ))}
           </select>
         </div>
         <div>
-          <label>Severity</label>
-          <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+          <label htmlFor="helpview-severity">Severity</label>
+          <select id="helpview-severity" value={severity} onChange={(e) => setSeverity(e.target.value)}>
             <option>Low — cosmetic</option>
             <option>Medium — annoying</option>
             <option>High — blocks my work</option>
@@ -412,14 +412,14 @@ function BugFormModal({ firstName, onClose }: { firstName: string; onClose: () =
           </select>
         </div>
         <div className="full">
-          <label>What happened? *</label>
-          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="e.g. Clicking Approve on MR-108 shows a blank screen…" />
+          <label htmlFor="helpview-what-happened">What happened? *</label>
+          <textarea id="helpview-what-happened" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="e.g. Clicking Approve on MR-108 shows a blank screen…" />
         </div>
         <div className="full">
-          <label>
+          <label htmlFor="helpview-steps-to-reproduce-optional">
             Steps to reproduce <span className="faint">(optional)</span>
           </label>
-          <textarea value={steps} onChange={(e) => setSteps(e.target.value)} style={{ minHeight: 56 }} placeholder="1. Open… 2. Click… 3. See error" />
+          <textarea id="helpview-steps-to-reproduce-optional" value={steps} onChange={(e) => setSteps(e.target.value)} style={{ minHeight: 56 }} placeholder="1. Open… 2. Click… 3. See error" />
         </div>
       </div>
     </Modal>

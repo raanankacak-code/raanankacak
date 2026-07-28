@@ -133,7 +133,7 @@ export default function NewReportForm() {
             </div>
 
             <div style={{ marginTop: 16 }}>
-              <label>Manpower by trade</label>
+              <div className="field-label">Manpower by trade</div>
               {manpower.map((row, i) => (
                 <div className="trade-row" key={i}>
                   <input
@@ -175,7 +175,7 @@ export default function NewReportForm() {
             </div>
 
             <div style={{ marginTop: 16 }}>
-              <label>Site photos</label>
+              <div className="field-label">Site photos</div>
               <div className="photo-strip">
                 {photos.map((url) => (
                   <div className="thumb-box" key={url}>

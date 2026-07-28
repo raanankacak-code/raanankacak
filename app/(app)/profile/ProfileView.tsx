@@ -122,8 +122,8 @@ export default function ProfileView({
               {nameError && <div className="auth-err">{nameError}</div>}
               <div className="form-grid">
                 <div className="full">
-                  <label>Full name</label>
-                  <input value={nameValue} onChange={(e) => setNameValue(e.target.value)} />
+                  <label htmlFor="profileview-full-name">Full name</label>
+                  <input id="profileview-full-name" value={nameValue} onChange={(e) => setNameValue(e.target.value)} />
                   <div className="small faint" style={{ marginTop: 5 }}>
                     Updates your initials and how your name appears across the workspace.
                   </div>
@@ -162,16 +162,16 @@ export default function ProfileView({
               )}
               <div className="form-grid">
                 <div className="full">
-                  <label>Current password</label>
-                  <input type="password" autoComplete="current-password" value={curPw} onChange={(e) => setCurPw(e.target.value)} />
+                  <label htmlFor="profileview-current-password">Current password</label>
+                  <input id="profileview-current-password" type="password" autoComplete="current-password" value={curPw} onChange={(e) => setCurPw(e.target.value)} />
                 </div>
                 <div>
-                  <label>New password</label>
-                  <input type="password" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+                  <label htmlFor="profileview-new-password">New password</label>
+                  <input id="profileview-new-password" type="password" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} />
                 </div>
                 <div>
-                  <label>Confirm new password</label>
-                  <input type="password" autoComplete="new-password" value={newPw2} onChange={(e) => setNewPw2(e.target.value)} />
+                  <label htmlFor="profileview-confirm-new-password">Confirm new password</label>
+                  <input id="profileview-confirm-new-password" type="password" autoComplete="new-password" value={newPw2} onChange={(e) => setNewPw2(e.target.value)} />
                 </div>
               </div>
               <button className="btn btn-amber" style={{ marginTop: 14 }} disabled={savingPw} onClick={changePassword}>

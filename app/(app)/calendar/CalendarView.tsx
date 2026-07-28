@@ -678,38 +678,38 @@ function EventDetailModal({
       </div>
       <div className="form-grid">
         <div>
-          <label>Type</label>
+          <div className="field-label">Type</div>
           <div>
             {t.ic} {t.label}
           </div>
         </div>
         <div>
-          <label>Project</label>
+          <div className="field-label">Project</div>
           <div>{projName(projects, event.projectId)}</div>
         </div>
         <div>
-          <label>Date</label>
+          <div className="field-label">Date</div>
           <div className="num">{formatDate(event.date)}</div>
         </div>
         <div>
-          <label>Time</label>
+          <div className="field-label">Time</div>
           <div className="num">{event.time ? `${event.time}${event.endTime ? ` – ${event.endTime}` : ""}` : "All day"}</div>
         </div>
         {event.withWho && (
           <div>
-            <label>Assigned to</label>
+            <div className="field-label">Assigned to</div>
             <div>{event.withWho}</div>
           </div>
         )}
         {event.location && (
           <div>
-            <label>Location</label>
+            <div className="field-label">Location</div>
             <div>{event.location}</div>
           </div>
         )}
         {event.description && (
           <div className="full">
-            <label>Description</label>
+            <div className="field-label">Description</div>
             <div>{event.description}</div>
           </div>
         )}
@@ -797,12 +797,12 @@ function EventFormModal({
       {error && <div className="auth-err">{error}</div>}
       <div className="form-grid">
         <div className="full">
-          <label>Title *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. JKKP site safety inspection" />
+          <label htmlFor="calendarview-title">Title *</label>
+          <input id="calendarview-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. JKKP site safety inspection" />
         </div>
         <div>
-          <label>Project</label>
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          <label htmlFor="calendarview-project">Project</label>
+          <select id="calendarview-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
             <option value="">Company-wide</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
@@ -812,8 +812,8 @@ function EventFormModal({
           </select>
         </div>
         <div>
-          <label>Event type</label>
-          <select value={type} onChange={(e) => setType(e.target.value as EventType)}>
+          <label htmlFor="calendarview-event-type">Event type</label>
+          <select id="calendarview-event-type" value={type} onChange={(e) => setType(e.target.value as EventType)}>
             {Object.entries(EV_TYPES).map(([k, t]) => (
               <option key={k} value={k}>
                 {t.ic} {t.label}
@@ -822,44 +822,44 @@ function EventFormModal({
           </select>
         </div>
         <div>
-          <label>Date *</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <label htmlFor="calendarview-date">Date *</label>
+          <input id="calendarview-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <div>
-          <label>Priority</label>
-          <select value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
+          <label htmlFor="calendarview-priority">Priority</label>
+          <select id="calendarview-priority" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
             <option value="HIGH">High</option>
             <option value="MEDIUM">Medium</option>
             <option value="LOW">Low</option>
           </select>
         </div>
         <div>
-          <label>
+          <label htmlFor="calendarview-time-empty-all-day">
             Time <span className="faint">(empty = all day)</span>
           </label>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <input id="calendarview-time-empty-all-day" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
         </div>
         <div>
-          <label>
+          <label htmlFor="calendarview-end-time-optional">
             End time <span className="faint">(optional)</span>
           </label>
-          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          <input id="calendarview-end-time-optional" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         </div>
         <div>
-          <label>Assigned to</label>
-          <input value={withWho} onChange={(e) => setWithWho(e.target.value)} placeholder="e.g. Sarah Lim" />
+          <label htmlFor="calendarview-assigned-to">Assigned to</label>
+          <input id="calendarview-assigned-to" value={withWho} onChange={(e) => setWithWho(e.target.value)} placeholder="e.g. Sarah Lim" />
         </div>
         <div>
-          <label>
+          <label htmlFor="calendarview-location-optional">
             Location <span className="faint">(optional)</span>
           </label>
-          <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Site cabin, Piasau" />
+          <input id="calendarview-location-optional" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Site cabin, Piasau" />
         </div>
         <div className="full">
-          <label>
+          <label htmlFor="calendarview-description-optional">
             Description <span className="faint">(optional)</span>
           </label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Agenda, scope or notes…" />
+          <textarea id="calendarview-description-optional" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Agenda, scope or notes…" />
         </div>
       </div>
     </Modal>

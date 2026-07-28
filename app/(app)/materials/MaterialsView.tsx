@@ -401,27 +401,27 @@ function RequestDetailModal({
       </div>
       <div className="form-grid" style={{ marginBottom: 16 }}>
         <div>
-          <label>Quantity</label>
+          <div className="field-label">Quantity</div>
           <div className="num">
             {req.qty} {req.unit}
             {req.receivedQty != null && <span className="small" style={{ color: "var(--ok-text)" }}> · received {req.receivedQty}</span>}
           </div>
         </div>
         <div>
-          <label>Needed by</label>
+          <div className="field-label">Needed by</div>
           <div className="num">{formatDate(req.neededBy)}</div>
         </div>
         <div className="full">
-          <label>Justification</label>
+          <div className="field-label">Justification</div>
           <div>{req.justification || "—"}</div>
         </div>
       </div>
       {canApproveNow && (
         <div className="full" style={{ marginBottom: 16 }}>
-          <label>
+          <label htmlFor="materialsview-decision-comment-required-on">
             Decision comment <span className="faint">(required on rejection)</span>
           </label>
-          <textarea
+          <textarea id="materialsview-decision-comment-required-on"
             style={{ minHeight: 56 }}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
@@ -431,11 +431,11 @@ function RequestDetailModal({
       )}
       {canDeliver && (
         <div className="full" style={{ marginBottom: 16 }}>
-          <label>Received quantity</label>
-          <input type="number" min="0" style={{ maxWidth: 160 }} value={receivedQty} onChange={(e) => setReceivedQty(e.target.value)} />
+          <label htmlFor="materialsview-received-quantity">Received quantity</label>
+          <input id="materialsview-received-quantity" type="number" min="0" style={{ maxWidth: 160 }} value={receivedQty} onChange={(e) => setReceivedQty(e.target.value)} />
         </div>
       )}
-      <label>Timeline</label>
+      <div className="field-label">Timeline</div>
       <ul className="tline">
         {tl.map((t) => (
           <li key={t.id} style={{ ["--tl" as string]: TL_COLOR[t.state] }}>
@@ -520,8 +520,8 @@ function NewRequestModal({
       {error && <div className="auth-err">{error}</div>}
       <div className="form-grid">
         <div className="full">
-          <label>Project</label>
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          <label htmlFor="materialsview-project">Project</label>
+          <select id="materialsview-project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -530,28 +530,28 @@ function NewRequestModal({
           </select>
         </div>
         <div className="full">
-          <label>Material *</label>
-          <input value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="e.g. Cement (OPC 50kg)" />
+          <label htmlFor="materialsview-material">Material *</label>
+          <input id="materialsview-material" value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="e.g. Cement (OPC 50kg)" />
         </div>
         <div>
-          <label>Quantity *</label>
-          <input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
+          <label htmlFor="materialsview-quantity">Quantity *</label>
+          <input id="materialsview-quantity" type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
         </div>
         <div>
-          <label>Unit</label>
-          <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+          <label htmlFor="materialsview-unit">Unit</label>
+          <select id="materialsview-unit" value={unit} onChange={(e) => setUnit(e.target.value)}>
             {UNITS.map((u) => (
               <option key={u}>{u}</option>
             ))}
           </select>
         </div>
         <div>
-          <label>Needed by *</label>
-          <input type="date" min={todayISO()} value={neededBy} onChange={(e) => setNeededBy(e.target.value)} />
+          <label htmlFor="materialsview-needed-by">Needed by *</label>
+          <input id="materialsview-needed-by" type="date" min={todayISO()} value={neededBy} onChange={(e) => setNeededBy(e.target.value)} />
         </div>
         <div className="full">
-          <label>Justification *</label>
-          <textarea value={justification} onChange={(e) => setJustification(e.target.value)} placeholder="What is it for? Which work front?" />
+          <label htmlFor="materialsview-justification">Justification *</label>
+          <textarea id="materialsview-justification" value={justification} onChange={(e) => setJustification(e.target.value)} placeholder="What is it for? Which work front?" />
         </div>
       </div>
     </Modal>

@@ -47,7 +47,15 @@ function RoleTag({ role, onClick }: { role: Role; onClick: () => void }) {
       tabIndex={0}
       title="View role details"
       onClick={onClick}
-      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      // Space as well as Enter: a native button responds to both, and
+      // anything wearing role="button" is expected to behave like one.
+      // Space also scrolls the page by default, hence preventDefault.
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
       {meta.icon} {ROLE_LABELS[role]}
     </span>
@@ -252,7 +260,7 @@ function RoleInfoModal({ role, onClose }: { role: Role; onClose: () => void }) {
   return (
     <Modal title={`${meta.icon} ${ROLE_LABELS[role]}`} onClose={onClose} footer={<button className="btn btn-amber" onClick={onClose}>Close</button>}>
       <p style={{ marginBottom: 14 }}>{meta.desc}</p>
-      <label>Responsibilities</label>
+      <div className="field-label">Responsibilities</div>
       <div style={{ display: "grid", gap: 6, marginBottom: 16 }}>
         {meta.resp.map((r, i) => (
           <div key={i} className="small" style={{ display: "flex", gap: 9 }}>
@@ -261,7 +269,7 @@ function RoleInfoModal({ role, onClose }: { role: Role; onClose: () => void }) {
           </div>
         ))}
       </div>
-      <label>Permissions</label>
+      <div className="field-label">Permissions</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(215px,1fr))", gap: 7 }}>
         {PERM_LABELS.map(([key, label]: [Permission, string]) => {
           const has = can(role, key);
@@ -350,16 +358,16 @@ function ManageMemberModal({
       {error && <div className="auth-err">{error}</div>}
       <div className="form-grid">
         <div>
-          <label>Full name</label>
-          <input value={member.name} disabled />
+          <label htmlFor="teamview-full-name">Full name</label>
+          <input id="teamview-full-name" value={member.name} disabled />
         </div>
         <div>
-          <label>Email</label>
-          <input value={member.email} disabled />
+          <label htmlFor="teamview-email">Email</label>
+          <input id="teamview-email" value={member.email} disabled />
         </div>
         <div className="full">
-          <label>Role</label>
-          <select value={role} onChange={(e) => setRole(e.target.value as Role)} disabled={isSelf}>
+          <label htmlFor="teamview-role">Role</label>
+          <select id="teamview-role" value={role} onChange={(e) => setRole(e.target.value as Role)} disabled={isSelf}>
             {ROLES.map((r) => (
               <option key={r} value={r}>
                 {ROLE_META[r].icon} {ROLE_LABELS[r]}
@@ -371,7 +379,7 @@ function ManageMemberModal({
       </div>
 
       <div style={{ borderTop: "1px solid var(--line)", marginTop: 16, paddingTop: 14 }}>
-        <label>Account</label>
+        <div className="field-label">Account</div>
         <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
           <button className={`btn${member.active ? "" : " btn-amber"}`} onClick={toggleActive} disabled={saving || isSelf}>
             {member.active ? "Deactivate account" : "Activate account"}
@@ -446,16 +454,16 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       )}
       <div className="form-grid">
         <div>
-          <label>Full name *</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Nurul Aina" />
+          <label htmlFor="teamview-full-name-2">Full name *</label>
+          <input id="teamview-full-name-2" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Nurul Aina" />
         </div>
         <div>
-          <label>Email *</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.my" />
+          <label htmlFor="teamview-email-2">Email *</label>
+          <input id="teamview-email-2" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.my" />
         </div>
         <div>
-          <label>Role</label>
-          <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+          <label htmlFor="teamview-role-2">Role</label>
+          <select id="teamview-role-2" value={role} onChange={(e) => setRole(e.target.value as Role)}>
             {ROLES.filter((r) => r !== "OWNER").map((r) => (
               <option key={r} value={r}>
                 {ROLE_META[r].icon} {ROLE_LABELS[r]}
@@ -464,8 +472,8 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           </select>
         </div>
         <div>
-          <label>Department (optional)</label>
-          <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Technical" />
+          <label htmlFor="teamview-department-optional">Department (optional)</label>
+          <input id="teamview-department-optional" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Technical" />
         </div>
       </div>
       <div className="small faint" style={{ marginTop: 12 }}>

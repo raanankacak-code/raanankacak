@@ -44,20 +44,20 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           </div>
           <div className="card-b" style={{ display: "grid", gap: 16 }}>
             <div>
-              <label>Work completed</label>
+              <div className="field-label">Work completed</div>
               <p>{report.workCompleted || "—"}</p>
             </div>
             <div>
-              <label>Delays / issues</label>
+              <div className="field-label">Delays / issues</div>
               <p>{report.delays || "—"}</p>
             </div>
             <div>
-              <label>Notes</label>
+              <div className="field-label">Notes</div>
               <p>{report.notes || "—"}</p>
             </div>
             {photos.length > 0 && (
               <div>
-                <label>Site photos</label>
+                <div className="field-label">Site photos</div>
                 <div className="photo-strip">
                   {photos.map((url) => (
                     // eslint-disable-next-line @next/next/no-img-element
