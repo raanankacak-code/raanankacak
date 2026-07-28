@@ -5,6 +5,7 @@ import { getOrganizationById } from "@/lib/db/organizations";
 import { getSubscriptionForOrgViaSession, setStripeCustomerId } from "@/lib/db/subscriptions";
 import { getStripeClient, priceIdForPlan } from "@/lib/billing/stripe";
 import { PLANS } from "@/lib/billing/plans";
+import { appOrigin } from "@/lib/appOrigin";
 
 const checkoutSchema = z.object({
   plan: z.enum(["STARTER", "PROFESSIONAL", "BUSINESS"]),
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       await setStripeCustomerId(member.orgId, customerId);
     }
 
-    const origin = new URL(request.url).origin;
+    const origin = appOrigin(request);
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,

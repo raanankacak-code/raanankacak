@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { getSubscriptionForOrgViaSession } from "@/lib/db/subscriptions";
 import { getStripeClient } from "@/lib/billing/stripe";
+import { appOrigin } from "@/lib/appOrigin";
 
 /** Opens the Stripe Billing Portal so the org can update payment method, view invoices, or cancel. */
 export async function POST(request: Request) {
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripeClient();
-    const origin = new URL(request.url).origin;
+    const origin = appOrigin(request);
     const session = await stripe.billingPortal.sessions.create({
       customer: sub.stripeCustomerId,
       return_url: `${origin}/billing`,

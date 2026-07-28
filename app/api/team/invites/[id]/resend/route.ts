@@ -4,6 +4,7 @@ import { getOrganizationById } from "@/lib/db/organizations";
 import { requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
+import { appOrigin } from "@/lib/appOrigin";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { recordMemberAction } from "@/lib/db/auditLog";
 
@@ -20,8 +21,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const invite = await resendInvite(member.orgId, id);
 
     const org = await getOrganizationById(member.orgId);
-    const link = `${new URL(request.url).origin}/signup?invite=${invite.token}`;
-    await sendEmail({
+    const link = `${appOrigin(request)}/signup?invite=${invite.token}`;
+    const email = await sendEmail({
       to: invite.email,
       subject: `Reminder: you're invited to join ${org?.name ?? "your company"} on BinaWorks`,
       html: inviteEmailHtml({
@@ -42,7 +43,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       metadata: { email: invite.email, role: invite.role },
     });
 
-    return NextResponse.json({ invite });
+    // The invite is valid either way — the link can be copied from the team
+    // list. Saying whether the email actually went is the difference between
+    // "they'll get an email" and "nothing happened and nobody knows".
+    return NextResponse.json({ invite, emailSent: email.delivered });
   } catch (err) {
     return apiErrorResponse(err);
   }

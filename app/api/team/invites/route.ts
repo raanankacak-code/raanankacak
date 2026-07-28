@@ -6,6 +6,7 @@ import { getOrganizationById } from "@/lib/db/organizations";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
 import { sendEmail, inviteEmailHtml } from "@/lib/email";
+import { appOrigin } from "@/lib/appOrigin";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { recordMemberAction } from "@/lib/db/auditLog";
 import { assertCanAddTeamAccount } from "@/lib/billing/limits";
@@ -68,8 +69,8 @@ export async function POST(request: Request) {
     });
 
     const org = await getOrganizationById(member.orgId);
-    const link = `${new URL(request.url).origin}/signup?invite=${invite.token}`;
-    await sendEmail({
+    const link = `${appOrigin(request)}/signup?invite=${invite.token}`;
+    const email = await sendEmail({
       to: invite.email,
       subject: `You're invited to join ${org?.name ?? "your company"} on BinaWorks`,
       html: inviteEmailHtml({
@@ -80,7 +81,10 @@ export async function POST(request: Request) {
       }),
     });
 
-    return NextResponse.json({ invite }, { status: 201 });
+    // Still 201: the invitation exists and the link works whether or not the
+    // email went. emailSent is what lets the UI say so instead of implying
+    // the recipient has been told.
+    return NextResponse.json({ invite, emailSent: email.delivered }, { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0]?.message ?? "Invalid input" }, { status: 400 });

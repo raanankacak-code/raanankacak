@@ -254,6 +254,14 @@ that header outright and can bypass those limits by rotating it.
   `1` for a single nginx/Caddy, `2` behind a CDN as well. The client IP is
   read that many entries in from the right of the header; anything to the
   left is caller-supplied and ignored.
+- Set `NEXT_PUBLIC_APP_URL` to the deployment's public origin, and pin `Host`
+  at the proxy. Invite links and Stripe return URLs used to be built from
+  `new URL(request.url).origin`, which is the `Host` header: a proxy that
+  passes an arbitrary `Host` through lets a caller decide where the "Accept
+  invitation" button in an invite email points, in a message that is
+  otherwise entirely genuine. With the variable set the header no longer
+  decides. Without it the app falls back to the request host and logs a
+  warning for every link it builds.
 
 ### Scaling out
 

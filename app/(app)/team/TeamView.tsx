@@ -395,6 +395,7 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [department, setDepartment] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [emailFailed, setEmailFailed] = useState(false);
 
   async function submit() {
     setError("");
@@ -402,10 +403,17 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("Enter a valid email address.");
     setSaving(true);
     try {
-      await apiFetch("/api/team/invites", {
+      const res = await apiFetch<{ emailSent: boolean }>("/api/team/invites", {
         method: "POST",
         body: JSON.stringify({ name, email, role, department: department || undefined }),
       });
+      // The invitation exists either way, so this is a warning rather than an
+      // error — but closing the modal as if the email had gone would leave
+      // someone waiting for a message that is never coming.
+      if (!res.emailSent) {
+        setEmailFailed(true);
+        return;
+      }
       onCreated();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Failed to send invitation.");
@@ -423,13 +431,19 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn-amber" onClick={submit} disabled={saving}>
-            {saving ? "Sending…" : "Send invitation"}
+          <button className="btn btn-amber" onClick={emailFailed ? onCreated : submit} disabled={saving}>
+            {emailFailed ? "Done" : saving ? "Sending…" : "Send invitation"}
           </button>
         </>
       }
     >
       {error && <div className="auth-err">{error}</div>}
+      {emailFailed && (
+        <div className="auth-err">
+          The invitation for <b>{email}</b> was created, but the email could not be sent. Use <b>Copy link</b> on their
+          row in the invitations list and send it to them yourself.
+        </div>
+      )}
       <div className="form-grid">
         <div>
           <label>Full name *</label>
@@ -464,11 +478,17 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 function InviteRow({ invite, onChanged }: { invite: Invite; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [resendFailed, setResendFailed] = useState(false);
 
   async function resend() {
     setBusy(true);
+    setResendFailed(false);
     try {
-      await apiFetch(`/api/team/invites/${invite.id}/resend`, { method: "POST" });
+      const res = await apiFetch<{ emailSent: boolean }>(`/api/team/invites/${invite.id}/resend`, { method: "POST" });
+      // A resend that silently did nothing is worse than no button at all:
+      // the invite got a fresh token, so the link they were sent before has
+      // just stopped working and no new one has reached them.
+      if (!res.emailSent) setResendFailed(true);
       onChanged();
     } finally {
       setBusy(false);
@@ -515,6 +535,11 @@ function InviteRow({ invite, onChanged }: { invite: Invite; onChanged: () => voi
         <div className="small faint" style={{ marginTop: 3 }}>
           {invite.status === "PENDING" ? `expires ${formatDate(invite.expiresAt)}` : `invited by ${invite.invitedByName}`}
         </div>
+        {resendFailed && (
+          <div className="small" style={{ marginTop: 3, color: "var(--bad-text)" }}>
+            Email not sent — use Copy link
+          </div>
+        )}
       </td>
       <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
         {invite.status === "PENDING" && (
