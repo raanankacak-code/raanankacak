@@ -65,18 +65,38 @@ export function isClientDisconnect(err: unknown): boolean {
 
 type ErrorReporter = (err: unknown, context?: Record<string, unknown>) => void;
 
-let reporter: ErrorReporter | null = null;
+/**
+ * The reporter lives on globalThis, not in a module variable, and that is
+ * not a stylistic choice.
+ *
+ * Next bundles instrumentation.ts into its own server chunk, separate from
+ * the chunks holding route handlers and pages. Each chunk gets its own copy
+ * of this module, so `let reporter` assigned by register() is invisible to
+ * every route: the boot log says "Error reporting enabled", each route
+ * faithfully calls reportError, and nothing is ever sent. It fails in the
+ * production build only — in dev the module graph is shared — and it fails
+ * silently, which is the worst possible combination for the one mechanism
+ * whose whole job is telling you something is wrong.
+ *
+ * Found by pointing a fake ingest server at a real production build and
+ * getting no request while the log insisted reporting was on.
+ */
+const REPORTER_KEY = Symbol.for("binaworks.errorReporter");
+
+type ReporterHolder = { [REPORTER_KEY]?: ErrorReporter | null };
 
 /**
- * The single seam for a hosted error tracker. Call this once at startup
- * (see instrumentation.ts) and every logger.error call site reports through
- * it — no per-call-site wiring, and nothing to remove if the vendor changes.
- *
- * Deliberately not wired to any SDK yet: none is configured, and an
- * unconfigured tracker is just dead weight in the bundle.
+ * The single seam for a hosted error tracker. Call it once at startup (see
+ * instrumentation.ts) and every reportError call site reports through it —
+ * no per-call-site wiring, and nothing to remove if the vendor changes.
  */
 export function setErrorReporter(next: ErrorReporter | null): void {
-  reporter = next;
+  (globalThis as ReporterHolder)[REPORTER_KEY] = next;
+}
+
+/** The reporter set at boot, if any. Exported for tests. */
+export function getErrorReporter(): ErrorReporter | null {
+  return (globalThis as ReporterHolder)[REPORTER_KEY] ?? null;
 }
 
 /**
@@ -89,5 +109,5 @@ export function reportError(message: string, err: unknown, context?: Record<stri
     return;
   }
   logger.error(message, { ...context, ...errorFields(err) });
-  reporter?.(err, context);
+  getErrorReporter()?.(err, context);
 }

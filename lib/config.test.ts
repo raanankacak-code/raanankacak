@@ -7,7 +7,14 @@ const SUPABASE = {
   SUPABASE_SERVICE_ROLE_KEY: "service",
 };
 
-const PROD = { ...SUPABASE, NODE_ENV: "production", NEXT_PUBLIC_APP_URL: "https://app.example.com" };
+// A *complete* production config now includes error alerting: shipping
+// without it is a defensible choice, but not a complete one.
+const PROD = {
+  ...SUPABASE,
+  NODE_ENV: "production",
+  NEXT_PUBLIC_APP_URL: "https://app.example.com",
+  SENTRY_DSN: "https://key@o1.ingest.sentry.io/1",
+};
 
 function check(env: Record<string, string | undefined>) {
   return checkConfig(env as NodeJS.ProcessEnv);
@@ -129,6 +136,36 @@ describe("checkConfig", () => {
       const { fatal, warnings } = check({ ...PROD, TRUSTED_PROXY_HOPS: "1" });
       expect(fatal).toEqual([]);
       expect(warnings).toEqual([]);
+    });
+  });
+
+  describe("SENTRY_DSN", () => {
+    it("warns in production when absent, because nothing will tell you the app is failing", () => {
+      const { fatal, warnings } = check({ ...PROD, SENTRY_DSN: undefined, TRUSTED_PROXY_HOPS: "1" });
+
+      // A warning, not fatal: running without alerting is a real choice, and
+      // the app also says so at boot.
+      expect(fatal).toEqual([]);
+      expect(warnings.join(" ")).toContain("SENTRY_DSN");
+    });
+
+    it("is silent outside production, where nobody is watching anyway", () => {
+      const { warnings } = check({ ...SUPABASE, NODE_ENV: "development", NEXT_PUBLIC_APP_URL: "http://localhost:3000" });
+      expect(warnings.join(" ")).not.toContain("SENTRY_DSN");
+    });
+
+    it("is fatal when malformed, rather than quietly reporting nothing", () => {
+      // The dangerous state is not "no alerting" — it is believing you have
+      // alerting. A typo produces exactly that, and nothing anywhere would
+      // contradict it.
+      const { fatal } = check({ ...PROD, SENTRY_DSN: "https://ingest.sentry.io/1", TRUSTED_PROXY_HOPS: "1" });
+      expect(fatal.join(" ")).toContain("SENTRY_DSN");
+      expect(fatal.join(" ")).toContain("silently go unreported");
+    });
+
+    it("accepts a real DSN", () => {
+      const { fatal } = check({ ...PROD, TRUSTED_PROXY_HOPS: "1" });
+      expect(fatal).toEqual([]);
     });
   });
 });

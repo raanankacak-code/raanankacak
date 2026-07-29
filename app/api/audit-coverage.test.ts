@@ -35,6 +35,8 @@ const NOT_AUDITED: Record<string, string> = {
   "uploads/route.ts": "stores bytes; the document/logo row that references them is audited where it is created",
   "invites/[token]/accept/route.ts": "audited as MEMBER_JOINED via recordAuditEvent, checked separately below",
   "orgs/route.ts": "POST creates the org (nothing to attribute yet) and DELETE cascades its own audit rows away; PATCH is audited",
+  "client-errors/route.ts":
+    "accepts a crash report from a browser and writes no workspace data at all; it is unauthenticated by necessity, so there is no member to attribute an audit entry to",
 };
 
 function routeFiles(dir: string, prefix = ""): { rel: string; abs: string }[] {

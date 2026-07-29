@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import ErrorPanel from "@/components/ErrorPanel";
+import { reportClientError } from "@/lib/reportClientError";
 
 /**
  * Catches a failure in any page inside the app shell.
@@ -21,6 +23,9 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // Only fires for errors the server never saw — see reportClientError.
+  useEffect(() => reportClientError(error), [error]);
+
   return (
     <>
       <div className="topbar">

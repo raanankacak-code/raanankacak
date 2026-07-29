@@ -1,3 +1,5 @@
+import { parseDsn } from "@/lib/errorReporting";
+
 /**
  * Startup configuration checks.
  *
@@ -89,6 +91,25 @@ export function checkConfig(env: NodeJS.ProcessEnv = process.env): ConfigReport 
   }
   if (isProduction && env.STRIPE_SECRET_KEY?.startsWith("sk_test_")) {
     warnings.push("STRIPE_SECRET_KEY is a test key, in a production build.");
+  }
+
+  // SENTRY_DSN — fatal when malformed, a warning when absent in production.
+  //
+  // Absent is a defensible choice and the app says so at boot. A *typo* is
+  // not: nothing would report, nothing would complain, and you would carry
+  // on believing you had alerting. That belief is worse than knowing you
+  // have none, so it refuses to start instead.
+  const dsn = env.SENTRY_DSN;
+  if (dsn) {
+    if (!parseDsn(dsn)) {
+      fatal.push(
+        "SENTRY_DSN is set but is not a valid Sentry DSN (expected https://<key>@<host>/<projectId>). Errors would silently go unreported.",
+      );
+    }
+  } else if (isProduction) {
+    warnings.push(
+      "SENTRY_DSN is not set — errors are logged to stdout and nowhere else. Nothing will alert you when the app throws.",
+    );
   }
 
   // Email is optional — invites still work via the copyable link, and the UI

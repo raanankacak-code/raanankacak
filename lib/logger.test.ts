@@ -123,3 +123,40 @@ describe("errorFields", () => {
     expect(errorFields(err)).toMatchObject({ errorCode: "ECONNRESET" });
   });
 });
+
+describe("the reporter survives Next's chunk splitting", () => {
+  /**
+   * Regression test for a bug that made the whole seam useless in
+   * production, and only in production.
+   *
+   * Next bundles instrumentation.ts into its own server chunk, separate from
+   * route handlers and pages. Each chunk gets its own copy of lib/logger, so
+   * a module-scoped `let reporter` set by register() was invisible to every
+   * route: the boot log said "Error reporting enabled", each route called
+   * reportError, and nothing was ever sent. Development was fine, because
+   * there the module graph is shared.
+   *
+   * vi.resetModules() plus a fresh import is a second module instance —
+   * exactly the condition that broke it.
+   */
+  it("is visible to a separately loaded copy of this module", async () => {
+    const first = await import("@/lib/logger");
+    const reporter = vi.fn();
+    first.setErrorReporter(reporter);
+
+    vi.resetModules();
+    const second = await import("@/lib/logger");
+
+    // Different module object, same reporter. A module-scoped variable would
+    // be null here, which is precisely what shipped.
+    expect(second).not.toBe(first);
+    expect(second.getErrorReporter()).toBe(reporter);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    second.reportError("Unhandled server error", new Error("boom"));
+    expect(reporter, "the second copy logged but did not report").toHaveBeenCalledTimes(1);
+
+    errorSpy.mockRestore();
+    second.setErrorReporter(null);
+  });
+});

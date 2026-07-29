@@ -1,6 +1,8 @@
 import type { Instrumentation } from "next";
-import { reportError, logger } from "@/lib/logger";
+import { reportError, logger, setErrorReporter } from "@/lib/logger";
 import { checkConfig } from "@/lib/config";
+import { createSentryReporter } from "@/lib/errorReporting";
+import { appRelease } from "@/lib/release";
 
 /**
  * Server-side observability entry point (see the Next.js instrumentation.js
@@ -14,11 +16,6 @@ import { checkConfig } from "@/lib/config";
  */
 
 export function register() {
-  // Where a hosted error tracker gets initialised, e.g.
-  //   setErrorReporter((err, ctx) => Sentry.captureException(err, { extra: ctx }))
-  // Nothing is configured yet, so this deliberately stays a no-op rather than
-  // shipping an inert SDK.
-
   // Fail at boot rather than on the first user request. A missing key
   // otherwise surfaces as an opaque runtime error somewhere deep in a route,
   // long after the deploy looked successful — or, worse, as no error at all
@@ -34,10 +31,33 @@ export function register() {
     throw new Error(`Startup configuration invalid:\n  - ${fatal.join("\n  - ")}`);
   }
 
+  // Wired after the config check, so a boot that is going to fail does not
+  // first announce that alerting is on.
+  const dsn = process.env.SENTRY_DSN;
+  if (dsn) {
+    const reporter = createSentryReporter({
+      dsn,
+      release: appRelease(),
+      environment: process.env.NODE_ENV,
+    });
+    // Null is unreachable here — checkConfig refuses to boot on a malformed
+    // DSN — but the seam takes a nullable reporter and pretending otherwise
+    // would be a cast rather than a check.
+    if (reporter) {
+      setErrorReporter(reporter);
+      logger.info("Error reporting enabled", { release: appRelease() });
+    }
+  } else {
+    // Said out loud, because "we have alerting" is the kind of belief that
+    // survives long after it stopped being true.
+    logger.info("Error reporting disabled — SENTRY_DSN is not set");
+  }
+
   logger.info("Server starting", {
     runtime: process.env.NEXT_RUNTIME,
     nodeEnv: process.env.NODE_ENV,
     trustedProxyHops: Number(process.env.TRUSTED_PROXY_HOPS ?? "1"),
+    release: appRelease(),
   });
 }
 

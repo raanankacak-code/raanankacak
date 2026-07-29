@@ -252,20 +252,88 @@ closed the tab, lost signal on site) are logged at `info` with
 mobile-heavy app, and counting them as errors would bury real failures — this
 was the recurring `aborted`/`ECONNRESET` noise visible in every test run.
 
-### Adding a hosted error tracker
+### Error alerting
 
-`lib/logger.ts` exposes one seam, `setErrorReporter`. Call it once from
-`register()` in `instrumentation.ts` and every `reportError` call site starts
-reporting — no per-route wiring, and client disconnects are filtered out for
-you:
+Set one variable and errors stop being something you have to go looking for:
+
+```
+SENTRY_DSN="https://<key>@<org>.ingest.sentry.io/<projectId>"
+```
+
+Unset, the app logs to stdout as before and says so at boot
+(`Error reporting disabled — SENTRY_DSN is not set`), plus a startup warning in
+production. **Set but malformed is fatal** — the app refuses to boot. A typo
+would otherwise leave you believing you had alerting while nothing reported and
+nothing complained, and that belief is worse than knowing you have none.
+
+What gets reported:
+
+- Anything thrown while rendering a page, a Server Component or the proxy, via
+  `onRequestError`.
+- Every `reportError` call site, which is every handled server failure.
+- Browser crashes caught by the three error boundaries, POSTed to
+  `/api/client-errors`.
+
+Each event carries the release (short commit SHA, read from whichever variable
+your host sets — see `lib/release.ts`), so the first useful question about a
+spike, *did this start with a deploy*, is answerable from the dashboard rather
+than from memory.
+
+**Not `@sentry/nextjs`, and deliberately.** That SDK wraps `next.config` with a
+webpack plugin, injects a client bundle, and talks to `ingest.sentry.io` from
+the browser — which would mean widening a CSP that is deliberately narrow
+(`connect-src 'self'` plus Supabase, with a per-request nonce and
+`strict-dynamic`). `lib/errorReporting.ts` speaks Sentry's envelope protocol
+directly in about 200 dependency-free lines, and browser crashes POST to this
+app's own endpoint, so the CSP is untouched and the DSN never reaches a public
+bundle.
+
+What that gives up, stated plainly: no breadcrumbs, no performance tracing, no
+session replay, and no source-map symbolication — client stacks will name
+minified frames. If you want those, `setErrorReporter` in `lib/logger.ts` is
+the seam and swapping it is a three-line change:
 
 ```ts
 import * as Sentry from "@sentry/nextjs";
 setErrorReporter((err, context) => Sentry.captureException(err, { extra: context }));
 ```
 
-No SDK is installed yet: one that isn't configured is just weight in the
-bundle.
+**One trap worth knowing if you touch that seam.** The reporter is stored on
+`globalThis`, not in a module variable, because Next bundles
+`instrumentation.ts` into its own server chunk — each chunk gets its own copy
+of `lib/logger`, so a module-scoped variable set by `register()` is invisible
+to every route. The symptom is brutal: the boot log says
+`Error reporting enabled`, every route dutifully calls `reportError`, and
+nothing is ever sent. It only happens in a production build (dev shares the
+module graph) and it fails silently. It was found by pointing a fake ingest
+server at a real `npm run start` and getting no request, and
+`lib/logger.test.ts` now reproduces it with `vi.resetModules()`.
+
+Three properties the reporter holds to, each with a test:
+
+- **It never throws.** A failure to report must not become a second error, or
+  turn a handled 500 into an unhandled one.
+- **It never blocks.** Fire-and-forget with a 5s timeout, so a slow ingest
+  endpoint adds no latency to anybody's request.
+- **It has a ceiling** of 30 events a minute. A hot loop throwing on every
+  request would otherwise exhaust the quota and bury the one error that
+  mattered.
+
+Credentials are stripped from context before sending (`redact` — anything whose
+key looks like a key, token, secret, password, authorization, cookie or dsn). An
+error report travels to a third party and is retained by them, which makes it
+the last place a service-role key should surface.
+
+`/api/client-errors` is the only route in the app that an unauthenticated
+stranger can write to, because the crashes most worth hearing about happen
+before anything has loaded. It is rate-limited to 20/minute per IP, caps every
+field, stores only the pathname (a query string here can carry an invite token),
+and answers 204 to everything — including its own failures, since an error
+reporter that reports its own errors is a loop.
+
+Client reports are skipped when React attached a `digest`, which means the
+server already caught and reported it. Without that rule every server-render
+failure would be counted twice.
 
 ## Deploying
 

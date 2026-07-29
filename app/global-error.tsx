@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
+import { reportClientError } from "@/lib/reportClientError";
+
 /**
  * Last-resort boundary: this one replaces the root layout, which means the
  * fonts and the stylesheet that layout brings in are gone by the time it
@@ -17,6 +20,9 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // Only fires for errors the server never saw — see reportClientError.
+  useEffect(() => reportClientError(error), [error]);
+
   return (
     <html lang="en">
       <body

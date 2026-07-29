@@ -101,8 +101,8 @@ describe("recordWorkspaceDeletion", () => {
   };
 
   function stubUpsert(error: unknown = null) {
-    const upsert = vi.fn((_row: Record<string, unknown>, _opts: { onConflict: string }) =>
-      Promise.resolve({ error }),
+    const upsert = vi.fn<(row: Record<string, unknown>, opts: { onConflict: string }) => Promise<{ error: unknown }>>(
+      () => Promise.resolve({ error }),
     );
     createAdminClientMock.mockReturnValue({ from: vi.fn(() => ({ upsert })) });
     return upsert;

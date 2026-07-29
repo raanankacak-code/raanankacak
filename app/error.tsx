@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import ErrorPanel from "@/components/ErrorPanel";
+import { reportClientError } from "@/lib/reportClientError";
 
 /**
  * Catches failures outside the app shell — the auth pages, and the app
@@ -18,6 +20,9 @@ export default function RootError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // Only fires for errors the server never saw — see reportClientError.
+  useEffect(() => reportClientError(error), [error]);
+
   return (
     <main className="main" id="main" style={{ maxWidth: 640, margin: "0 auto", padding: "48px 20px" }}>
       <ErrorPanel
