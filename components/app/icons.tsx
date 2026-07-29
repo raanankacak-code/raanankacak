@@ -117,3 +117,13 @@ export function SafetyIcon() {
     </svg>
   );
 }
+
+/** A spanner: the snag list is about things that need fixing. */
+export function DefectIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.7 6.3a4 4 0 0 0 5 5l-9 9a2.8 2.8 0 0 1-4-4l9-9a4 4 0 0 0-1 -1Z" />
+      <path d="M16.5 3.5a4 4 0 0 0-1.8 2.8" />
+    </svg>
+  );
+}

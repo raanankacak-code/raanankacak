@@ -281,6 +281,10 @@ export type AuditAction =
   | "SAFETY_INSPECTION_FILED"
   | "SAFETY_INSPECTION_CLOSED"
   | "SAFETY_INSPECTION_DELETED"
+  | "DEFECT_RAISED"
+  | "DEFECT_UPDATED"
+  | "DEFECT_CLOSED"
+  | "DEFECT_DELETED"
   | "ORG_SETTINGS_CHANGED"
   | "SUBSCRIPTION_CHANGED"
   | "MEMBER_ROLE_CHANGED"
@@ -346,6 +350,37 @@ export interface SafetyInspection {
   failedCount: number;
   notes: string | null;
   photos: string[];
+  closedAt: Date | null;
+  closedByName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type DefectSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type DefectStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+
+export interface Defect {
+  id: string;
+  orgId: string;
+  projectId: string;
+  code: string;
+  title: string;
+  /** Free text: "Blk A L3 U12", "north stair core". See supabase/schema.sql. */
+  location: string | null;
+  description: string | null;
+  severity: DefectSeverity;
+  status: DefectStatus;
+  raisedById: string;
+  raisedByName: string;
+  assignedToId: string | null;
+  assignedToName: string | null;
+  /** Plain YYYY-MM-DD, or null when nobody has committed to a date. */
+  dueDate: string | null;
+  /** Evidence of the problem, attached when it was raised. */
+  photos: string[];
+  resolutionNotes: string | null;
+  /** Evidence of the fix. The pair is what makes this a record and not a claim. */
+  resolutionPhotos: string[];
   closedAt: Date | null;
   closedByName: string | null;
   createdAt: Date;

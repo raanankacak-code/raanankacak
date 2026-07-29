@@ -6,6 +6,8 @@ import { countRequestsByStatusForOrg } from "@/lib/db/materials";
 import { countOpenFindingsForOrg } from "@/lib/db/safety";
 import { getSubscriptionForOrgViaSession, isSubscriptionWritable, trialDaysLeft } from "@/lib/db/subscriptions";
 import { can } from "@/lib/permissions";
+import { countOverdueDefectsForOrg } from "@/lib/db/defects";
+import { todayInOrgTimezone } from "@/lib/today";
 import AppShell from "@/components/app/AppShell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -34,6 +36,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // for the same reason the materials badge is: an unbounded select is capped
   // at 1000 rows without warning.
   const safetyBadge = can(member.role, "viewReports") ? await countOpenFindingsForOrg(member.orgId) : 0;
+  // Overdue, not merely outstanding. A badge showing every open snag on a
+  // busy site is a number nobody looks at twice; a badge showing what has
+  // missed its date is a number worth acting on.
+  const defectsBadge = can(member.role, "viewReports")
+    ? await countOverdueDefectsForOrg(member.orgId, todayInOrgTimezone())
+    : 0;
 
   const subscription = await getSubscriptionForOrgViaSession(member.orgId);
   const billing = {
@@ -51,6 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       orgLogoUrl={org.logoUrl}
       materialsBadge={materialsBadge}
       safetyBadge={safetyBadge}
+      defectsBadge={defectsBadge}
       billing={billing}
     >
       {children}

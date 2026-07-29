@@ -871,3 +871,63 @@ alter table deleted_workspaces enable row level security;
 -- auth_org_id() could never match these rows anyway — there is nobody left
 -- with a legitimate session claim to them. The same deliberate deny-all as
 -- rate_limits, and it shows up in Supabase's advisors the same way.
+
+-- defects -----------------------------------------------------------------
+-- Snag lists. A defect is raised against a place on a project, assigned to
+-- someone, and closed by someone else once the evidence says it is fixed.
+--
+-- Two sets of photos rather than one, and that is the point of the table:
+-- what was wrong, and what it looks like now. A snag list with only "closed"
+-- against it is a claim; a snag list with a before and an after is a record.
+
+create type defect_severity as enum ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
+create type defect_status as enum ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED');
+
+create table defects (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid not null references projects(id) on delete cascade,
+  code text not null,
+  title text not null,
+  -- Free text on purpose. Every contractor describes a location differently
+  -- ("Blk A L3 U12", "north stair core"), and a structured hierarchy would
+  -- be wrong for most of them and unfillable on a phone for the rest.
+  location text,
+  description text,
+  severity defect_severity not null default 'MEDIUM',
+  status defect_status not null default 'OPEN',
+  raised_by_id uuid not null,
+  raised_by_name text not null,
+  -- Names are denormalised beside the ids for the same reason the audit log
+  -- does it: a defect raised two years ago should still say who raised it
+  -- after that person has left and their membership row is gone.
+  assigned_to_id uuid,
+  assigned_to_name text,
+  due_date date,
+  photos jsonb,
+  resolution_notes text,
+  resolution_photos jsonb,
+  closed_at timestamptz,
+  closed_by_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (org_id, code)
+);
+
+create index defects_project_id_idx on defects (project_id);
+create index defects_org_id_idx on defects (org_id);
+-- Serves the overdue badge and the list's default ordering (soonest due
+-- first), which is the question a site manager actually asks.
+create index defects_org_status_due_idx on defects (org_id, status, due_date);
+-- "What is assigned to me" without scanning the workspace.
+create index defects_assigned_to_idx on defects (assigned_to_id) where assigned_to_id is not null;
+
+create trigger defects_set_updated_at
+  before update on defects
+  for each row execute function set_updated_at();
+
+alter table defects enable row level security;
+
+create policy "select_own_org_defects" on defects
+  for select to authenticated
+  using (org_id = auth_org_id());

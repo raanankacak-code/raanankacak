@@ -172,6 +172,7 @@ test.describe("automated accessibility scan", () => {
     "/projects",
     "/reports",
     "/safety",
+    "/defects",
     "/materials",
     "/attendance",
     "/calendar",

@@ -26,6 +26,9 @@ a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
 - Attendance — daily check-in grid (Present/Half/Absent), CIDB Green Card
   expiry flags, monthly summary + CSV export
 - Materials/procurement with an approval workflow and full audit trail
+- Safety inspections — dated, attributed, photo evidence, printable record
+- Defect management — snag lists per project, with a photo of the problem and
+  a photo of the fix, and sign-off by someone other than whoever fixed it
 - Calendar, notifications, team management, company settings, global search,
   help centre, bug reports
 - Billing — trials, plan limits, Stripe checkout and webhooks, read-only mode
@@ -156,6 +159,11 @@ trial, and a Stripe customer are each needed:
 - **`safety`** — an inspection is filed, its evidence survives, and both the
   record page and its per-finding uploads are unreachable by another tenant
   and by a signed-out visitor.
+- **`defects`** — the snag-list rules that only exist because a defect is
+  evidence rather than a to-do item: a Site Supervisor can resolve one but
+  cannot sign it off, "resolved" is refused without notes or a photo, a closed
+  defect cannot be reopened, the caller cannot dictate the status or the
+  reference, and an assignee in another workspace is rejected.
 - **`smoke-check`** — runs `scripts/smoke.mjs` against the suite's own
   production build, so the post-deploy check is itself covered. Includes a
   deliberate failure case and a bad-argument case: a smoke check that cannot
