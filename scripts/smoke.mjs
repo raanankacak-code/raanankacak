@@ -31,16 +31,34 @@ const pass = (name, detail) => record("pass", name, detail);
 const fail = (name, detail) => record("fail", name, detail);
 const skip = (name, detail) => record("skip", name, detail);
 
-/** fetch with a timeout, because a hung deploy should fail rather than hang. */
+/**
+ * fetch with a timeout, returning a plain object rather than a Response.
+ *
+ * The body is always read, even by checks that only look at headers. An
+ * unread response body holds its socket open, and on Windows exiting with
+ * those still live aborts the process with
+ * `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)` — after the
+ * report has printed, so the output looks fine and the exit code is not.
+ * Draining here is also why `process.exitCode` below is enough on its own.
+ *
+ * The timeout exists because a hung deploy should fail rather than hang.
+ */
 async function get(path, { redirect = "manual" } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
-    return await fetch(new URL(path, target), {
+    const res = await fetch(new URL(path, target), {
       redirect,
       signal: controller.signal,
       headers: { "user-agent": "binaworks-smoke/1.0" },
     });
+    const body = await res.text();
+    return {
+      status: res.status,
+      headers: res.headers,
+      body,
+      json: () => JSON.parse(body),
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -54,7 +72,7 @@ async function checkHealth() {
     fail("health endpoint", `HTTP ${res.status} — the app is up enough to answer, but not healthy`);
     return;
   }
-  const body = await res.json();
+  const body = res.json();
   if (body.status !== "ok") {
     fail("health endpoint", `status "${body.status}"`);
     return;
@@ -175,8 +193,7 @@ async function checkNoLeakedInternals() {
 
   let leaked = false;
   for (const path of paths) {
-    const res = await get(path, { redirect: "follow" });
-    const body = await res.text();
+    const { body } = await get(path, { redirect: "follow" });
     for (const [pattern, what] of smells) {
       if (pattern.test(body)) {
         fail("error pages leak nothing", `${path} exposes ${what}`);
@@ -192,8 +209,7 @@ async function checkProductionBuild() {
   // this looks for something only a production build does: hashed, static
   // assets served immutable. Getting this wrong means the deploy is slow
   // and the React development build is shipping to customers.
-  const res = await get("/login", { redirect: "follow" });
-  const html = await res.text();
+  const { body: html } = await get("/login", { redirect: "follow" });
   const asset = /\/_next\/static\/[^"']+\.(?:js|css)/.exec(html)?.[0];
 
   if (!asset) {
@@ -213,14 +229,16 @@ async function main() {
   const raw = process.argv[2];
   if (!raw) {
     console.error("usage: npm run smoke -- https://app.example.com");
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
 
   try {
     target = new URL(raw);
   } catch {
     console.error(`Not a URL: ${raw}`);
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
 
   console.log(`\nSmoke check against ${target.origin}\n`);
@@ -259,7 +277,10 @@ async function main() {
       "\n",
   );
 
-  process.exit(failed.length > 0 ? 1 : 0);
+  // exitCode rather than exit(): every body has been drained, so letting
+  // the loop end on its own is both clean and enough. process.exit() with
+  // live handles is what aborted the run on Windows.
+  process.exitCode = failed.length > 0 ? 1 : 0;
 }
 
 main();
