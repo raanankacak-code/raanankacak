@@ -397,6 +397,52 @@ each a decision rather than an oversight:
   **Authentication → Policies → Password protection**; it checks new
   passwords against HaveIBeenPwned. Do this before real customers sign up.
 
+### Legal pages, and the one thing you must do before launch
+
+`/terms` and `/privacy` are public routes — not behind sign-in, deliberately.
+The privacy notice has to be readable by someone whose IC number sits in a
+customer's workspace and who has never heard of this product; redirecting them
+to a sign-in form would defeat its purpose.
+
+Both are **drafts**, and say so on the page. They were written from what the
+software demonstrably does — every category of personal data in `/privacy` was
+taken from `supabase/schema.sql`, and the plan prices in `/terms` are imported
+from `lib/billing/plans.ts` rather than typed in, so they cannot drift from
+what is charged. That makes them accurate about the software. It does not make
+them legal advice.
+
+Before you take money from a customer:
+
+1. Fill in `OPERATOR` in `lib/legal.ts` — registered name, SSM number,
+   address, and the privacy and support email addresses. `hostingRegion` is
+   already correct (`ap-southeast-1`, Singapore).
+2. Have a Malaysian advisor read both pages.
+3. Set `REVIEWED = true` in `lib/legal.ts`. The draft banner disappears and
+   `lib/legal.test.ts` starts failing on any placeholder left behind — so the
+   flag cannot be true while the document is half-written.
+
+**Note that the Supabase project is in Singapore, not Malaysia.** Every record
+in this app therefore leaves the country, which PDPA restricts. `/privacy`
+states it plainly rather than burying it, but it is a decision worth making on
+purpose rather than by default.
+
+Consent is recorded, not merely collected: `POST /api/orgs` and invite
+acceptance both refuse without `acceptedTerms: true`, and both write a row to
+`legal_acceptances` stamped with the server's `LEGAL_VERSION` — never a version
+the client claims.
+
+`legal_acceptances` is **the one table with no foreign keys**, and that is the
+point rather than an oversight. An acceptance is evidence that an agreement was
+made; cascading it away with the organization would delete exactly the record
+you need if a former customer later says they never agreed to anything. Two
+consequences worth knowing:
+
+- Deleting an organization does **not** remove its acceptance rows. `e2e/seed.ts`
+  deletes them explicitly in teardown, and anything else that cleans up orgs
+  must do the same.
+- It is personal data retained after a deletion request, so `/privacy` discloses
+  it in as many words. Keeping it quietly would be the actual breach.
+
 ### Dependency advisories
 
 `npm audit --omit=dev` reports **0 vulnerabilities**, and CI fails if that

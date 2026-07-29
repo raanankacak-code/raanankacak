@@ -285,6 +285,16 @@ export async function teardownOwnerSession(): Promise<void> {
     }
   }
 
+  // legal_acceptances has no foreign key — by design, so that a record of
+  // agreement outlives the workspace it was made in (see supabase/schema.sql).
+  // That means the cascade below does not reach it, and a test run would
+  // otherwise leave rows behind in the live project for every invitation it
+  // accepted. Deliberate exception, deliberate cleanup.
+  for (const orgId of info.orgIds) {
+    const { error } = await client.from("legal_acceptances").delete().eq("org_id", orgId);
+    if (error) throw new Error(`e2e teardown: failed to delete acceptances for ${orgId}: ${error.message}`);
+  }
+
   // organizations -> org_members/projects/etc. all cascade on delete.
   for (const orgId of info.orgIds) {
     const { error } = await client.from("organizations").delete().eq("id", orgId);

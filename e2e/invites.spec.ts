@@ -89,7 +89,7 @@ test.describe("invitations", () => {
       extraHTTPHeaders: { cookie: wrong.cookie },
     });
 
-    const res = await ctx.post(`/api/invites/${encodeURIComponent(token)}/accept`);
+    const res = await ctx.post(`/api/invites/${encodeURIComponent(token)}/accept`, { data: { acceptedTerms: true } });
 
     expect(res.status()).toBe(400);
     expect((await res.json()).error).toMatch(/different email address/i);
@@ -114,7 +114,7 @@ test.describe("invitations", () => {
     const otherToken = (await invite.json()).invite.token;
     await owner.dispose();
 
-    const res = await ctx.post(`/api/invites/${encodeURIComponent(otherToken)}/accept`);
+    const res = await ctx.post(`/api/invites/${encodeURIComponent(otherToken)}/accept`, { data: { acceptedTerms: true } });
 
     expect(res.status()).toBe(400);
     expect((await res.json()).error).toMatch(/already belongs to a company workspace/i);
@@ -134,7 +134,7 @@ test.describe("invitations", () => {
       extraHTTPHeaders: { cookie: invitee.cookie },
     });
 
-    const res = await ctx.post(`/api/invites/${encodeURIComponent(token)}/accept`);
+    const res = await ctx.post(`/api/invites/${encodeURIComponent(token)}/accept`, { data: { acceptedTerms: true } });
 
     expect(res.ok()).toBeTruthy();
     const member = (await res.json()).member;
@@ -157,7 +157,7 @@ test.describe("invitations", () => {
       extraHTTPHeaders: { cookie: second.cookie },
     });
 
-    const res = await ctx.post(`/api/invites/${encodeURIComponent(token)}/accept`);
+    const res = await ctx.post(`/api/invites/${encodeURIComponent(token)}/accept`, { data: { acceptedTerms: true } });
 
     expect(res.status()).toBe(400);
     await ctx.dispose();

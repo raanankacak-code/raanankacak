@@ -13,6 +13,7 @@ import { getOrganizationById } from "@/lib/db/organizations";
 import { removeObjectsByUrl } from "@/lib/uploads";
 import { safeUrlSchema } from "@/lib/url-validation";
 import { recordMemberAction } from "@/lib/db/auditLog";
+import { recordLegalAcceptance } from "@/lib/db/legalAcceptances";
 
 const createOrgSchema = z.object({
   name: z.string().min(2).max(200),
@@ -26,6 +27,10 @@ const createOrgSchema = z.object({
   state: z.string().max(100).optional(),
   postcode: z.string().max(20).optional(),
   ownerName: z.string().min(1).max(120),
+  // Server-side, so a client that skips the checkbox cannot create a
+  // workspace by calling the API directly. `literal(true)` rather than
+  // `boolean()`: false has to be rejected, not merely recorded.
+  acceptedTerms: z.literal(true, { message: "You must accept the terms of service and privacy notice" }),
 });
 
 /** Creates a company workspace for the signed-in user and makes them Owner. */
@@ -61,6 +66,16 @@ export async function POST(request: Request) {
       ownerEmail: user.email!,
       ownerName: body.ownerName,
     });
+
+    // After the org exists, because the record is scoped to it, which leaves
+    // a window: if this insert fails the workspace is already created, the
+    // request 500s, and a retry hits the 409 above rather than recording the
+    // acceptance. Postgres has no cross-statement transaction available
+    // through PostgREST here, so the window is real rather than papered
+    // over. It is one idempotent insert against a table with no foreign keys
+    // and no triggers, so the odds are low — but "low" is not "none", and
+    // pretending otherwise in a comment would be worse than saying it.
+    await recordLegalAcceptance({ orgId: org.id, userId: user.id, email: user.email! });
 
     return NextResponse.json({ org }, { status: 201 });
   } catch (err) {

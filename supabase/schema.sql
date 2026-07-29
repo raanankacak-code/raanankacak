@@ -788,3 +788,44 @@ alter table safety_inspections enable row level security;
 create policy "select_own_org_safety_inspections" on safety_inspections
   for select to authenticated
   using (org_id = auth_org_id());
+
+-- legal acceptances -------------------------------------------------------
+-- Who accepted the terms and privacy notice, at which version, and when.
+--
+-- The one table here with NO foreign keys, and that is the point rather than
+-- an oversight. An acceptance is evidence that an agreement was made.
+-- Cascading it away with the organization (or with the auth user) would
+-- delete precisely the record needed if a former customer later says they
+-- never agreed to anything. Rows are immutable: no update path and no
+-- updated_at trigger, because a historical fact does not change.
+--
+-- email is stored beside user_id for the same reason. Without a foreign key
+-- the uuid can point at an account that no longer exists, and "some uuid
+-- agreed to v2026-07-29" is not evidence of anything.
+--
+-- Retaining this after a workspace is deleted is disclosed in app/privacy —
+-- keeping personal data past a deletion request without saying so is the
+-- kind of thing PDPA exists to stop.
+
+create table legal_acceptances (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null,
+  user_id uuid not null,
+  email text not null,
+  document text not null check (document in ('terms', 'privacy')),
+  version text not null,
+  accepted_at timestamptz not null default now(),
+  unique (org_id, user_id, document, version)
+);
+
+create index legal_acceptances_org_idx on legal_acceptances (org_id);
+
+alter table legal_acceptances enable row level security;
+
+-- Members read their own organization's acceptances; an Owner needs to be
+-- able to answer "who agreed to what". There is deliberately no insert,
+-- update or delete policy, so the session client cannot write here under any
+-- role — rows are created by the server with the service key at signup and
+-- at invite acceptance, and nothing can forge or amend one afterwards.
+create policy legal_acceptances_select on legal_acceptances
+  for select using (org_id = auth_org_id());

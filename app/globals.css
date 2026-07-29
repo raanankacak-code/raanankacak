@@ -49,6 +49,11 @@ button{font-family:inherit;cursor:pointer}
 input,select,textarea{font-family:inherit;font-size:14px;color:var(--text);background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:9px 11px;width:100%;outline:none;transition:border-color .15s, box-shadow .15s}
 input:focus,select:focus,textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px #ffb02022}
 textarea{resize:vertical;min-height:76px}
+/* The rule above sets width:100% for text fields, which stretches a checkbox
+   across the form. Checkboxes are new to this app (the consent box on
+   signup is the first), so this exists to stop that rule reaching them. */
+input[type="checkbox"],input[type="radio"]{width:auto;flex:none;padding:0;accent-color:var(--amber-deep);
+  min-width:18px;min-height:18px;cursor:pointer}
 label{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
 ::placeholder{color:var(--faint)}
 a{color:var(--amber-text);text-decoration:none}
@@ -665,3 +670,40 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   .thumb{max-width:150px;max-height:150px}
   a[href]::after{content:""}
 }
+
+/* ---------- legal documents ----------
+   /terms and /privacy. Readable by someone with no account — a worker whose
+   IC number is in a customer's workspace, for instance — so this is a plain
+   document shell, not the marketing/sign-in split used elsewhere. */
+.doc-shell{min-height:100vh;background:var(--ink)}
+.doc-top{display:flex;align-items:center;gap:16px;padding:16px 26px;background:var(--ink2);border-bottom:1px solid var(--line)}
+.doc-top .brand{text-decoration:none;color:var(--text)}
+.doc-nav{margin-left:auto;display:flex;gap:18px;font-size:14px;font-weight:600}
+.doc-nav a{color:var(--mut);text-decoration:none}
+.doc-nav a:hover{color:var(--amber-text);text-decoration:underline;text-underline-offset:2px}
+.doc{max-width:760px;margin:0 auto;padding:30px 26px 96px}
+.doc-h{font-size:31px;text-transform:uppercase;letter-spacing:.05em}
+.doc-sub{color:var(--mut);font-size:15.5px;margin-top:6px}
+.doc-ver{font-size:12.5px;color:var(--faint);margin-top:10px}
+.doc-draft{margin:20px 0 0;padding:13px 15px;border-radius:9px;background:#ffb0201c;border:1px solid var(--amber);font-size:13.5px;line-height:1.6}
+.doc section{margin-top:34px}
+.doc h3{font-size:19px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.doc h4{font-family:var(--font-disp);font-size:14.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut);margin:20px 0 8px}
+.doc p{margin-bottom:12px;line-height:1.68}
+.doc ul{margin:0 0 12px;padding-left:22px}
+.doc li{margin-bottom:8px;line-height:1.62}
+/* Links inside prose need to be findable without colour (WCAG 1.4.1). */
+.doc a{text-decoration:underline;text-underline-offset:2px}
+.doc-foot{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--mut)}
+@media (max-width:720px){
+  .doc-top{padding:14px 16px}
+  .doc-nav{gap:13px;font-size:13px}
+  .doc{padding:24px 16px 80px}
+  .doc-h{font-size:25px}
+}
+/* The consent row on signup. Label wraps the box so the whole sentence is a
+   hit target, which matters most on a phone at a site office. */
+.consent{display:flex;gap:11px;align-items:flex-start;margin:0 0 14px;font-size:13px;line-height:1.55;
+  color:var(--mut);text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer}
+.consent a{text-decoration:underline;text-underline-offset:2px;font-weight:600}
+.consent input{margin-top:2px}

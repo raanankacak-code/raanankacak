@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthShell from "@/components/auth/AuthShell";
+import ConsentCheckbox from "@/components/auth/ConsentCheckbox";
 import { createClient } from "@/lib/supabase/client";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 
@@ -38,6 +39,10 @@ export default function CompanySetupPage() {
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
   const [state, setState] = useState("Sarawak");
+  // This is the step that creates the workspace, so this is the step that
+  // asks. POST /api/orgs refuses without it, so the box is a real gate and
+  // not a courtesy.
+  const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -57,6 +62,10 @@ export default function CompanySetupPage() {
       setError("Company name is required.");
       return;
     }
+    if (!accepted) {
+      setError("Please read and accept the terms of service and privacy notice.");
+      return;
+    }
     setLoading(true);
     try {
       const ownerName = sessionStorage.getItem("bw_owner_name") || "Owner";
@@ -73,6 +82,7 @@ export default function CompanySetupPage() {
           postcode: postcode || undefined,
           state: state || undefined,
           ownerName,
+          acceptedTerms: true,
         }),
       });
       sessionStorage.removeItem("bw_owner_name");
@@ -148,6 +158,7 @@ export default function CompanySetupPage() {
             ))}
           </select>
         </div>
+        <ConsentCheckbox id="consent-company" checked={accepted} onChange={setAccepted} />
         <button className="btn btn-amber auth-submit" type="submit" disabled={loading}>
           {loading ? "Creating workspace…" : "Create workspace"}
         </button>

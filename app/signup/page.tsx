@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthShell from "@/components/auth/AuthShell";
+import ConsentCheckbox from "@/components/auth/ConsentCheckbox";
 import { createClient } from "@/lib/supabase/client";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 
@@ -31,6 +32,15 @@ function SignupForm() {
   const [joinPassword, setJoinPassword] = useState("");
   const [joinPassword2, setJoinPassword2] = useState("");
   const [joinShowPw, setJoinShowPw] = useState(false);
+
+  // Only the invite flow carries consent here, because only it completes a
+  // durable relationship on this page. The "New company" tab creates a login
+  // and nothing else; the workspace — and the agreement that goes with it —
+  // is created on the next step, and asking here as well would mean asking
+  // twice for one thing. It would also be lost: when email confirmation is
+  // required the user leaves and comes back through /login, and a tick held
+  // in this tab does not survive that.
+  const [acceptedJoin, setAcceptedJoin] = useState(false);
 
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
@@ -131,6 +141,10 @@ function SignupForm() {
       setError("Passwords do not match.");
       return;
     }
+    if (!acceptedJoin) {
+      setError("Please read and accept the terms of service and privacy notice.");
+      return;
+    }
     setLoading(true);
     try {
       const supabase = createClient();
@@ -153,7 +167,10 @@ function SignupForm() {
         setLoading(false);
         return;
       }
-      await apiFetch(`/api/invites/${encodeURIComponent(token)}/accept`, { method: "POST" });
+      await apiFetch(`/api/invites/${encodeURIComponent(token)}/accept`, {
+        method: "POST",
+        body: JSON.stringify({ acceptedTerms: true }),
+      });
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -256,6 +273,7 @@ function SignupForm() {
               />
             </div>
           </div>
+          <ConsentCheckbox id="consent-join" checked={acceptedJoin} onChange={setAcceptedJoin} />
           <button className="btn btn-amber auth-submit" type="submit" disabled={loading}>
             {loading ? "Joining…" : "Accept invitation & join"}
           </button>
@@ -330,6 +348,9 @@ function SignupForm() {
 
       <p className="a-note">
         Already have a workspace? <Link href="/login">Sign in</Link>.
+      </p>
+      <p className="a-note">
+        <Link href="/terms">Terms of service</Link> · <Link href="/privacy">Privacy notice</Link>
       </p>
     </AuthShell>
   );

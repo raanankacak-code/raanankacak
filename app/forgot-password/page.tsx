@@ -64,6 +64,9 @@ export default function ForgotPasswordPage() {
       <p className="a-note">
         Remembered it after all? <Link href="/login">Sign in</Link>.
       </p>
+      <p className="a-note">
+        <Link href="/terms">Terms of service</Link> · <Link href="/privacy">Privacy notice</Link>
+      </p>
     </AuthShell>
   );
 }

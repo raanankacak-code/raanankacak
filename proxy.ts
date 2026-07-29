@@ -1,7 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/forgot-password", "/reset-password"];
+// /terms and /privacy are public on purpose and not merely as a convenience:
+// the privacy notice has to be readable by someone with no account and no
+// intention of getting one — a worker whose IC number sits in a customer's
+// workspace. Redirecting them to a sign-in form would defeat the point.
+const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/forgot-password", "/reset-password", "/terms", "/privacy"];
 
 /**
  * Per-request Content-Security-Policy.
