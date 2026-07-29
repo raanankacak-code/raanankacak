@@ -20,6 +20,7 @@ function cssVar(name: string): string {
 
 const C = {
   ink: cssVar("ink"),
+  ink2: cssVar("ink2"),
   panel: cssVar("panel"),
   panel2: cssVar("panel2"),
   text: cssVar("text"),
@@ -70,33 +71,66 @@ describe("contrast helpers", () => {
 });
 
 describe("palette meets WCAG AA", () => {
-  const bodyText: [string, string, string][] = [
-    ["--text on --panel (card body)", C.text, C.panel],
-    ["--text on --ink (page background)", C.text, C.ink],
-    ["--text on --panel2 (inputs, hover)", C.text, C.panel2],
-    ["--mut on --panel (labels, secondary)", C.mut, C.panel],
-    ["--mut on --ink", C.mut, C.ink],
-    ["--faint on --panel (placeholders, captions)", C.faint, C.panel],
-    ["--amber-text on --panel (links)", C.amberText, C.panel],
+  /**
+   * Every opaque surface a word can be set on. There are only four, and none
+   * of them is reserved for one component — a caption written for the sidebar
+   * gets reused inside an input group a month later.
+   */
+  const surfaces: [string, string][] = [
+    ["--panel (cards)", C.panel],
+    ["--ink (page background)", C.ink],
+    ["--ink2 (sidebar, hero)", C.ink2],
+    ["--panel2 (inputs, hover, search box)", C.panel2],
   ];
+
+  /**
+   * Every colour used for text, crossed with every one of them.
+   *
+   * The earlier version of this test picked a plausible pair per colour —
+   * --faint on --panel, and nothing else. --faint passed there at 4.59 and
+   * failed at 4.13 on --panel2, where the search-shortcut hint actually
+   * lives, and an axe scan found it. Enumerating by hand is the mistake;
+   * the cross product is the fix.
+   */
+  const textColours: [string, string][] = [
+    ["--text", C.text],
+    ["--mut", C.mut],
+    ["--faint", C.faint],
+    ["--amber-text", C.amberText],
+    ["--ok-text", C.okText],
+    ["--bad-text", C.badText],
+    ["--teal-text", C.tealText],
+    ["--purple-text", C.purpleText],
+    ["--info", C.info],
+  ];
+
+  const bodyText = textColours.flatMap(([fgName, fg]) =>
+    surfaces.map(([bgName, bg]): [string, string, string] => [`${fgName} on ${bgName}`, fg, bg]),
+  );
 
   it.each(bodyText)("%s", (_label, fg, bg) => {
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
-  // Badge text sits on a translucent tint over the card, so the real
-  // background is the composite, not the tint.
-  const badges: [string, string, string][] = [
-    ["b-amber", C.amberText, over("#ffb02015", C.panel)],
-    ["b-ok", C.okText, over("#3ecf8e14", C.panel)],
-    ["b-bad", C.badText, over("#ff616114", C.panel)],
-    ["b-info", C.info, over("#5ea8ff14", C.panel)],
-    ["b-mut", C.mut, over("#8ca1b810", C.panel)],
-    ["b-teal", C.tealText, over("#4fd8c814", C.panel)],
-    ["b-purple", C.purpleText, over("#c9a7ff14", C.panel)],
+  // Badge text sits on a translucent tint over whatever is behind it, so the
+  // real background is the composite — and "whatever is behind it" is not
+  // always the card. A status badge appears in a table row, in a search
+  // result on --panel2, and on the page background between cards.
+  const badgeTints: [string, string, string][] = [
+    ["b-amber", C.amberText, "#ffb02015"],
+    ["b-ok", C.okText, "#3ecf8e14"],
+    ["b-bad", C.badText, "#ff616114"],
+    ["b-info", C.info, "#5ea8ff14"],
+    ["b-mut", C.mut, "#8ca1b810"],
+    ["b-teal", C.tealText, "#4fd8c814"],
+    ["b-purple", C.purpleText, "#c9a7ff14"],
   ];
 
-  it.each(badges)("badge %s text on its own tint", (_label, fg, bg) => {
+  const badges = badgeTints.flatMap(([label, fg, tint]) =>
+    surfaces.map(([bgName, bg]): [string, string, string] => [`${label} over ${bgName}`, fg, over(tint, bg)]),
+  );
+
+  it.each(badges)("badge %s", (_label, fg, bg) => {
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
@@ -111,6 +145,15 @@ describe("palette meets WCAG AA", () => {
     for (const surface of [C.panel, C.ink, C.panel2]) {
       expect(contrastRatio(C.amberDeep, surface), surface).toBeGreaterThanOrEqual(AA_LARGE);
     }
+  });
+
+  it("never sets --amber-deep as a text colour", () => {
+    // 3.92:1 on white. Correct for the focus ring, the avatar border and the
+    // progress gradient; not legal for a word. Six rules and three inline
+    // styles were using it for type. The palette check above cannot catch
+    // this on its own, because the value is fine — the usage is not.
+    const asText = [...CSS.matchAll(/(?<![-\w])color\s*:\s*var\(--amber-deep\)/g)];
+    expect(asText.map(() => "color:var(--amber-deep)")).toEqual([]);
   });
 
   it("records why the bright accents are not used for text", () => {

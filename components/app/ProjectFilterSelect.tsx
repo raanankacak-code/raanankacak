@@ -15,6 +15,10 @@ export default function ProjectFilterSelect({
 
   return (
     <select
+      // The filter bar has no visible <label> by design — the option text
+      // ("All projects") reads as the label sighted. A screen reader gets
+      // only "combo box", so the name has to be stated.
+      aria-label="Filter by project"
       defaultValue={selected || "all"}
       onChange={(e) => {
         const v = e.target.value;

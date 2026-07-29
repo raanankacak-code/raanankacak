@@ -161,7 +161,7 @@ export default function CalendarView({ canEdit }: { canEdit: boolean }) {
       {error && <div className="auth-err">{error}</div>}
 
       <div className="filters">
-        <select value={projFilter} onChange={(e) => setProjFilter(e.target.value)}>
+        <select aria-label="Filter by project" value={projFilter} onChange={(e) => setProjFilter(e.target.value)}>
           <option value="all">All projects</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
@@ -169,7 +169,7 @@ export default function CalendarView({ canEdit }: { canEdit: boolean }) {
             </option>
           ))}
         </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+        <select aria-label="Filter by event type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="all">All event types</option>
           {Object.entries(EV_TYPES).map(([k, t]) => (
             <option key={k} value={k}>
@@ -177,13 +177,13 @@ export default function CalendarView({ canEdit }: { canEdit: boolean }) {
             </option>
           ))}
         </select>
-        <select value={prioFilter} onChange={(e) => setPrioFilter(e.target.value)}>
+        <select aria-label="Filter by priority" value={prioFilter} onChange={(e) => setPrioFilter(e.target.value)}>
           <option value="all">All priorities</option>
           <option value="HIGH">High</option>
           <option value="MEDIUM">Medium</option>
           <option value="LOW">Low</option>
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="all">All statuses</option>
           <option value="SCHEDULED">Scheduled</option>
           <option value="COMPLETED">Completed</option>

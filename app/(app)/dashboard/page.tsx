@@ -334,7 +334,7 @@ export default async function DashboardPage() {
               <div className="card-b">
                 <div className="mini-cards">
                   {[
-                    { l: "Pending", v: pendingRequestCount, c: "var(--amber-deep)" },
+                    { l: "Pending", v: pendingRequestCount, c: "var(--amber-text)" },
                     { l: "Approved", v: approvedRequestCount, c: "var(--info)" },
                     { l: "Rejected", v: rejectedRequestCount, c: "var(--bad)" },
                     { l: "Urgent", v: urgentRequestCount, c: "var(--bad)" },

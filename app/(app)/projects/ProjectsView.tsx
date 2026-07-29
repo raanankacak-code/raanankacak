@@ -106,7 +106,7 @@ export default function ProjectsView({
       {rows.length > 0 && (
         <div className="filters">
           <input placeholder="Search name, site or client…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 230 }} />
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="all">All statuses</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>

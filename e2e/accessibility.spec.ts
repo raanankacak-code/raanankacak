@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { AUTH_STATE_PATH } from "./seed";
 
 test.use({ storageState: AUTH_STATE_PATH });
@@ -129,5 +130,89 @@ test.describe("keyboard and screen-reader affordances", () => {
 
     await page.keyboard.press("Enter");
     await expect(page.locator("#main")).toBeVisible();
+  });
+});
+
+/**
+ * Automated scans, covering the whole class of things a hand-written test
+ * does not think to check — a missing landmark, a duplicated id, an unlabelled
+ * region, a colour pair nobody measured.
+ *
+ * Restricted to WCAG A and AA, which is the bar the palette is already held to
+ * in lib/contrast.test.ts. Best-practice rules are deliberately excluded: they
+ * are opinions, and a suite that fails on an opinion gets muted.
+ */
+const WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
+
+async function scan(page: Page) {
+  return new AxeBuilder({ page }).withTags(WCAG).analyze();
+}
+
+function summarise(violations: Awaited<ReturnType<typeof scan>>["violations"]) {
+  // Include axe's own per-node reason, not just the selector. For a contrast
+  // failure that is the difference between "something on this page is wrong"
+  // and "#66778B on #F0F3F8 is 4.13:1, needs 4.5:1" — which is the whole
+  // job. Guessing the surface from the stylesheet is how you get it wrong.
+  return violations
+    .map((v) => {
+      const nodes = v.nodes
+        .map((n) => `${n.target.join(" ")}\n      ${(n.failureSummary ?? "").split("\n").join("\n      ")}`)
+        .join("\n    ");
+      return `${v.id} (${v.impact}) — ${v.help}\n    ${nodes}`;
+    })
+    .join("\n  ");
+}
+
+test.describe("automated accessibility scan", () => {
+  // Every page reachable from the sidebar. Scanning a subset is how the
+  // unlabelled filter <select> survived: it lives in a shared filter bar, and
+  // the two pages that happened to be scanned were the two that render it.
+  const paths = [
+    "/dashboard",
+    "/projects",
+    "/reports",
+    "/safety",
+    "/materials",
+    "/attendance",
+    "/calendar",
+    "/team",
+    "/notifications",
+    "/audit-log",
+    "/billing",
+    "/profile",
+    "/help",
+    "/settings",
+  ];
+
+  for (const path of paths) {
+    test(`${path} has no WCAG A/AA violations`, async ({ page }) => {
+      await page.goto(path);
+      // Wait for real content rather than a skeleton, or the scan checks the
+      // loading state and passes for the wrong reason.
+      await page.locator("h2, h3").first().waitFor();
+
+      const { violations } = await scan(page);
+      expect(violations.length, `\n  ${summarise(violations)}`).toBe(0);
+    });
+  }
+
+  test("the sign-in page is clean too, since it is the one page anyone can reach", async ({ browser }) => {
+    const page = await (await browser.newContext({ storageState: undefined })).newPage();
+    await page.goto("/login");
+    await page.locator("form").first().waitFor();
+
+    const { violations } = await scan(page);
+    expect(violations.length, `\n  ${summarise(violations)}`).toBe(0);
+
+    await page.close();
+  });
+
+  test("an open dialog is clean — the case a page-level scan misses", async ({ page }) => {
+    await page.goto("/team");
+    await page.getByRole("button", { name: /invite user/i }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    const { violations } = await scan(page);
+    expect(violations.length, `\n  ${summarise(violations)}`).toBe(0);
   });
 });

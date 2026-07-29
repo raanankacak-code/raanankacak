@@ -201,7 +201,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
       {mode === "monthly" ? (
         <>
           <div className="filters">
-            <select className="proj-select" value={monthlyProjectId} onChange={(e) => setMonthlyProjectId(e.target.value)}>
+            <select aria-label="Filter by project" className="proj-select" value={monthlyProjectId} onChange={(e) => setMonthlyProjectId(e.target.value)}>
               <option value="all">All projects</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -209,7 +209,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                 </option>
               ))}
             </select>
-            <input type="month" value={month} max={currentMonth()} onChange={(e) => setMonth(e.target.value)} />
+            <input aria-label="Summary month" type="month" value={month} max={currentMonth()} onChange={(e) => setMonth(e.target.value)} />
             <button className="btn" type="button" onClick={exportCSV} disabled={monthlyRows.length === 0}>
               ⬇ Export CSV
             </button>
@@ -282,14 +282,14 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
       ) : (
         <>
           <div className="filters">
-            <select className="proj-select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <select aria-label="Project" className="proj-select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
             </select>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <input aria-label="Attendance date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             {canEdit && (
               <button className="btn" type="button" onClick={markAllPresent} disabled={workers.length === 0}>
                 Mark all present
@@ -391,6 +391,9 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                       </td>
                       <td>
                         <input
+                          // One input per worker per column: the column
+                          // header alone does not say whose row this is.
+                          aria-label={`Time in for ${w.name}`}
                           className="tm"
                           type="time"
                           value={row.timeIn}
@@ -400,6 +403,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                       </td>
                       <td>
                         <input
+                          aria-label={`Time out for ${w.name}`}
                           className="tm"
                           type="time"
                           value={row.timeOut}

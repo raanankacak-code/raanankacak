@@ -19,7 +19,18 @@ import { AUTH_STATE_PATH } from "./seed";
  * already handles that: it injects <meta name="robots" content="noindex">
  * when notFound() fires mid-stream. That is asserted below, because it is the
  * property actually worth having — everything here is behind sign-in anyway.
+ *
+ * The assertion is "at least one, and none of them says index", not "exactly
+ * one". The tag is streamed into <head> and React can also insert it during
+ * hydration, so the count is 1 or 2 depending on where hydration lands —
+ * measured at roughly one run in twelve. Two identical noindex tags mean
+ * exactly what one means; pinning the count only produces a flaky test.
  */
+
+/** Every robots directive in the document, in order. */
+async function robotsDirectives(page: import("@playwright/test").Page) {
+  return page.$$eval('meta[name="robots"]', (tags) => tags.map((t) => t.getAttribute("content") ?? ""));
+}
 test.describe("not found", () => {
   test("a signed-out visitor is sent to sign in, not told which URLs exist", async ({ page }) => {
     // The proxy redirects every non-public path before routing can 404, so an
@@ -73,7 +84,9 @@ test.describe("not found", () => {
 
       // The part that actually matters, injected by Next when notFound()
       // fires mid-stream.
-      await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(1);
+      const robots = await robotsDirectives(page);
+      expect(robots.length, "no robots directive at all").toBeGreaterThan(0);
+      expect(robots.every((c) => c.includes("noindex")), `robots directives: ${robots.join(" | ")}`).toBe(true);
     });
 
     test("a malformed id reaches the 404, not the error boundary", async ({ page }) => {
@@ -82,7 +95,9 @@ test.describe("not found", () => {
       // not exist. lib/uuid.ts turns it into a miss before the query runs.
       await page.goto("/projects/not-a-uuid");
 
-      await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(1);
+      const robots = await robotsDirectives(page);
+      expect(robots.length, "no robots directive at all").toBeGreaterThan(0);
+      expect(robots.every((c) => c.includes("noindex")), `robots directives: ${robots.join(" | ")}`).toBe(true);
       await expect(page.getByText(/nothing here/i)).toBeVisible();
       await expect(page.getByText(/something went wrong/i)).toHaveCount(0);
     });

@@ -86,6 +86,19 @@ npm test          # unit & integration tests (Vitest)
 npm run test:e2e  # end-to-end tests (Playwright)
 ```
 
+Vitest runs in the `node` environment by default — most of these tests are
+permission matrices, query builders and pure rules, and a DOM they never
+touch only makes them slower. Component tests opt in with a
+`// @vitest-environment jsdom` docblock at the top of the file, which has the
+side benefit of saying, in one line, that this file renders something.
+
+Two of them are worth knowing about: `lib/contrast.test.ts` reads the palette
+straight out of `app/globals.css` and measures every text colour against every
+surface it can land on, so a colour cannot be changed without the measurement
+changing with it; and `components/app/Modal.test.tsx` pins the focus trap,
+which is the kind of thing that is easy to break and invisible until someone
+tries to use the app without a mouse.
+
 `npm run test:e2e` needs a real (test) Supabase project — it seeds throwaway
 orgs and users directly via the service-role key, runs the specs against a
 production build (`npm run build && npm run start`, via Playwright's
@@ -139,6 +152,19 @@ trial, and a Stripe customer are each needed:
   invite tokens and works while read-only; deletion is refused for non-Owners
   and for a mistyped name, and when it does run it removes storage objects
   while leaving sign-in accounts intact.
+- **`safety`** — an inspection is filed, its evidence survives, and both the
+  record page and its per-finding uploads are unreachable by another tenant
+  and by a signed-out visitor.
+- **`not-found`** — a missing id, a malformed id and a signed-out request
+  each land somewhere branded rather than on a database error or Next's
+  default page, and the soft 404 carries `noindex`.
+- **`accessibility`** — hand-written checks for the things a scanner cannot
+  judge (focus goes into a dialog and comes back out, the skip link works,
+  sort state is announced, no `label` points at a control that does not
+  exist), plus an **axe-core scan of every sidebar page**, the signed-out
+  sign-in page and an open dialog, restricted to WCAG A and AA. Best-practice
+  rules are excluded on purpose: they are opinions, and a suite that fails on
+  an opinion gets muted.
 
 Teardown removes every seeded org, their users, and any objects they
 uploaded to storage. Specs that create users mid-run (an invitee does not

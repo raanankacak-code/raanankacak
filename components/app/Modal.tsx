@@ -28,9 +28,13 @@ export default function Modal({
     const opener = document.activeElement as HTMLElement | null;
 
     const dialog = dialogRef.current;
-    // Focus the first control rather than the dialog itself, so typing can
-    // start immediately in the common case of a form.
-    const first = dialog?.querySelector<HTMLElement>(FOCUSABLE);
+    // Prefer the first control in the *body*, not simply the first focusable
+    // element — that is the ✕ in the header, so opening a form dialog would
+    // land on Close and an immediate Enter would discard the form instead of
+    // filling it in. Falls back to the header, then the dialog itself, for a
+    // dialog whose body is only text.
+    const body = dialog?.querySelector<HTMLElement>(".modal-b");
+    const first = body?.querySelector<HTMLElement>(FOCUSABLE) ?? dialog?.querySelector<HTMLElement>(FOCUSABLE);
     (first ?? dialog)?.focus();
 
     function onKey(e: KeyboardEvent) {

@@ -149,7 +149,7 @@ export default function MaterialsView({
       {error && <div className="auth-err">{error}</div>}
 
       <div className="filters">
-        <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
+        <select aria-label="Filter by project" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
           <option value="all">All projects</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>

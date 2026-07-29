@@ -7,13 +7,16 @@
   --line2:#CBD5E2;      /* strong line */
   --text:#17212D;
   --mut:#55677B;
-  --faint:#66778B;
+  /* Measured against --panel2 (#F0F3F8), the darkest surface it is ever set
+     on — not white. At #66778B it was 4.59 on white and 4.13 on panel2, so
+     the .gs-kbd hint and the sidebar role caption were both below AA. */
+  --faint:#5E6F84;
   --amber:#F5A800;      /* safety yellow */
   --amber-deep:#A87800;
   --amber-ink:#3A2A05;
   --ok:#14985F;
   --bad:#DE3B41;
-  --info:#1F6EDE;
+  --info:#1D67D1;
   --warn:#F5A800;
   --purple:#C9A7FF;
   --teal:#4FD8C8;
@@ -23,12 +26,17 @@
      These values are measured against the *composite* background, not plain
      white: a badge sits on an 8% tint of its own colour, which shifts the
      backdrop just enough that six of these were sitting at 4.25–4.46 and
-     failing. lib/contrast.test.ts checks every pair on every run. */
-  --amber-text:#9A6900;
-  --ok-text:#128352;
-  --bad-text:#D33036;
-  --teal-text:#1C8075;
-  --purple-text:#8C48FA;
+     failing. lib/contrast.test.ts checks every pair on every run.
+     --amber-text also carries every amber *word* in the app — links, active
+     tabs, hover states, "unsaved changes" — so it is held to 4.5:1 on
+     --panel2 as well, not only on its own badge tint. --amber-deep stays as
+     it is and is for fills, borders, focus rings and gradients only: at
+     3.92:1 on white it is a fine outline and an illegal paragraph. */
+  --amber-text:#916200;
+  --ok-text:#117A4C;
+  --bad-text:#C62D33;
+  --teal-text:#1A786E;
+  --purple-text:#8243E9;
   --hazard:repeating-linear-gradient(-45deg,var(--amber) 0 10px,#1B2430 10px 20px);
   --r:10px;
   --shadow:0 10px 26px -14px rgba(23,33,45,.14);
@@ -175,11 +183,11 @@ tr.rowlink{cursor:pointer}
 .th-sort{background:none;border:0;padding:0;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 .th-sort:hover{color:var(--text)}
 .th-ar{font-size:9px;min-width:10px;display:inline-block}
-th[aria-sort="ascending"] .th-sort,th[aria-sort="descending"] .th-sort{color:var(--amber-deep)}
+th[aria-sort="ascending"] .th-sort,th[aria-sort="descending"] .th-sort{color:var(--amber-text)}
 
 /* ---------- my profile ---------- */
 .uopen{display:flex;gap:10px;align-items:center;background:none;border:0;padding:0;text-align:left;min-width:0;color:inherit;cursor:pointer;font:inherit;flex:1}
-.uopen:hover .nm,.uopen:focus-visible .nm{color:var(--amber-deep)}
+.uopen:hover .nm,.uopen:focus-visible .nm{color:var(--amber-text)}
 .pf-perm{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
 .pf-perm:last-child{border-bottom:0}
 .pf-perm .ic{width:22px;flex:none;text-align:center;font-weight:800}
@@ -210,7 +218,7 @@ kbd{font-family:var(--font-mono);font-size:11.5px;background:var(--panel2);borde
 .ha-t{font-weight:700;font-size:14.5px;line-height:1.35}
 .ha-d{font-size:12.5px;color:var(--mut);flex:1;line-height:1.5}
 .ha-f{display:flex;align-items:center;gap:8px;margin-top:2px}
-.ha-more{margin-left:auto;background:none;border:0;color:var(--amber-deep);font-weight:700;font-size:12.5px;cursor:pointer;letter-spacing:.03em;flex:none}
+.ha-more{margin-left:auto;background:none;border:0;color:var(--amber-text);font-weight:700;font-size:12.5px;cursor:pointer;letter-spacing:.03em;flex:none}
 .ha-more:hover{text-decoration:underline}
 .ha-vid{height:108px;border-radius:9px;background:linear-gradient(135deg,#1C2735,#121922);border:1px solid var(--line2);display:grid;place-items:center;position:relative;overflow:hidden}
 .ha-vid::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--hazard);opacity:.65}
@@ -226,12 +234,12 @@ kbd{font-family:var(--font-mono);font-size:11.5px;background:var(--panel2);borde
 .cm-cell.dim{opacity:.38}
 .cm-cell.today{border-color:var(--amber);box-shadow:0 0 0 1px #ffb02033 inset}
 .cm-d{font-family:var(--font-mono);font-size:11.5px;color:var(--faint);align-self:flex-start;background:none;border:0;padding:1px 5px;border-radius:5px;cursor:pointer}
-.cm-d:hover{color:var(--amber-deep)}
+.cm-d:hover{color:var(--amber-text)}
 .cm-cell.today .cm-d{background:var(--amber);color:#241A02;font-weight:700}
 .ev{display:block;width:100%;text-align:left;border:0;font-size:10.8px;font-weight:600;padding:2.5px 6px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;color:var(--text)}
 .ev:hover{filter:brightness(1.3)}
 .ev.done{opacity:.5;text-decoration:line-through}
-.cm-more{font-size:10.5px;color:var(--amber-deep);background:none;border:0;text-align:left;padding:0 6px;font-weight:700;cursor:pointer}
+.cm-more{font-size:10.5px;color:var(--amber-text);background:none;border:0;text-align:left;padding:0 6px;font-weight:700;cursor:pointer}
 .wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .wk-col{border:1px solid var(--line);border-radius:9px;background:var(--ink2);min-height:210px;padding:6px;display:flex;flex-direction:column;gap:4px}
 .wk-col.today{border-color:var(--amber)}
@@ -301,7 +309,7 @@ kbd{font-family:var(--font-mono);font-size:11.5px;background:var(--panel2);borde
 /* ---------- branding & form validation ---------- */
 .brand-logo{width:38px;height:38px;border-radius:9px;object-fit:cover;border:1px solid var(--line2);flex:none;background:var(--panel2)}
 .powered{font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-top:2px;white-space:nowrap}
-.powered span{color:var(--amber-deep)}
+.powered span{color:var(--amber-text)}
 .fld-err{display:none;color:var(--bad);font-size:12.5px;font-weight:600;margin-top:5px}
 input.invalid,select.invalid,textarea.invalid{border-color:var(--bad)!important}
 
@@ -380,10 +388,10 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
 .proj-row{display:block;padding:12px;margin:0 -12px;border-radius:9px;cursor:pointer;transition:background .12s}
 .proj-row:hover{background:var(--panel2)}
 .proj-row .pr-name{transition:color .12s}
-.proj-row:hover .pr-name{color:var(--amber-deep)}
+.proj-row:hover .pr-name{color:var(--amber-text)}
 .proj-row .pr-go{margin-left:6px;color:var(--faint);font-size:18px;line-height:1;font-weight:700;transition:transform .12s,color .12s}
-.proj-row:hover .pr-go{color:var(--amber-deep);transform:translateX(3px)}
-.proj-row .pr-open{opacity:0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber-deep);font-weight:700;margin-left:auto;transition:opacity .12s}
+.proj-row:hover .pr-go{color:var(--amber-text);transform:translateX(3px)}
+.proj-row .pr-open{opacity:0;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber-text);font-weight:700;margin-left:auto;transition:opacity .12s}
 .proj-row:hover .pr-open{opacity:1}
 .proj-row:focus-visible{outline:2.5px solid var(--amber-deep);outline-offset:-3px}
 
@@ -391,7 +399,7 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
 .tabbar{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line2);margin-bottom:16px;scrollbar-width:none}
 .tabbar::-webkit-scrollbar{display:none}
 .tabbar button{background:none;border:0;color:var(--mut);font-family:var(--font-disp);text-transform:uppercase;letter-spacing:.07em;font-size:14.5px;font-weight:700;padding:10px 14px;border-bottom:2.5px solid transparent;white-space:nowrap;margin-bottom:-1px;transition:color .12s,border-color .15s}
-.tabbar button:hover{color:var(--amber-deep)}
+.tabbar button:hover{color:var(--amber-text)}
 .tabbar button.on{color:var(--amber-text);border-bottom-color:var(--amber)}
 
 /* ---------- charts ---------- */
@@ -482,6 +490,11 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
 .auth-err{color:var(--bad);background:#ff616110;border:1px solid #ff616145;border-left-width:4px;border-radius:9px;padding:10px 13px;font-size:13.5px;font-weight:600;margin-bottom:14px;animation:pop .2s ease}
 .auth-submit{width:100%;justify-content:center;padding:13px;font-size:15.5px;border-radius:10px}
 .a-note{font-size:12.5px;color:var(--faint);margin-top:11px;text-align:center}
+/* A link inside a sentence has to be findable without seeing colour (WCAG
+   1.4.1). Amber against --faint is a 1.03:1 difference in luminance — to
+   anyone with a colour vision deficiency the "Create one" in "Don't have a
+   workspace? Create one." is just more sentence. Underline it. */
+.a-note a{text-decoration:underline;text-underline-offset:2px}
 .demo-row{margin-top:24px;border-top:1px solid var(--line);padding-top:17px}
 .demo-row label{margin-bottom:9px}
 .demo-chips{display:flex;gap:8px;flex-wrap:wrap}

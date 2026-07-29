@@ -138,7 +138,7 @@ export default function ProfileView({
                     <button className="btn" onClick={() => setNameValue(name)}>
                       Cancel
                     </button>
-                    <span className="small" style={{ color: "var(--amber-deep)", fontWeight: 700 }}>
+                    <span className="small" style={{ color: "var(--amber-text)", fontWeight: 700 }}>
                       ● Unsaved changes
                     </span>
                   </span>

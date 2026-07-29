@@ -496,7 +496,7 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
                   <button className="btn" disabled={saving} onClick={cancel}>
                     Cancel
                   </button>
-                  <span className="small" style={{ color: "var(--amber-deep)", fontWeight: 700 }}>
+                  <span className="small" style={{ color: "var(--amber-text)", fontWeight: 700 }}>
                     ● Unsaved changes
                   </span>
                 </span>
