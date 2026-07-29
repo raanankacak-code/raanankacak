@@ -21,6 +21,11 @@
     "stripe": "^22.3.2",
     "zod": "^4.4.3"
   },
+  "_overrides": "Both entries pin a transitive dependency of `next` past a published advisory. npm's own suggested fix is `npm audit fix --force`, which installs next@9.3.3 — a six-year downgrade across seven major versions, and not a fix. The advisory range for next itself covers every released 16.x, so there is no version to upgrade to; the vulnerable packages are the ones to move. Remove an entry once next ships a release that already depends on a patched version, and let lib/dependencies.test.ts fail if that regresses.",
+  "overrides": {
+    "postcss": "^8.5.24",
+    "sharp": "^0.35.3"
+  },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",

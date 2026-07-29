@@ -28,6 +28,14 @@ jobs:
       - name: Unit & integration tests
         run: npm test
 
+      # Production dependencies only. The dev tree carries advisories that
+      # cannot be fixed without eslint 10 (see README, "Dependency
+      # advisories"), and a job that is always red is a job nobody reads.
+      # lib/dependencies.test.ts is the offline half of this: it fails if a
+      # resolved version goes backwards, with or without a network.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Production build
         run: npm run build
 

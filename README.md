@@ -397,6 +397,57 @@ each a decision rather than an oversight:
   **Authentication → Policies → Password protection**; it checks new
   passwords against HaveIBeenPwned. Do this before real customers sign up.
 
+### Dependency advisories
+
+`npm audit --omit=dev` reports **0 vulnerabilities**, and CI fails if that
+changes. Getting there needed two `overrides` in `package.json`, because npm's
+own suggestion was not usable:
+
+```
+fix available via `npm audit fix --force`
+Will install next@9.3.3, which is a breaking change
+```
+
+That is a six-year downgrade across seven major versions. It is also not a
+fix: the advisory range for `next` covers every released 16.x, so no upgrade
+path existed. The vulnerable packages were the two it pulls in, and those are
+what the overrides move:
+
+- **`postcss` → 8.5.24.** `next` carried its own nested `postcss@8.4.31`
+  underneath the already-patched top-level copy — XSS via an unescaped
+  `</style>` in stringify output, and arbitrary file read via an
+  attacker-controlled `sourceMappingURL`. Build-time only, on CSS in this
+  repo, so the practical risk here was low; the override deduplicates the
+  nested copy away entirely.
+- **`sharp` → 0.35.3.** Four inherited libvips CVEs. `next.config.ts` sets
+  `images: { unoptimized: true }`, which removes `/_next/image`, so sharp is
+  never actually invoked at runtime — this is defence in depth rather than a
+  live hole being closed.
+
+`lib/dependencies.test.ts` is the ratchet: it reads `package-lock.json` and
+fails if any copy of either package — hoisted or nested — resolves below the
+patched version. It runs offline, so unlike `npm audit` it works in CI
+without an advisory database and cannot be quietly skipped.
+
+**The dev tree still reports 9 high-severity advisories, and that is
+deliberate.** All nine trace to one root: `brace-expansion <=5.0.7` (DoS via
+unbounded expansion), reached through the `minimatch` that `eslint` and its
+plugins depend on. The only patched release is 5.0.8, and forcing it produces
+a clean `npm audit` and a broken linter:
+
+```
+TypeError: expand is not a function
+  at Minimatch.braceExpand (node_modules/minimatch/minimatch.js:271)
+```
+
+`brace-expansion@5` is no longer a callable CommonJS export, and `minimatch@3`
+calls it as one. npm's real fix is `eslint@10`, a major upgrade that
+`eslint-config-next` does not yet support. A denial of service in glob
+expansion, in a package that only runs when someone lints, is not worth a
+broken toolchain — so the override was tried, measured, and removed, and a
+test asserts it stays removed. Revisit when `eslint-config-next` supports
+eslint 10.
+
 Two more manual steps, neither expressible in a migration:
 
 - Confirm the automated backup retention on your plan (Project → Database →
