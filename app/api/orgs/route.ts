@@ -14,6 +14,8 @@ import { removeObjectsByUrl } from "@/lib/uploads";
 import { safeUrlSchema } from "@/lib/url-validation";
 import { recordMemberAction } from "@/lib/db/auditLog";
 import { recordLegalAcceptance } from "@/lib/db/legalAcceptances";
+import { countWorkspaceContents, recordWorkspaceDeletion } from "@/lib/db/deletedWorkspaces";
+import { getSubscriptionForOrg } from "@/lib/db/subscriptions";
 
 const createOrgSchema = z.object({
   name: z.string().min(2).max(200),
@@ -181,10 +183,31 @@ export async function DELETE(request: Request) {
       throw new ApiError(400, "The name you typed does not match the company name");
     }
 
+    // Everything below happens before deleteOrganization, and the ordering
+    // is the point. audit_log is org-scoped and cascades with the
+    // organization, so the one event it can never hold is the organization's
+    // own deletion. deleted_workspaces is written first: a record describing
+    // a workspace that turns out to still exist is a discrepancy someone can
+    // notice, whereas a workspace that is gone with no record of who removed
+    // it is unrecoverable.
+    const contents = await countWorkspaceContents(member.orgId);
+    const subscription = await getSubscriptionForOrg(member.orgId).catch(() => null);
+
+    await recordWorkspaceDeletion({
+      orgId: member.orgId,
+      orgName: org.name,
+      deletedByUserId: member.userId,
+      deletedByEmail: member.email,
+      deletedByName: member.name,
+      plan: subscription?.plan ?? null,
+      contents,
+    });
+
     logger.warn("Company workspace deleted", {
       orgId: member.orgId,
       orgName: org.name,
       byMemberId: member.id,
+      ...contents,
     });
 
     await deleteOrganization(member.orgId);

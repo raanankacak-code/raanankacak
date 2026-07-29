@@ -27,6 +27,12 @@ function ctxFor(storageState: string) {
 test.afterAll(async () => {
   const admin = adminClient();
   for (const orgId of createdOrgIds) {
+    // deleted_workspaces and legal_acceptances have no foreign key to
+    // organizations — deliberately, so their records outlive the workspace.
+    // That means the delete below does not reach them and this test would
+    // otherwise leave rows in the live project on every run.
+    await admin.from("deleted_workspaces").delete().eq("org_id", orgId);
+    await admin.from("legal_acceptances").delete().eq("org_id", orgId);
     await admin.from("organizations").delete().eq("id", orgId);
   }
   await deleteUsers(createdUserIds);
@@ -204,6 +210,54 @@ test.describe("workspace deletion", () => {
     // colleague's login, which may be used elsewhere.
     const { data: user } = await admin.auth.admin.getUserById(owner.userId);
     expect(user.user).not.toBeNull();
+
+    // And the deletion itself is on record. audit_log cascaded away with the
+    // organization a moment ago, so this is the only thing left that can say
+    // who did it — which is exactly why it has no foreign key.
+    const { data: record } = await admin
+      .from("deleted_workspaces")
+      .select("*")
+      .eq("org_id", org.id)
+      .maybeSingle();
+
+    expect(record, "the workspace vanished with no record of who deleted it").not.toBeNull();
+    expect(record).toMatchObject({
+      org_name: org.name,
+      deleted_by_user_id: owner.userId,
+      deleted_by_email: `e2e-doomed-owner-${runId}@example.com`,
+      deleted_by_name: "Doomed Owner",
+    });
+
+    // Counts taken before the delete, not after — one member, the project
+    // and the file created above. A record saying an empty workspace was
+    // destroyed would be a false statement of fact, which is worse than no
+    // record at all.
+    expect(record!.member_count).toBe(1);
+    expect(record!.project_count).toBe(1);
+    expect(record!.storage_object_count).toBe(1);
+    expect(record!.storage_bytes).toBeGreaterThan(0);
+
+    // Nothing from inside the workspace is retained — no worker names, no
+    // report text, no file names. /privacy says counts only, and this is
+    // what holds it to that.
+    expect(Object.keys(record!).sort()).toEqual(
+      [
+        "deleted_at",
+        "deleted_by_email",
+        "deleted_by_name",
+        "deleted_by_user_id",
+        "id",
+        "member_count",
+        "org_id",
+        "org_name",
+        "plan",
+        "project_count",
+        "report_count",
+        "storage_bytes",
+        "storage_object_count",
+        "worker_count",
+      ].sort(),
+    );
 
     // With no membership left the session no longer resolves to a member,
     // so the app treats them as someone who has not set up a company yet.

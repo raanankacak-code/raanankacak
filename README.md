@@ -379,7 +379,7 @@ behind sign-in, so nothing crawls it in the first place.
 
 ### Before you go live
 
-Run `get_advisors` (or Supabase → Advisors) and expect exactly three findings,
+Run `get_advisors` (or Supabase → Advisors) and expect exactly four findings,
 each a decision rather than an oversight:
 
 - **`rate_limits` has RLS enabled and no policies** (INFO). Deliberate
@@ -387,6 +387,11 @@ each a decision rather than an oversight:
   `check_rate_limit()`, so there is no policy to write — a policy would be
   the thing that opened it up. Documented in a table comment; the linter
   still reports it, because a comment cannot clear a lint.
+- **`deleted_workspaces` has RLS enabled and no policies** (INFO). The same
+  deliberate deny-all, for a stronger reason: the organization a row
+  describes no longer exists, so `auth_org_id()` could never match it and
+  there is nobody left with a legitimate session claim to it. Operator
+  record, service role only.
 - **`auth_org_id()` is executable by `authenticated`** (WARN). Required, not
   an oversight: RLS policy expressions are evaluated with the *caller's*
   privileges, so revoking this grant would break every tenant-scoped read in
@@ -431,17 +436,40 @@ acceptance both refuse without `acceptedTerms: true`, and both write a row to
 `legal_acceptances` stamped with the server's `LEGAL_VERSION` — never a version
 the client claims.
 
-`legal_acceptances` is **the one table with no foreign keys**, and that is the
-point rather than an oversight. An acceptance is evidence that an agreement was
-made; cascading it away with the organization would delete exactly the record
-you need if a former customer later says they never agreed to anything. Two
-consequences worth knowing:
+### The two tables with no foreign keys
 
-- Deleting an organization does **not** remove its acceptance rows. `e2e/seed.ts`
-  deletes them explicitly in teardown, and anything else that cleans up orgs
-  must do the same.
-- It is personal data retained after a deletion request, so `/privacy` discloses
-  it in as many words. Keeping it quietly would be the actual breach.
+`legal_acceptances` and `deleted_workspaces` are the only tables in this schema
+that do not reference `organizations`, and in both cases that is the point
+rather than an oversight: **a record that vanishes along with the thing it
+describes is not a record.**
+
+- **`legal_acceptances`** — evidence that an agreement was made. Cascading it
+  away would delete exactly what you need if a former customer says they never
+  agreed to anything. It stores the email beside the user id, because a bare
+  uuid pointing at a deleted account proves nothing.
+- **`deleted_workspaces`** — who deleted a workspace, when, on what plan, and
+  how much was in it. `audit_log` is org-scoped and cascades, so the one event
+  it can never hold is the organization's own deletion. Counts only: no worker
+  names, no report text, no file names. RLS is on with **no policies at all** —
+  service role only, because the organization is gone and `auth_org_id()` could
+  never match. An e2e assertion pins the exact column list, so a future field
+  carrying workspace content fails the build.
+
+The deletion record is written **before** the delete runs. A record describing a
+workspace that turns out to still exist is a discrepancy someone can notice and
+resolve; a workspace gone with no record of who removed it is unrecoverable.
+
+Three consequences worth knowing:
+
+- Deleting an organization does **not** remove rows in either table. `e2e/seed.ts`
+  and `e2e/export-and-delete.spec.ts` clean them up explicitly, and anything else
+  that deletes orgs must do the same — a full e2e run left two acceptance rows in
+  the live project before this was handled.
+- Both retain personal data after a deletion request, so `/privacy` discloses
+  both in as many words. Keeping them quietly would be the actual breach.
+- There is no UI for either. They are operator records, not customer-facing
+  features, and adding a screen would mean deciding who is entitled to read a
+  record about a company that no longer exists.
 
 ### Dependency advisories
 

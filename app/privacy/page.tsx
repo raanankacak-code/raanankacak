@@ -135,12 +135,26 @@ export default function PrivacyPage() {
             Backups are retained by Supabase on the plan in force, and a deleted record can persist in a
             backup until that backup expires.
           </li>
+        </ul>
+
+        <h4>Two things are kept after deletion</h4>
+        <p>
+          Set out here rather than left to be discovered, because retaining anything after a deletion request
+          without saying so is the thing this notice exists to prevent. Neither holds any workspace content —
+          no worker records, no reports, no photos.
+        </p>
+        <ul>
           <li>
-            <b>One thing is kept after deletion,</b> and it is set out here rather than left to be discovered:
-            a record that a named person accepted these documents, at which version and on what date. It is
-            the evidence that an agreement existed, so deleting it along with the workspace would destroy the
-            only proof either side has. It holds an email address, a user and organisation identifier, the
-            document version and a timestamp — no workspace content.
+            <b>A record of acceptance:</b> that a named person accepted these documents, at which version and
+            on what date. It is the evidence that an agreement existed, so removing it with the workspace
+            would destroy the only proof either side has. It holds an email address, a user and organisation
+            identifier, the document version and a timestamp.
+          </li>
+          <li>
+            <b>A record of the deletion itself:</b> the workspace name, who deleted it, when, the plan it was
+            on, and how many members, projects, workers, reports and files it contained at the time. Counts
+            only — no names and no content. Without it, the deletion is the one event nobody can account for
+            afterwards, because the log that would have recorded it is deleted along with everything else.
           </li>
         </ul>
       </section>

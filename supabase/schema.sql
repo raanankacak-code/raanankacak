@@ -829,3 +829,45 @@ alter table legal_acceptances enable row level security;
 -- at invite acceptance, and nothing can forge or amend one afterwards.
 create policy legal_acceptances_select on legal_acceptances
   for select using (org_id = auth_org_id());
+
+-- deleted workspaces ------------------------------------------------------
+-- What was deleted, by whom, when, and how much of it there was.
+--
+-- audit_log is org-scoped and cascades with the organization, so the one
+-- event it can never record is the organization's own deletion: the moment
+-- that row goes, so does every trace of who removed it. This table is the
+-- answer, and like legal_acceptances it deliberately has no foreign keys — a
+-- record that vanishes along with the thing it describes is not a record.
+--
+-- The counts are taken immediately before the delete runs, and the row is
+-- written before it too. A record describing a workspace that turns out to
+-- still exist is a discrepancy someone can notice and resolve; a workspace
+-- that is gone with no record of who removed it is unrecoverable.
+--
+-- Counts only: no worker names, no report text, no file names. Retaining
+-- this after a deletion request is disclosed in app/privacy.
+
+create table deleted_workspaces (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null unique,
+  org_name text not null,
+  deleted_by_user_id uuid not null,
+  deleted_by_email text not null,
+  deleted_by_name text not null,
+  deleted_at timestamptz not null default now(),
+  plan text,
+  member_count integer not null default 0,
+  project_count integer not null default 0,
+  worker_count integer not null default 0,
+  report_count integer not null default 0,
+  storage_object_count integer not null default 0,
+  storage_bytes bigint not null default 0
+);
+
+alter table deleted_workspaces enable row level security;
+
+-- No policies at all: deny-all for anything holding a user session, service
+-- role only. This is not an omission. The organization is gone, so
+-- auth_org_id() could never match these rows anyway — there is nobody left
+-- with a legitimate session claim to them. The same deliberate deny-all as
+-- rate_limits, and it shows up in Supabase's advisors the same way.
