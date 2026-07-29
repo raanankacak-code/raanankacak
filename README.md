@@ -84,6 +84,7 @@ Open [http://localhost:3000](http://localhost:3000) — you'll land on
 ```bash
 npm test          # unit & integration tests (Vitest)
 npm run test:e2e  # end-to-end tests (Playwright)
+npm run smoke -- https://app.example.com   # post-deploy check against a live URL
 ```
 
 Vitest runs in the `node` environment by default — most of these tests are
@@ -155,6 +156,10 @@ trial, and a Stripe customer are each needed:
 - **`safety`** — an inspection is filed, its evidence survives, and both the
   record page and its per-finding uploads are unreachable by another tenant
   and by a signed-out visitor.
+- **`smoke-check`** — runs `scripts/smoke.mjs` against the suite's own
+  production build, so the post-deploy check is itself covered. Includes a
+  deliberate failure case and a bad-argument case: a smoke check that cannot
+  fail is decoration.
 - **`not-found`** — a missing id, a malformed id and a signed-out request
   each land somewhere branded rather than on a database error or Next's
   default page, and the soft 404 carries `noindex`.
@@ -362,6 +367,48 @@ What is fatal, and why each one:
 The middle two are the interesting ones: the app runs perfectly well without
 either, and does the wrong thing quietly. That is precisely why they fail
 loudly instead of being left to a code review.
+
+### After every deploy: `npm run smoke`
+
+```bash
+npm run smoke -- https://app.example.com
+```
+
+Answers the question a successful build does not: **is the thing that just
+deployed actually serving the application, correctly configured, with its
+defences on?** A build succeeds happily with a missing environment variable, a
+reverse proxy that forgot to forward a header, or a container still running
+last week's code.
+
+Exits 0 if everything passes and 1 if anything fails, so it can gate a deploy.
+An argument that is not a URL exits 2 — "you called this wrong" and "the deploy
+is broken" are different answers and a pipeline should be able to tell them
+apart. Nineteen checks in four groups:
+
+- **Reachability** — `/api/health` returns ok *and* reports the database
+  reachable, which doubles as proof the production Supabase credentials work.
+- **Defences** — every security header from `next.config.ts`, `X-Powered-By`
+  suppressed, and the CSP present with `strict-dynamic`, `object-src 'none'`,
+  `frame-ancestors 'none'` and `base-uri 'self'`. The nonce is fetched twice
+  and compared: a static nonce looks identical in a header dump and defends
+  nothing. Over plain http the HSTS check is skipped rather than failed,
+  because HSTS is inert there.
+- **Routing** — `/login`, `/terms` and `/privacy` answer 200 signed out, and
+  `/dashboard` redirects to sign-in. That last one is the most important check
+  in the file: if the proxy is not running, every page in the app is open.
+- **Build shape** — error pages leak no stack frames, filesystem paths or
+  service-role references, and hashed static assets are served `immutable`.
+  A development server passes a naive check and fails these.
+
+It is dependency-free plain node (no `node_modules` required, so it runs in a
+deploy pipeline), and `e2e/smoke-check.spec.ts` runs it against Playwright's
+production build on every CI run — including a deliberate failure case, because
+a smoke check that cannot fail is decoration.
+
+Verified against a dev server while writing it: 15 passed, 4 failed —
+`'unsafe-eval'` in the CSP, `node_modules` paths on both error pages, and
+non-immutable assets. Those four are the difference between "it responds" and
+"it is deployed".
 
 ### Soft 404s
 
