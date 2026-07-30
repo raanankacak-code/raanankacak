@@ -251,4 +251,26 @@ test.describe("the defects page", () => {
     await expect(page.getByText(defectCode)).toBeVisible();
     await expect(page.getByText("Cracked tiles in the lobby")).toBeVisible();
   });
+
+  test("the dashboard counts open defects without opening the module", async ({ page }) => {
+    // The second defect raised above is still OPEN — the first was closed.
+    // A KPI that only exists on the page it describes is a KPI nobody sees.
+    await page.goto("/dashboard");
+    const kpi = page.locator(".kpi", { hasText: "Open Defects" });
+    await expect(kpi).toBeVisible();
+    await expect(kpi.locator(".k-val")).not.toHaveText("0");
+  });
+
+  test("the project overview says how many are still open, and links to them", async ({ page }) => {
+    await page.goto(`/projects/${projectId}`);
+
+    const attention = page.locator(".card", { hasText: "Needs attention" });
+    await expect(attention).toContainText(/defect(s)? still open/i);
+    // The link has to carry the project, or "View" lands on every defect in
+    // the workspace and the count stops matching what you see.
+    await expect(attention.getByRole("link", { name: "View" }).last()).toHaveAttribute(
+      "href",
+      new RegExp(`/defects\\?projectId=${projectId}`),
+    );
+  });
 });

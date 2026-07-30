@@ -101,26 +101,3 @@ export function isOverdue(defect: Pick<Defect, "dueDate" | "status">, today: str
   if (!isOutstanding(defect.status)) return false;
   return defect.dueDate < today;
 }
-
-/** Counts for the dashboard and the project overview. */
-export interface DefectSummary {
-  total: number;
-  outstanding: number;
-  overdue: number;
-  critical: number;
-}
-
-export function summariseDefects(
-  defects: Pick<Defect, "dueDate" | "status" | "severity">[],
-  today: string,
-): DefectSummary {
-  return {
-    total: defects.length,
-    outstanding: defects.filter((d) => isOutstanding(d.status)).length,
-    overdue: defects.filter((d) => isOverdue(d, today)).length,
-    // Critical *and* still outstanding — a closed critical defect is a
-    // success, and counting it as a warning would train people to ignore
-    // the number.
-    critical: defects.filter((d) => d.severity === "CRITICAL" && isOutstanding(d.status)).length,
-  };
-}

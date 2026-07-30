@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canTransition, defectPhotoUrls, isOutstanding, isOverdue, summariseDefects } from "@/lib/defects";
+import { canTransition, defectPhotoUrls, isOutstanding, isOverdue } from "@/lib/defects";
 import { todayInOrgTimezone } from "@/lib/today";
 import type { DefectStatus } from "@/lib/db/types";
 
@@ -66,35 +66,6 @@ describe("isOverdue", () => {
 
   it("is false with no due date — undated is not late", () => {
     expect(isOverdue({ dueDate: null, status: "OPEN" }, today)).toBe(false);
-  });
-});
-
-describe("summariseDefects", () => {
-  const today = "2026-07-29";
-  const defects = [
-    { dueDate: "2026-07-01", status: "OPEN" as DefectStatus, severity: "CRITICAL" as const },
-    { dueDate: "2026-08-30", status: "IN_PROGRESS" as DefectStatus, severity: "HIGH" as const },
-    { dueDate: null, status: "RESOLVED" as DefectStatus, severity: "LOW" as const },
-    { dueDate: "2026-01-01", status: "CLOSED" as DefectStatus, severity: "CRITICAL" as const },
-  ];
-
-  it("counts what is left, what is late, and what is serious", () => {
-    expect(summariseDefects(defects, today)).toEqual({
-      total: 4,
-      outstanding: 3,
-      overdue: 1,
-      critical: 1,
-    });
-  });
-
-  it("does not count a closed critical defect as critical", () => {
-    // A fixed critical defect is a success. Counting it as a warning trains
-    // people to ignore the number.
-    expect(summariseDefects([defects[3]], today).critical).toBe(0);
-  });
-
-  it("returns zeroes for an empty list rather than NaN", () => {
-    expect(summariseDefects([], today)).toEqual({ total: 0, outstanding: 0, overdue: 0, critical: 0 });
   });
 });
 

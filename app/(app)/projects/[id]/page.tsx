@@ -6,6 +6,8 @@ import { getLatestReportForProject, countReportsForProject, countReportsByStatus
 import { countRequestsByStatusForProject } from "@/lib/db/materials";
 import { countOpenFindingsForProject } from "@/lib/db/safety";
 import { can } from "@/lib/permissions";
+import { countDefectsForProject } from "@/lib/db/defects";
+import { todayInOrgTimezone } from "@/lib/today";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 import RemoveWorkerButton from "@/components/app/RemoveWorkerButton";
 import DeleteProjectButton from "@/components/app/DeleteProjectButton";
@@ -49,7 +51,8 @@ export default async function ProjectDetailPage({
   // come from fetching every report and every request for the project and
   // filtering in JavaScript, which shipped two full tables' worth of rows —
   // photos, notes, justifications and all — to produce two integers.
-  const [latestReport, reportCount, unreviewedReports, pendingRequests, openFindings] = await Promise.all([
+  const today = todayInOrgTimezone();
+  const [latestReport, reportCount, unreviewedReports, pendingRequests, openFindings, defects] = await Promise.all([
     getLatestReportForProject(id),
     countReportsForProject(id),
     countReportsByStatusForProject(id, "SUBMITTED"),
@@ -57,6 +60,7 @@ export default async function ProjectDetailPage({
       ? countRequestsByStatusForProject(id).then((c) => c.SUBMITTED)
       : Promise.resolve(0),
     countOpenFindingsForProject(member.orgId, id),
+    countDefectsForProject(member.orgId, id, today),
   ]);
 
   const now = nowMs();
@@ -66,7 +70,8 @@ export default async function ProjectDetailPage({
   });
   const daysLeftRaw = daysBetween(now, project.endDate);
   const daysLeft = daysLeftRaw !== null ? Math.max(0, daysLeftRaw) : null;
-  const allClear = !pendingRequests && !unreviewedReports && !expiringWorkers.length && !openFindings;
+  const allClear =
+    !pendingRequests && !unreviewedReports && !expiringWorkers.length && !openFindings && !defects.outstanding;
 
   const tabs = [
     { key: "overview", label: "Overview" },
@@ -270,6 +275,24 @@ export default async function ProjectDetailPage({
                       safety inspection{openFindings > 1 ? "s" : ""} with findings still open
                     </span>
                     <Link href={`/safety?projectId=${project.id}`} className="btn btn-sm btn-ghost" style={{ marginLeft: "auto" }}>
+                      View
+                    </Link>
+                  </div>
+                )}
+                {defects.outstanding > 0 && (
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span className={`badge ${defects.overdue > 0 ? "b-bad" : "b-amber"}`}>
+                      <span className="dot" />
+                      {defects.outstanding}
+                    </span>
+                    <span className="small">
+                      defect{defects.outstanding > 1 ? "s" : ""} still open
+                      {/* Overdue named separately: "12 open" and "12 open, 5
+                          overdue" are different situations and the second one
+                          is the one that needs someone today. */}
+                      {defects.overdue > 0 ? `, ${defects.overdue} past due` : ""}
+                    </span>
+                    <Link href={`/defects?projectId=${project.id}`} className="btn btn-sm btn-ghost" style={{ marginLeft: "auto" }}>
                       View
                     </Link>
                   </div>

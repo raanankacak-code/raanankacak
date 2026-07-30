@@ -9,6 +9,8 @@ import { countRequestsByStatusForOrg, countUrgentRequestsForOrg } from "@/lib/db
 import { listEventsForOrgViaSession } from "@/lib/db/calendar";
 import { listNotificationsForOrgViaSession } from "@/lib/db/notifications";
 import { can } from "@/lib/permissions";
+import { countOutstandingDefectsForOrg, countOverdueDefectsForOrg } from "@/lib/db/defects";
+import { todayInOrgTimezone } from "@/lib/today";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 
 function todayISO() {
@@ -49,6 +51,8 @@ export default async function DashboardPage() {
     projectCounts,
     requestCounts,
     urgentRequestCount,
+    outstandingDefects,
+    overdueDefects,
   ] =
     await Promise.all([
       getOrganizationById(member.orgId),
@@ -75,6 +79,12 @@ export default async function DashboardPage() {
       can(member.role, "viewMaterials")
         ? countUrgentRequestsForOrg(member.orgId, daysAhead(2))
         : Promise.resolve(0),
+      // Counted in the database rather than filtered from a fetched list,
+      // for the same reason the two above are: an unbounded select is
+      // silently capped at 1000 rows and the number would quietly go wrong
+      // on exactly the workspaces big enough to care.
+      countOutstandingDefectsForOrg(member.orgId),
+      countOverdueDefectsForOrg(member.orgId, todayInOrgTimezone()),
     ]);
 
   if (projects.length === 0) {
@@ -186,6 +196,15 @@ export default async function DashboardPage() {
           <div className="k-lbl">Upcoming Inspections</div>
           <div className="k-val">{upcomingInspections}</div>
           <div className="k-sub">next 30 days</div>
+        </div>
+        <div className="kpi" style={{ ["--kpi-c" as string]: overdueDefects > 0 ? "var(--bad)" : "var(--teal)" }}>
+          <div className="k-lbl">Open Defects</div>
+          <div className="k-val">{outstandingDefects}</div>
+          <div className="k-sub">
+            {/* The overdue figure is the one that needs somebody today, so it
+                gets said rather than folded into the total. */}
+            {overdueDefects > 0 ? `${overdueDefects} past due` : "none past due"}
+          </div>
         </div>
         <div className="kpi" style={{ ["--kpi-c" as string]: budgetUsage > 85 ? "var(--bad)" : "var(--amber)" }}>
           <div className="k-lbl">Labour Cost</div>
