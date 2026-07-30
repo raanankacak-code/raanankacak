@@ -931,3 +931,93 @@ alter table defects enable row level security;
 create policy "select_own_org_defects" on defects
   for select to authenticated
   using (org_id = auth_org_id());
+
+-- equipment ---------------------------------------------------------------
+-- The plant register: what you own or hire, where it is, and when it is next
+-- due for service or statutory inspection.
+--
+-- project_id is nullable with ON DELETE SET NULL rather than CASCADE. A
+-- machine outlives the job it was on; deleting a project must release it back
+-- to the yard, not destroy the equipment register along with the site.
+
+create type equipment_status as enum ('ACTIVE', 'MAINTENANCE', 'IDLE', 'RETIRED');
+
+create table equipment (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid references projects(id) on delete set null,
+  code text not null,
+  name text not null,
+  type text,
+  registration_no text,
+  -- Owned plant is serviced on hours; hired plant is invoiced on them. The
+  -- flag is what decides which question the hours answer.
+  owned boolean not null default true,
+  supplier text,
+  status equipment_status not null default 'ACTIVE',
+  last_service_date date,
+  next_service_date date,
+  -- Statutory inspection (DOSH for lifting gear, pressure vessels and the
+  -- like). Expiring is not a maintenance inconvenience — it is a machine
+  -- that must stop, which is why it is its own column and not a note.
+  inspection_expiry date,
+  notes text,
+  photos jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (org_id, code)
+);
+
+create index equipment_org_id_idx on equipment (org_id);
+create index equipment_project_id_idx on equipment (project_id);
+create index equipment_org_service_idx on equipment (org_id, next_service_date);
+create index equipment_org_inspection_idx on equipment (org_id, inspection_expiry);
+
+create trigger equipment_set_updated_at
+  before update on equipment
+  for each row execute function set_updated_at();
+
+alter table equipment enable row level security;
+
+create policy "select_own_org_equipment" on equipment
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+-- One row per machine per day worked. Kept as rows rather than a running
+-- total on the equipment row, so a correction is visible rather than
+-- overwriting a number nobody can audit.
+create table equipment_usage_logs (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  equipment_id uuid not null references equipment(id) on delete cascade,
+  project_id uuid references projects(id) on delete set null,
+  date date not null,
+  hours numeric(6, 1) not null check (hours >= 0 and hours <= 24),
+  operator_name text,
+  notes text,
+  logged_by_id uuid not null,
+  logged_by_name text not null,
+  created_at timestamptz not null default now()
+);
+
+create index equipment_usage_logs_equipment_idx on equipment_usage_logs (equipment_id, date desc);
+create index equipment_usage_logs_org_idx on equipment_usage_logs (org_id);
+
+alter table equipment_usage_logs enable row level security;
+
+create policy "select_own_org_equipment_usage_logs" on equipment_usage_logs
+  for select to authenticated
+  using (org_id = auth_org_id());
+
+-- Totals computed from the logs, never stored beside them. A denormalised
+-- total drifts the first time a log is corrected, and the drift is silent.
+-- security_invoker keeps the view subject to the caller's RLS rather than the
+-- view owner's, so it cannot become a way around tenant separation.
+create view equipment_hours with (security_invoker = on) as
+  select
+    equipment_id,
+    sum(hours) as total_hours,
+    max(date) as last_used,
+    count(*) as log_count
+  from equipment_usage_logs
+  group by equipment_id;

@@ -127,3 +127,15 @@ export function DefectIcon() {
     </svg>
   );
 }
+
+/** Plant: a tracked machine, which is what most of this register holds. */
+export function EquipIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 17h13a2 2 0 0 0 2-2v-3h3v5" />
+      <circle cx="7" cy="19" r="2" />
+      <circle cx="16" cy="19" r="2" />
+      <path d="M6 12V7h5l3 5" />
+    </svg>
+  );
+}

@@ -29,6 +29,8 @@ export interface OrgExport {
   calendarEvents: Record<string, unknown>[];
   safetyInspections: Record<string, unknown>[];
   defects: Record<string, unknown>[];
+  equipment: Record<string, unknown>[];
+  equipmentUsageLogs: Record<string, unknown>[];
   notifications: Record<string, unknown>[];
   bugReports: Record<string, unknown>[];
   auditLog: Record<string, unknown>[];
@@ -65,6 +67,8 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     calendarEvents,
     safetyInspections,
     defects,
+    equipment,
+    equipmentUsageLogs,
     notifications,
     bugReports,
     auditLog,
@@ -82,6 +86,8 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     byOrg("calendar_events"),
     byOrg("safety_inspections"),
     byOrg("defects"),
+    byOrg("equipment"),
+    byOrg("equipment_usage_logs"),
     byOrg("notifications"),
     byOrg("bug_reports"),
     byOrg("audit_log"),
@@ -101,6 +107,8 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     calendarEvents,
     safetyInspections,
     defects,
+    equipment,
+    equipmentUsageLogs,
     notifications,
     bugReports,
     auditLog,
@@ -140,6 +148,8 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     calendarEvents: calendarEvents.data ?? [],
     safetyInspections: safetyInspections.data ?? [],
     defects: defects.data ?? [],
+    equipment: equipment.data ?? [],
+    equipmentUsageLogs: equipmentUsageLogs.data ?? [],
     notifications: notifications.data ?? [],
     bugReports: bugReports.data ?? [],
     auditLog: auditLog.data ?? [],

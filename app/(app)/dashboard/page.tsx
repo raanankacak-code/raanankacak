@@ -10,6 +10,7 @@ import { listEventsForOrgViaSession } from "@/lib/db/calendar";
 import { listNotificationsForOrgViaSession } from "@/lib/db/notifications";
 import { can } from "@/lib/permissions";
 import { countOutstandingDefectsForOrg, countOverdueDefectsForOrg } from "@/lib/db/defects";
+import { countEquipmentNeedingAttention } from "@/lib/db/equipment";
 import { todayInOrgTimezone } from "@/lib/today";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 
@@ -53,6 +54,7 @@ export default async function DashboardPage() {
     urgentRequestCount,
     outstandingDefects,
     overdueDefects,
+    equipmentAttention,
   ] =
     await Promise.all([
       getOrganizationById(member.orgId),
@@ -85,6 +87,7 @@ export default async function DashboardPage() {
       // on exactly the workspaces big enough to care.
       countOutstandingDefectsForOrg(member.orgId),
       countOverdueDefectsForOrg(member.orgId, todayInOrgTimezone()),
+      countEquipmentNeedingAttention(member.orgId, todayInOrgTimezone()),
     ]);
 
   if (projects.length === 0) {
@@ -204,6 +207,23 @@ export default async function DashboardPage() {
             {/* The overdue figure is the one that needs somebody today, so it
                 gets said rather than folded into the total. */}
             {overdueDefects > 0 ? `${overdueDefects} past due` : "none past due"}
+          </div>
+        </div>
+        <div
+          className="kpi"
+          style={{ ["--kpi-c" as string]: equipmentAttention.inspectionExpired > 0 ? "var(--bad)" : "var(--purple)" }}
+        >
+          <div className="k-lbl">Plant Due</div>
+          <div className="k-val">{equipmentAttention.inspectionExpired + equipmentAttention.serviceOverdue}</div>
+          <div className="k-sub">
+            {/* An expired statutory certificate means the machine stops; a
+                late service is a decision. Naming them separately keeps that
+                difference visible at the only moment it matters. */}
+            {equipmentAttention.inspectionExpired > 0
+              ? `${equipmentAttention.inspectionExpired} inspection${equipmentAttention.inspectionExpired === 1 ? "" : "s"} expired`
+              : equipmentAttention.serviceOverdue > 0
+                ? `${equipmentAttention.serviceOverdue} service${equipmentAttention.serviceOverdue === 1 ? "" : "s"} overdue`
+                : "all up to date"}
           </div>
         </div>
         <div className="kpi" style={{ ["--kpi-c" as string]: budgetUsage > 85 ? "var(--bad)" : "var(--amber)" }}>

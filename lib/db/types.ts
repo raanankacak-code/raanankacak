@@ -285,6 +285,11 @@ export type AuditAction =
   | "DEFECT_UPDATED"
   | "DEFECT_CLOSED"
   | "DEFECT_DELETED"
+  | "EQUIPMENT_REGISTERED"
+  | "EQUIPMENT_UPDATED"
+  | "EQUIPMENT_RETIRED"
+  | "EQUIPMENT_DELETED"
+  | "EQUIPMENT_USAGE_LOGGED"
   | "ORG_SETTINGS_CHANGED"
   | "SUBSCRIPTION_CHANGED"
   | "MEMBER_ROLE_CHANGED"
@@ -385,4 +390,43 @@ export interface Defect {
   closedByName: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export type EquipmentStatus = "ACTIVE" | "MAINTENANCE" | "IDLE" | "RETIRED";
+
+export interface Equipment {
+  id: string;
+  orgId: string;
+  /** null means it is in the yard rather than on a site. */
+  projectId: string | null;
+  code: string;
+  name: string;
+  type: string | null;
+  registrationNo: string | null;
+  /** Owned plant is serviced on hours; hired plant is invoiced on them. */
+  owned: boolean;
+  supplier: string | null;
+  status: EquipmentStatus;
+  lastServiceDate: string | null;
+  nextServiceDate: string | null;
+  /** Statutory (DOSH) inspection. Expiring means the machine must stop. */
+  inspectionExpiry: string | null;
+  notes: string | null;
+  photos: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface EquipmentUsageLog {
+  id: string;
+  orgId: string;
+  equipmentId: string;
+  projectId: string | null;
+  date: string;
+  hours: number;
+  operatorName: string | null;
+  notes: string | null;
+  loggedById: string;
+  loggedByName: string;
+  createdAt: Date;
 }

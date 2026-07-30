@@ -7,6 +7,7 @@ import { countOpenFindingsForOrg } from "@/lib/db/safety";
 import { getSubscriptionForOrgViaSession, isSubscriptionWritable, trialDaysLeft } from "@/lib/db/subscriptions";
 import { can } from "@/lib/permissions";
 import { countOverdueDefectsForOrg } from "@/lib/db/defects";
+import { countEquipmentNeedingAttention } from "@/lib/db/equipment";
 import { todayInOrgTimezone } from "@/lib/today";
 import AppShell from "@/components/app/AppShell";
 
@@ -42,6 +43,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const defectsBadge = can(member.role, "viewReports")
     ? await countOverdueDefectsForOrg(member.orgId, todayInOrgTimezone())
     : 0;
+  // Expired inspections and overdue services together — both mean a machine
+  // that should not simply carry on working.
+  const equipmentAttention = can(member.role, "viewReports")
+    ? await countEquipmentNeedingAttention(member.orgId, todayInOrgTimezone())
+    : { inspectionExpired: 0, serviceOverdue: 0 };
+  const equipmentBadge = equipmentAttention.inspectionExpired + equipmentAttention.serviceOverdue;
 
   const subscription = await getSubscriptionForOrgViaSession(member.orgId);
   const billing = {
@@ -60,6 +67,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       materialsBadge={materialsBadge}
       safetyBadge={safetyBadge}
       defectsBadge={defectsBadge}
+      equipmentBadge={equipmentBadge}
       billing={billing}
     >
       {children}

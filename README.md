@@ -29,6 +29,8 @@ a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
 - Safety inspections — dated, attributed, photo evidence, printable record
 - Defect management — snag lists per project, with a photo of the problem and
   a photo of the fix, and sign-off by someone other than whoever fixed it
+- Equipment register — plant owned or hired, hours logged per machine, and
+  service and statutory-inspection dates surfaced before they lapse
 - Calendar, notifications, team management, company settings, global search,
   help centre, bug reports
 - Billing — trials, plan limits, Stripe checkout and webhooks, read-only mode
@@ -168,6 +170,11 @@ trial, and a Stripe customer are each needed:
   production build, so the post-deploy check is itself covered. Includes a
   deliberate failure case and a bad-argument case: a smoke check that cannot
   fail is decoration.
+- **`equipment`** — hours are summed from the logs by a `security_invoker`
+  view rather than a stored total that could drift, an impossible 25-hour day
+  is refused, a retired machine stops accepting hours, a Site Supervisor can
+  log usage but not register plant, and deleting a project releases its
+  machines to the yard instead of destroying the register with the site.
 - **`not-found`** — a missing id, a malformed id and a signed-out request
   each land somewhere branded rather than on a database error or Next's
   default page, and the soft 404 carries `noindex`.

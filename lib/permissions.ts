@@ -35,6 +35,8 @@ export type Permission =
   | "closeInspections"
   | "raiseDefects"
   | "closeDefects"
+  | "manageEquipment"
+  | "logEquipmentUsage"
   | "viewAuditLog";
 
 /** Role -> permission matrix, mirroring the BinaWorks design prototype's ROLE_PERMS. */
@@ -61,6 +63,8 @@ const MATRIX: Record<Role, Permission[]> = {
     "closeInspections",
     "raiseDefects",
     "closeDefects",
+    "manageEquipment",
+    "logEquipmentUsage",
     "viewAuditLog",
   ],
   ADMIN: [
@@ -76,6 +80,8 @@ const MATRIX: Record<Role, Permission[]> = {
     "closeInspections",
     "raiseDefects",
     "closeDefects",
+    "manageEquipment",
+    "logEquipmentUsage",
     "viewAuditLog",
   ],
   PROJECT_MANAGER: [
@@ -97,6 +103,8 @@ const MATRIX: Record<Role, Permission[]> = {
     "closeInspections",
     "raiseDefects",
     "closeDefects",
+    "manageEquipment",
+    "logEquipmentUsage",
   ],
   SITE_SUPERVISOR: [
     "submitReports",
@@ -107,8 +115,9 @@ const MATRIX: Record<Role, Permission[]> = {
     "manageCalendar",
     "submitInspections",
     "raiseDefects",
+    "logEquipmentUsage",
   ],
-  ENGINEER: ["viewReports", "submitReports", "uploadDocs", "updateProgress", "raiseDefects"],
+  ENGINEER: ["viewReports", "submitReports", "uploadDocs", "updateProgress", "raiseDefects", "logEquipmentUsage"],
   QUANTITY_SURVEYOR: ["viewMaterials", "costReports"],
   SAFETY_OFFICER: ["viewReports", "submitReports", "submitInspections", "closeInspections", "raiseDefects"],
   STOREKEEPER: ["viewMaterials", "submitRequests"],
@@ -149,6 +158,8 @@ export const PERM_LABELS: [Permission, string][] = [
   ["closeInspections", "Close Safety Inspections"],
   ["raiseDefects", "Raise Defects"],
   ["closeDefects", "Close Defects"],
+  ["manageEquipment", "Manage Equipment"],
+  ["logEquipmentUsage", "Log Equipment Usage"],
   ["viewAuditLog", "View Audit Log"],
 ];
 
