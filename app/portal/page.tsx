@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth";
 import { listProjectsForClientViaSession } from "@/lib/db/projects";
+import { listApprovalsViaSession } from "@/lib/db/approvals";
 import { formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 
 export const metadata = { title: "Your projects" };
@@ -10,6 +11,13 @@ export default async function PortalHomePage() {
   if (!member) return null;
 
   const projects = await listProjectsForClientViaSession(member.orgId);
+  // One query for the workspace rather than one per project: row-level
+  // security has already narrowed it to this client's projects.
+  const waiting = await listApprovalsViaSession(member.orgId, { status: "PENDING" });
+  const waitingByProject = waiting.reduce<Record<string, number>>((acc, a) => {
+    acc[a.projectId] = (acc[a.projectId] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <>
@@ -41,6 +49,11 @@ export default async function PortalHomePage() {
                     {statusLabel(p.status)}
                   </span>
                 </div>
+                {waitingByProject[p.id] > 0 && (
+                  <div className="badge b-amber" style={{ marginTop: 8 }}>
+                    {waitingByProject[p.id]} waiting for you
+                  </div>
+                )}
                 {p.siteAddress && <div className="small mut">{p.siteAddress}</div>}
                 <div className="portal-bar" aria-hidden>
                   <div style={{ width: `${p.progressPct}%` }} />

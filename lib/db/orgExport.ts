@@ -21,6 +21,7 @@ export interface OrgExport {
   invites: Record<string, unknown>[];
   projects: Record<string, unknown>[];
   projectAccess: Record<string, unknown>[];
+  projectApprovals: Record<string, unknown>[];
   workers: Record<string, unknown>[];
   attendance: Record<string, unknown>[];
   dailyReports: Record<string, unknown>[];
@@ -61,6 +62,7 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     invites,
     projects,
     projectAccess,
+    projectApprovals,
     workers,
     attendance,
     dailyReports,
@@ -81,6 +83,7 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     byOrg("org_invites"),
     byOrg("projects"),
     byOrg("project_access"),
+    byOrg("project_approvals"),
     byOrg("workers"),
     byOrg("attendance_records"),
     byOrg("daily_reports"),
@@ -103,6 +106,7 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     invites,
     projects,
     projectAccess,
+    projectApprovals,
     workers,
     attendance,
     dailyReports,
@@ -146,6 +150,9 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     // Who outside the company was given sight of which project — part of the
     // record, and the thing a customer would need to rebuild it elsewhere.
     projectAccess: projectAccess.data ?? [],
+    // What the client signed off, and when. The part of the record a
+    // customer migrating away would most want to keep.
+    projectApprovals: projectApprovals.data ?? [],
     workers: workers.data ?? [],
     attendance: attendance.data ?? [],
     dailyReports: dailyReports.data ?? [],

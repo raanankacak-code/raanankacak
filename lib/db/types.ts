@@ -129,6 +129,36 @@ export interface DailyReportWithProject extends DailyReport {
   project: { id: string; name: string };
 }
 
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "WITHDRAWN";
+
+/**
+ * A sign-off: what was sent to the client, and what they said.
+ *
+ * decidedByName and decidedByEmail are copies taken at the moment of signing,
+ * not a join — the account may later be renamed or removed, and "some uuid
+ * approved this" is not evidence of anything.
+ */
+export interface ProjectApproval {
+  id: string;
+  orgId: string;
+  projectId: string;
+  code: string;
+  title: string;
+  description: string | null;
+  photos: string[];
+  status: ApprovalStatus;
+  requestedById: string;
+  requestedByName: string;
+  requestedAt: Date;
+  decidedByMemberId: string | null;
+  decidedByName: string | null;
+  decidedByEmail: string | null;
+  decidedAt: Date | null;
+  decisionComment: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type InviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "CANCELLED";
 
 export interface OrgInvite {
@@ -300,6 +330,11 @@ export type AuditAction =
   | "MEMBER_REACTIVATED"
   | "MEMBER_REMOVED"
   | "MEMBER_INVITED"
+  | "APPROVAL_REQUESTED"
+  | "APPROVAL_WITHDRAWN"
+  | "APPROVAL_DECIDED"
+  | "CLIENT_ACCESS_GRANTED"
+  | "CLIENT_ACCESS_REVOKED"
   | "MEMBER_INVITE_REVOKED"
   | "MEMBER_INVITE_RESENT"
   | "MEMBER_JOINED";

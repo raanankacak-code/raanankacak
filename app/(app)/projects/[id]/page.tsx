@@ -12,6 +12,7 @@ import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib
 import RemoveWorkerButton from "@/components/app/RemoveWorkerButton";
 import DeleteProjectButton from "@/components/app/DeleteProjectButton";
 import DocumentsPanel from "@/components/app/project/DocumentsPanel";
+import ClientPanel from "@/components/app/project/ClientPanel";
 import CostReportButton from "@/components/app/project/CostReportButton";
 
 function cidbBadge(expiry: Date | null) {
@@ -77,6 +78,10 @@ export default async function ProjectDetailPage({
     { key: "overview", label: "Overview" },
     { key: "workers", label: "Workers" },
     { key: "documents", label: "Documents" },
+    // What the customer can see, and what they have signed off. Every staff
+    // role gets to read it — it is the project's history, not a management
+    // secret — and the buttons inside are gated separately.
+    { key: "client", label: "Client" },
   ];
 
   return (
@@ -119,7 +124,13 @@ export default async function ProjectDetailPage({
         {can(member.role, "viewReports") && <Link href={`/safety?projectId=${project.id}`}>Safety</Link>}
       </div>
 
-      {tab === "documents" ? (
+      {tab === "client" ? (
+        <ClientPanel
+          projectId={project.id}
+          canRequest={can(member.role, "manageProjects")}
+          canManageAccess={can(member.role, "manageUsers")}
+        />
+      ) : tab === "documents" ? (
         <DocumentsPanel projectId={project.id} canUpload={can(member.role, "uploadDocs") || can(member.role, "manageDocs")} />
       ) : tab === "workers" ? (
         <div className="card">

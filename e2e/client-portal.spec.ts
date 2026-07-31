@@ -278,6 +278,18 @@ test.describe("inviting a client", () => {
       .eq("org_members.email", clientEmail);
     expect(data?.map((r) => r.project_id)).toEqual([sharedProjectId]);
   });
+
+  test("and something waiting for their signature, so the portal scan sees it", async ({ playwright }) => {
+    // After the acceptance above, not before it: a sign-off request is
+    // refused on a project no client can see, which is the point of that
+    // rule and was the reason this test failed when it ran first.
+    const ctx = await ownerCtx(playwright);
+    const res = await ctx.post("/api/approvals", {
+      data: { projectId: sharedProjectId, title: "Substructure complete", description: "Ready for your sign-off." },
+    });
+    expect(res.status()).toBe(201);
+    await ctx.dispose();
+  });
 });
 
 test.describe("what the database will hand a client", () => {

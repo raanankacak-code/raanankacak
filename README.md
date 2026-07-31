@@ -37,7 +37,8 @@ a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
   when a subscription lapses
 - Client access — your customer gets a login of their own, restricted to the
   projects you list for them: progress, the site diary and its photos, the
-  safety record and the snag list
+  safety record and the snag list — and sign-off, recorded with their name
+  and the date and unchangeable afterwards
 - Audit log (append-only at the database level)
 
 ## Setup
@@ -188,6 +189,13 @@ trial, and a Stripe customer are each needed:
   passing or failing. Each staff-only table is proved to *have* rows before
   the client is shown none of them — an empty answer from an empty table is
   not a policy working.
+- **`approvals`** — client sign-off, tested for what cannot happen to a
+  record: a decision cannot be re-made, a rejection cannot be withdrawn out
+  of existence, the name on the signature comes from the signed-in account
+  rather than the request body, staff cannot sign on the client's behalf, and
+  revoking access does not rewrite what was already signed. The last two
+  tests go straight at the database to prove the CHECK constraints, because
+  the route handler is only the first of the two locks.
 - **`mobile`** — the whole suite runs at 1280px except this one, which runs
   at 390×844 and asks the questions a screenshot answers: the bottom nav is
   laid out, marks where you are and can be tapped; every list page fits the
@@ -218,6 +226,31 @@ Invite one from **Team → Invite User**, choose the **Client** role, and tick
 the projects they may see. They get the same invitation email as an employee;
 accepting it lands them on `/portal` instead of the dashboard. Client accounts
 do not count against the team-account limit on your plan.
+
+### Sign-off
+
+The contractor raises a request against a project — a stage, a milestone, a
+completed section — from **Projects → (a project) → Client**. It appears in
+the client's portal, and they approve or reject it. Their answer is recorded
+with their name and email **as they were at the moment of signing**, the exact
+time, and their comment.
+
+Three rules make it a record rather than a status field:
+
+1. **A decision is final.** Rejected does not go back to pending: the site
+   team puts the work right and raises a fresh request, so the history shows
+   the rejection and the eventual approval as two separate events.
+2. **A rejection says why.** "No" with nothing to act on only means a phone
+   call to find out what was wrong.
+3. **Nobody else can sign.** The portal route is the only write a client
+   account can make, and it is the only route that can produce a signature.
+   Staff get 403 on it.
+
+The first two are enforced twice — in `lib/approvals.ts` and again by CHECK
+constraints on the table — so a future route, a script, or a mistake in this
+repo cannot write a signature that never happened. Revoking a client's access
+removes their sight of the project without touching what they signed; the
+name and email on the record are copies, not a join, for exactly that reason.
 
 ### How the restriction is enforced
 

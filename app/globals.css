@@ -724,6 +724,26 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   .portal-projects{grid-template-columns:1fr}
 }
 
+/* ---------- sign-off ----------
+   Used on both sides: the contractor's Client tab and the client's portal.
+   One set of styles, because the two views are the same record read from
+   opposite ends. */
+.approval-list{display:flex;flex-direction:column;gap:0}
+.approval{padding:14px 0;border-bottom:1px solid var(--line)}
+.approval:first-child{padding-top:0}
+.approval:last-child{padding-bottom:0;border-bottom:0}
+.approval-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+.approval-h b{font-size:15.5px}
+.approval p{line-height:1.6;margin:6px 0}
+.approval-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:11px;flex-wrap:wrap}
+/* The signature itself, set apart from the request it answers. */
+.approval-sign{margin-top:10px;padding:10px 12px;border-left:3px solid var(--ok);
+  background:var(--panel2);border-radius:0 8px 8px 0}
+.approval-sign p{margin:6px 0 0}
+@media (max-width:700px){
+  .approval-actions .btn{flex:1;min-height:44px}
+}
+
 /* --- Loading skeletons -------------------------------------------------- */
 /* Placeholders shaped like the content they stand in for, so the page does
    not jump when the real thing arrives. Every page is force-dynamic and does

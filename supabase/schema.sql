@@ -1134,3 +1134,73 @@ create view equipment_hours with (security_invoker = on) as
     count(*) as log_count
   from equipment_usage_logs
   group by equipment_id;
+
+-- project approvals ---------------------------------------------------------
+-- What was sent to the client for sign-off, and what they said.
+--
+-- A decision is immutable: decided_at, decided_by_name and decided_by_email
+-- are written once and never rewritten, and a rejected request cannot be
+-- re-decided — the site team raises a fresh one. That is the whole point of
+-- a record. The CHECK constraints below are what make it true regardless of
+-- what any route handler does.
+--
+-- decided_by_name and decided_by_email are copies rather than a join: the
+-- client's account may later be renamed, deactivated or removed, and "some
+-- uuid approved this" is not evidence of anything. Same reasoning as
+-- legal_acceptances.
+
+create type approval_status as enum ('PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN');
+
+create table project_approvals (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid not null references projects(id) on delete cascade,
+  code text not null,
+  title text not null,
+  description text,
+  photos jsonb not null default '[]'::jsonb,
+  status approval_status not null default 'PENDING',
+  requested_by_id uuid not null,
+  requested_by_name text not null,
+  requested_at timestamptz not null default now(),
+  -- Who signed, as they were at the moment of signing.
+  decided_by_member_id uuid references org_members(id) on delete set null,
+  decided_by_name text,
+  decided_by_email text,
+  decided_at timestamptz,
+  decision_comment text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (org_id, code),
+  -- A decided row carries who and when; a pending one carries neither.
+  constraint approval_decision_complete check (
+    (status in ('PENDING', 'WITHDRAWN') and decided_at is null and decided_by_name is null)
+    or (status in ('APPROVED', 'REJECTED') and decided_at is not null and decided_by_name is not null)
+  ),
+  -- A rejection says why. "No" with nothing to act on only means a phone
+  -- call to find out what was wrong.
+  constraint approval_rejection_has_reason check (
+    status <> 'REJECTED' or (decision_comment is not null and length(btrim(decision_comment)) > 0)
+  )
+);
+
+create index project_approvals_project_id_idx on project_approvals (project_id);
+create index project_approvals_org_id_idx on project_approvals (org_id);
+-- Serves "what is waiting on the client" across the workspace.
+create index project_approvals_org_status_idx on project_approvals (org_id, status, requested_at desc);
+
+create trigger project_approvals_set_updated_at
+  before update on project_approvals
+  for each row execute function set_updated_at();
+
+alter table project_approvals enable row level security;
+
+-- The client sees the requests on their own projects — including the ones
+-- they have already decided, which is the record they may want to point at
+-- later. Staff see their whole workspace, as everywhere else.
+create policy "select_own_org_project_approvals" on project_approvals
+  for select to authenticated
+  using (
+    org_id = auth_org_id()
+    and ((select auth_is_client()) = false or project_id in (select auth_client_project_ids()))
+  );

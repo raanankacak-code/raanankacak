@@ -47,3 +47,66 @@ export async function grantProjectAccess(
   const { error } = await supabase.from("project_access").upsert(rows, { onConflict: "project_id,member_id" });
   if (error) throw error;
 }
+
+/** Who can see this project from outside the company, and since when. */
+export interface ProjectClient {
+  memberId: string;
+  name: string;
+  email: string;
+  active: boolean;
+  grantedByName: string | null;
+  grantedAt: Date;
+}
+
+export async function listClientsForProject(orgId: string, projectId: string): Promise<ProjectClient[]> {
+  if (!isUuid(projectId)) return [];
+  const { data, error } = await createAdminClient()
+    .from("project_access")
+    .select("member_id, granted_by_name, created_at, member:org_members!inner(id, name, email, active, role)")
+    .eq("org_id", orgId)
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const member = row.member as unknown as { name: string; email: string; active: boolean };
+    return {
+      memberId: row.member_id as string,
+      name: member.name,
+      email: member.email,
+      active: member.active,
+      grantedByName: (row.granted_by_name as string | null) ?? null,
+      grantedAt: new Date(row.created_at as string),
+    };
+  });
+}
+
+/** Whether anybody outside the company can see this project at all. */
+export async function countClientsForProject(orgId: string, projectId: string): Promise<number> {
+  if (!isUuid(projectId)) return 0;
+  const { count, error } = await createAdminClient()
+    .from("project_access")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .eq("project_id", projectId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Takes a client's sight of one project away.
+ *
+ * Deleting the row rather than flagging it: access is the presence of a row,
+ * and a "revoked" flag would be a second thing the policy would have to
+ * remember to check. What was signed off stays on the record either way —
+ * project_approvals keeps the name and email as they were.
+ */
+export async function revokeProjectAccess(orgId: string, projectId: string, memberId: string): Promise<void> {
+  const { error } = await createAdminClient()
+    .from("project_access")
+    .delete()
+    .eq("org_id", orgId)
+    .eq("project_id", projectId)
+    .eq("member_id", memberId);
+  if (error) throw error;
+}

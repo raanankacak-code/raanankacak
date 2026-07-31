@@ -5,8 +5,10 @@ import { listProjectsForClientViaSession } from "@/lib/db/projects";
 import { listDiaryForClientViaSession } from "@/lib/db/reports";
 import { listDefectsForOrgViaSession } from "@/lib/db/defects";
 import { listInspectionsForOrgViaSession } from "@/lib/db/safety";
+import { listApprovalsViaSession } from "@/lib/db/approvals";
 import { isOutstanding } from "@/lib/defects";
 import { formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
+import PortalApprovals from "@/components/portal/PortalApprovals";
 
 const SEVERITY_LABELS: Record<string, string> = {
   LOW: "Low",
@@ -38,10 +40,11 @@ export default async function PortalProjectPage({ params }: { params: Promise<{ 
   const project = (await listProjectsForClientViaSession(member.orgId)).find((p) => p.id === id);
   if (!project) notFound();
 
-  const [diary, defects, inspections] = await Promise.all([
+  const [diary, defects, inspections, approvals] = await Promise.all([
     listDiaryForClientViaSession(member.orgId, project.id),
     listDefectsForOrgViaSession(member.orgId, { projectId: project.id, limit: 50 }),
     listInspectionsForOrgViaSession(member.orgId, { projectId: project.id, limit: 20 }),
+    listApprovalsViaSession(member.orgId, { projectId: project.id }),
   ]);
 
   const outstanding = defects.filter((d) => isOutstanding(d.status));
@@ -76,6 +79,24 @@ export default async function PortalProjectPage({ params }: { params: Promise<{ 
           </div>
         </div>
       </div>
+
+      {/* Above the diary on purpose: the thing waiting on them is the reason
+          they opened the page. */}
+      <PortalApprovals
+        approvals={approvals.map((a) => ({
+          id: a.id,
+          code: a.code,
+          title: a.title,
+          description: a.description,
+          photos: a.photos,
+          status: a.status,
+          requestedByName: a.requestedByName,
+          requestedAt: a.requestedAt.toISOString(),
+          decidedByName: a.decidedByName,
+          decidedAt: a.decidedAt ? a.decidedAt.toISOString() : null,
+          decisionComment: a.decisionComment,
+        }))}
+      />
 
       <div className="card">
         <div className="card-h">
