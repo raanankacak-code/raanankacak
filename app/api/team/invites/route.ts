@@ -10,6 +10,7 @@ import { appOrigin } from "@/lib/appOrigin";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { recordMemberAction } from "@/lib/db/auditLog";
 import { assertCanAddTeamAccount } from "@/lib/billing/limits";
+import { listProjectIdsInOrg } from "@/lib/db/projects";
 
 const ROLES = [
   "OWNER",
@@ -22,6 +23,7 @@ const ROLES = [
   "STOREKEEPER",
   "FINANCE",
   "VIEWER",
+  "CLIENT",
 ] as const;
 
 const inviteSchema = z.object({
@@ -58,14 +60,38 @@ export async function POST(request: Request) {
     if (body.role === "OWNER" && member.role !== "OWNER") {
       return NextResponse.json({ error: "Only the Owner can invite another Owner" }, { status: 403 });
     }
+    // A client account exists to see particular projects. Inviting one with
+    // no projects would create a login that can see nothing at all, and the
+    // person on the other end would reasonably conclude the app is broken.
+    if (body.role === "CLIENT") {
+      if (!body.projectIds?.length) {
+        return NextResponse.json({ error: "Choose at least one project for this client" }, { status: 400 });
+      }
+      const owned = await listProjectIdsInOrg(member.orgId, body.projectIds);
+      if (owned.length !== body.projectIds.length) {
+        // One of the ids is not this workspace's. Refuse rather than silently
+        // granting the subset that is.
+        return NextResponse.json({ error: "Unknown project" }, { status: 400 });
+      }
+    } else if (body.projectIds?.length) {
+      // Staff are scoped by org, not by project. Accepting the field for them
+      // would imply a restriction that nothing enforces.
+      return NextResponse.json({ error: "Only a client invitation can be limited to projects" }, { status: 400 });
+    }
     const invite = await createInvite(member.orgId, { ...body, invitedByName: member.name });
     await notify(member.orgId, "invite", "User Invited", `${body.email} invited as ${ROLE_LABELS[body.role]} by ${member.name}.`);
     await recordMemberAction(member, {
       action: "MEMBER_INVITED",
       entityType: "org_invite",
       entityId: invite.id,
-      summary: `${member.name} invited ${body.email} as ${ROLE_LABELS[body.role]}`,
-      metadata: { email: body.email, role: body.role },
+      summary:
+        body.role === "CLIENT"
+          ? `${member.name} invited ${body.email} as a Client on ${body.projectIds!.length} project${body.projectIds!.length === 1 ? "" : "s"}`
+          : `${member.name} invited ${body.email} as ${ROLE_LABELS[body.role]}`,
+      // Which projects, for a client: giving someone outside the company
+      // sight of a job is the kind of thing the trail exists to record, and
+      // "invited as Client" alone does not say what they were shown.
+      metadata: { email: body.email, role: body.role, ...(body.role === "CLIENT" ? { projectIds: body.projectIds } : {}) },
     });
 
     const org = await getOrganizationById(member.orgId);

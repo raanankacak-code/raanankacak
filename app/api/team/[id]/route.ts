@@ -34,6 +34,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const body = patchSchema.parse(await request.json());
+    // A client account is scoped by project_access; a staff account is scoped
+    // by org. Converting one into the other in place would leave the account
+    // holding the wrong kind of scope, so it is refused in both directions —
+    // `role` cannot be CLIENT (the schema above has no such value) and a
+    // CLIENT cannot be given a staff role here.
+    if (target.role === "CLIENT" && body.role) {
+      throw new ApiError(400, "A client account can't be changed into a staff account. Invite them separately.");
+    }
     const isSelf = target.id === me.id;
     if (isSelf && body.role) throw new ApiError(400, "You can't change your own role");
     if (isSelf && body.active === false) throw new ApiError(400, "You can't deactivate your own account");

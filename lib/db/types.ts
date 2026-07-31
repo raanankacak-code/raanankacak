@@ -8,7 +8,10 @@ export type Role =
   | "SAFETY_OFFICER"
   | "STOREKEEPER"
   | "FINANCE"
-  | "VIEWER";
+  | "VIEWER"
+  // The client's own login. Not a member of staff: scoped to the projects
+  // listed for them in project_access, and refused every internal route.
+  | "CLIENT";
 
 export type ProjectStatus = "PLANNING" | "ACTIVE" | "COMPLETED" | "ON_HOLD";
 

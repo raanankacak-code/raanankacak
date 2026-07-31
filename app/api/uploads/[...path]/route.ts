@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { getObject } from "@/lib/uploads";
+import { isClient } from "@/lib/permissions";
+import { clientMaySeeFile } from "@/lib/db/clientFiles";
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -26,7 +28,13 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    const member = await requireMember();
+    // Clients are allowed here — a site photo is half of what a daily report
+    // says — but the org check below is not enough for them: everything in a
+    // workspace shares one bucket with no project in the path, so the org
+    // check alone would hand a client every other project's photos and every
+    // document in the company. clientMaySeeFile narrows that to files a
+    // record they can actually see points at.
+    const member = await requireMember(undefined, { allowClient: true });
     const { path: segments } = await params;
     const [orgId, ...rest] = segments;
     const filename = rest.join("/");
@@ -34,6 +42,10 @@ export async function GET(
     // Same 404 for another org's file as for a file that doesn't exist —
     // don't confirm the existence of objects the caller can't have.
     if (orgId !== member.orgId || rest.length !== 1) {
+      throw new ApiError(404, "Not found");
+    }
+
+    if (isClient(member.role) && !(await clientMaySeeFile(orgId, filename))) {
       throw new ApiError(404, "Not found");
     }
 

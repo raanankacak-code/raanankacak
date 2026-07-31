@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, ROLE_LABELS, ROLE_META, type Permission } from "@/lib/permissions";
+import { ASSIGNABLE_ROLES, can, isClient, ROLE_LABELS, ROLE_META, type Permission } from "@/lib/permissions";
 import type { Role } from "@/lib/db/types";
 
 const ALL_ROLES = Object.keys(ROLE_LABELS) as Role[];
@@ -189,9 +189,9 @@ describe("role descriptions describe features that exist", () => {
     "incident report",
     "toolbox",
     "process payment",
-    "defect",
-    "snag",
-    "equipment log",
+    // "defect", "snag" and "equipment log" were here until those modules were
+    // built. Same rule as the safety line above: an entry comes out when the
+    // app grows the thing, not when a description wants to claim it.
   ];
 
   it.each(Object.entries(ROLE_META))("%s claims nothing the app cannot do", (role, meta) => {
@@ -232,5 +232,47 @@ describe("role descriptions describe features that exist", () => {
         expect(can(role as Role, "closeInspections"), `${role} claims close-out`).toBe(true);
       }
     }
+  });
+});
+
+/**
+ * The client role.
+ *
+ * Every permission in this file gates an internal feature, so a client holds
+ * none of them: what a client can see is decided by project_access and the
+ * SELECT policies built on it, not by this matrix. These tests exist so that
+ * adding a permission and quietly handing it to CLIENT — the way a
+ * copy-pasted row in the matrix would — fails here rather than in a
+ * customer's workspace.
+ */
+describe("CLIENT", () => {
+  it("holds no permission at all", () => {
+    for (const permission of ALL_PERMISSIONS) {
+      expect(can("CLIENT", permission), `CLIENT was granted ${permission}`).toBe(false);
+    }
+  });
+
+  it("is the only role isClient() recognises", () => {
+    expect(isClient("CLIENT")).toBe(true);
+    for (const role of ALL_ROLES.filter((r) => r !== "CLIENT")) {
+      expect(isClient(role), `${role} was treated as a client`).toBe(false);
+    }
+  });
+
+  it("is not offered in the staff role picker", () => {
+    // A client needs projects chosen for them, so they are invited through
+    // the client flow rather than picked from a list of staff roles.
+    expect(ASSIGNABLE_ROLES).not.toContain("CLIENT");
+    expect(ASSIGNABLE_ROLES).toContain("VIEWER");
+  });
+
+  it("has a description that says the access is limited", () => {
+    // Whoever hands this role out is giving a customer a login into their
+    // own workspace, so the description has to say what that customer will
+    // and will not be able to see.
+    const meta = ROLE_META.CLIENT;
+    const text = [meta.desc, ...meta.resp].join(" ").toLowerCase();
+    expect(text).toContain("own project");
+    expect(text).toContain("cannot see");
   });
 });

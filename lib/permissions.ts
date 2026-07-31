@@ -11,6 +11,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   STOREKEEPER: "Storekeeper",
   FINANCE: "Finance",
   VIEWER: "Viewer",
+  CLIENT: "Client",
 };
 
 export type Permission =
@@ -123,6 +124,12 @@ const MATRIX: Record<Role, Permission[]> = {
   STOREKEEPER: ["viewMaterials", "submitRequests"],
   FINANCE: ["viewMaterials", "costReports"],
   VIEWER: ["viewReports", "viewMaterials"],
+  // Deliberately empty. A client is not staff: every permission here gates an
+  // internal feature, and the client portal is served by its own routes that
+  // check project access explicitly. requireMember() refuses a CLIENT
+  // outright unless a route opts in, so this matrix is the second lock
+  // rather than the only one.
+  CLIENT: [],
 };
 
 export const ROLE_META: Record<Role, { icon: string; badgeClass: string; desc: string; resp: string[] }> = {
@@ -136,6 +143,7 @@ export const ROLE_META: Record<Role, { icon: string; badgeClass: string; desc: s
   STOREKEEPER: { icon: "📦", badgeClass: "b-mut", desc: "Raises what the site needs and follows it through to delivery.", resp: ["Raise material requests", "Track requests through to delivery", "Review material history by project"] },
   FINANCE: { icon: "💰", badgeClass: "b-ok", desc: "Watches the cost picture — contract value, labour and materials.", resp: ["Generate per-project cost reports", "Track material spend", "Compare budget against progress"] },
   VIEWER: { icon: "👁️", badgeClass: "b-mut", desc: "Read-only access to reports and materials across every project.", resp: ["View reports and material requests", "No editing rights", "Sees all projects — not for a client who should only see their own"] },
+  CLIENT: { icon: "🤝", badgeClass: "b-info", desc: "Your customer, with a login of their own — restricted to the projects you list for them.", resp: ["See progress on their own project only", "Read the site diary and its photos", "See the safety record and the snag list", "Cannot see costs, materials, workers, plant or any other project"] },
 };
 
 export const PERM_LABELS: [Permission, string][] = [
@@ -166,3 +174,17 @@ export const PERM_LABELS: [Permission, string][] = [
 export function can(role: Role, permission: Permission): boolean {
   return MATRIX[role]?.includes(permission) ?? false;
 }
+
+/**
+ * A client account rather than a member of staff.
+ *
+ * Worth a named check rather than `role === "CLIENT"` scattered about: this
+ * is the distinction the row-level security policies are built on, and it is
+ * the one that must not be got wrong in two places and agree in neither.
+ */
+export function isClient(role: Role): boolean {
+  return role === "CLIENT";
+}
+
+/** The roles an Owner or Admin can hand out from the Team page. */
+export const ASSIGNABLE_ROLES: Role[] = (Object.keys(ROLE_LABELS) as Role[]).filter((r) => r !== "CLIENT");

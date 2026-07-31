@@ -52,7 +52,11 @@ test.describe("golden path: signup through approval", () => {
     await page.fill("#value", "2500000");
     await page.click('button[type="submit"]');
 
-    await page.waitForURL(/\/projects\/[^/]+$/, { timeout: 15000 });
+    // Not /projects/[^/]+$ — that also matches the form this submit came
+    // from, so the wait would return immediately and the assertion below
+    // would race the navigation. It usually won, which is the worst kind of
+    // flake: one that only fails on a slow machine, months later.
+    await page.waitForURL(/\/projects\/(?!new$)[^/]+$/, { timeout: 15000 });
     await expect(page.getByRole("heading", { name: "E2E Riverside Towers" })).toBeVisible();
   });
 

@@ -35,6 +35,9 @@ a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
   help centre, bug reports
 - Billing — trials, plan limits, Stripe checkout and webhooks, read-only mode
   when a subscription lapses
+- Client access — your customer gets a login of their own, restricted to the
+  projects you list for them: progress, the site diary and its photos, the
+  safety record and the snag list
 - Audit log (append-only at the database level)
 
 ## Setup
@@ -178,6 +181,13 @@ trial, and a Stripe customer are each needed:
 - **`not-found`** — a missing id, a malformed id and a signed-out request
   each land somewhere branded rather than on a database error or Next's
   default page, and the soft 404 carries `noindex`.
+- **`client-portal`** — the client role, checked twice: once through the app
+  (every internal route answers 403, the portal shows one project, another
+  project's page is a 404) and once by querying PostgREST directly with the
+  client's own JWT, which is the row-level security policies themselves
+  passing or failing. Each staff-only table is proved to *have* rows before
+  the client is shown none of them — an empty answer from an empty table is
+  not a policy working.
 - **`mobile`** — the whole suite runs at 1280px except this one, which runs
   at 390×844 and asks the questions a screenshot answers: the bottom nav is
   laid out, marks where you are and can be tapped; every list page fits the
@@ -196,6 +206,51 @@ trial, and a Stripe customer are each needed:
 Teardown removes every seeded org, their users, and any objects they
 uploaded to storage. Specs that create users mid-run (an invitee does not
 exist until the test runs) clean those up themselves.
+
+## Client access
+
+Your customer can have a login. It shows them their own project — progress,
+the site diary and its photographs, the safety record and the snag list — and
+nothing else: not costs, not material requests, not the workers or their IC
+numbers, not the plant register, not your other jobs, not your staff list.
+
+Invite one from **Team → Invite User**, choose the **Client** role, and tick
+the projects they may see. They get the same invitation email as an employee;
+accepting it lands them on `/portal` instead of the dashboard. Client accounts
+do not count against the team-account limit on your plan.
+
+### How the restriction is enforced
+
+A client is a member of the contractor's workspace, so the org filter that
+protects every other role says yes to them. Three things narrow it:
+
+1. **`project_access`** lists which projects a client account may see. The
+   rows are written from the invitation when it is accepted — never from
+   anything the person signing up sends.
+2. **The SELECT policies** in `supabase/schema.sql` call `auth_is_client()`
+   and `auth_client_project_ids()`. A client's reads are filtered to those
+   project ids by Postgres, before any application code runs.
+3. **`requireMember()` refuses a client by default.** Every internal route
+   answers 403 unless it opts in with `{ allowClient: true }`, so a new route
+   is closed to clients until someone decides otherwise rather than open until
+   someone remembers.
+
+Uploaded files are the one place where the org check was not enough: they live
+one bucket per workspace with no project in the path, so `/api/uploads/...`
+asks `clientMaySeeFile()` whether a record the client can *see* points at the
+file. That lookup runs through their own session, so it is the same policy
+doing the work rather than a second copy of the rule.
+
+Two things are deliberately not open to a client, and both are one decision
+away if you want them: the **document library** (one bucket per project with
+no internal/shared distinction — a contract filed there would become visible)
+and the **calendar**. Widening either means adding a per-item shared flag
+first.
+
+Changing a staff account into a client account, or the reverse, is refused:
+the two are scoped differently, and converting one in place would leave an
+account holding the wrong kind of scope. Invite them again instead. To take a
+client's access away, deactivate the account on the Team page.
 
 ## The phone layout
 
@@ -544,7 +599,7 @@ behind sign-in, so nothing crawls it in the first place.
 
 ### Before you go live
 
-Run `get_advisors` (or Supabase → Advisors) and expect exactly four findings,
+Run `get_advisors` (or Supabase → Advisors) and expect exactly six findings,
 each a decision rather than an oversight:
 
 - **`rate_limits` has RLS enabled and no policies** (INFO). Deliberate
@@ -562,6 +617,12 @@ each a decision rather than an oversight:
   privileges, so revoking this grant would break every tenant-scoped read in
   the app. Calling it over RPC returns the caller's own org id — something
   they already know.
+- **`auth_is_client()` and `auth_client_project_ids()` are executable by
+  `authenticated`** (WARN, one each). The same case as `auth_org_id()` above,
+  and for the same reason — they are what the SELECT policies call to narrow
+  a client to their own projects, and a policy is evaluated as the caller.
+  Over RPC they return whether the caller is a client and which project ids
+  they may already read: their own answers, not anybody else's.
 - **Leaked password protection is disabled** (WARN). This one is worth
   fixing and cannot be done from SQL. Turn it on at
   **Authentication → Policies → Password protection**; it checks new

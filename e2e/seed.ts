@@ -155,8 +155,16 @@ export function adminClient() {
   return admin();
 }
 
-/** Creates a confirmed auth user with no org membership, and signs them in. */
-export async function createAuthedUser(email: string): Promise<{ userId: string; cookie: string }> {
+/**
+ * Creates a confirmed auth user with no org membership, and signs them in.
+ *
+ * Returns the session cookie for driving the app, and the raw access token
+ * for talking to PostgREST directly — which is how a spec proves a policy
+ * rather than proving the route handler in front of it.
+ */
+export async function createAuthedUser(
+  email: string,
+): Promise<{ userId: string; cookie: string; accessToken: string }> {
   const password = `E2eUser!${Date.now()}`;
   const { data, error } = await admin().auth.admin.createUser({ email, password, email_confirm: true });
   if (error || !data.user) throw error ?? new Error("createUser returned no user");
@@ -178,12 +186,13 @@ export async function createAuthedUser(email: string): Promise<{ userId: string;
       },
     },
   });
-  const { error: signInErr } = await browserClient.auth.signInWithPassword({ email, password });
+  const { data: signIn, error: signInErr } = await browserClient.auth.signInWithPassword({ email, password });
   if (signInErr) throw signInErr;
 
   return {
     userId: data.user.id,
     cookie: jar.map((c) => `${c.name}=${c.value}`).join("; "),
+    accessToken: signIn.session?.access_token ?? "",
   };
 }
 

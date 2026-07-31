@@ -690,6 +690,40 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   .filters>*{width:100%;min-width:0}
 }
 
+/* ---------- client portal ----------
+   Deliberately not the app shell: a client has one place to be, and the
+   sidebar full of things they cannot open would only raise questions the
+   contractor then has to answer. Same palette, same cards, no navigation. */
+.portal-shell{min-height:100%;background:var(--ink)}
+.portal-top{display:flex;align-items:center;gap:14px;padding:13px 22px;background:var(--ink2);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.portal-brand{display:flex;align-items:center;gap:11px;color:var(--text);text-decoration:none}
+.portal-brand>span{display:flex;flex-direction:column;line-height:1.25}
+.portal-brand .small{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em}
+.portal-who{margin-left:auto}
+.portal-main{max-width:920px;margin:0 auto;padding:22px 22px 60px;display:flex;flex-direction:column;gap:16px}
+.portal-main .topbar{margin-bottom:0}
+.portal-projects{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.portal-proj{text-decoration:none;color:inherit;transition:border-color .12s,transform .1s}
+.portal-proj:hover{border-color:var(--amber)}
+.portal-proj-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.portal-bar{height:8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line2);
+  overflow:hidden;margin:12px 0 7px}
+.portal-bar>div{height:100%;background:linear-gradient(90deg,var(--amber-deep),var(--amber))}
+.portal-proj-f{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.portal-diary{display:flex;flex-direction:column;gap:0}
+.portal-entry{padding:14px 0;border-bottom:1px solid var(--line)}
+.portal-entry:first-child{padding-top:0}
+.portal-entry:last-child{padding-bottom:0;border-bottom:0}
+.portal-entry-h{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.portal-entry p{line-height:1.6;margin-bottom:6px}
+@media (max-width:700px){
+  .portal-top{padding:11px 14px;gap:10px}
+  .portal-who{display:none}
+  .portal-main{padding:16px 14px 44px}
+  .portal-projects{grid-template-columns:1fr}
+}
+
 /* --- Loading skeletons -------------------------------------------------- */
 /* Placeholders shaped like the content they stand in for, so the page does
    not jump when the real thing arrives. Every page is force-dynamic and does
@@ -787,3 +821,8 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   color:var(--mut);text-transform:none;letter-spacing:0;font-weight:400;cursor:pointer}
 .consent a{text-decoration:underline;text-underline-offset:2px;font-weight:600}
 .consent input{margin-top:2px}
+/* The project checkboxes on a client invitation. Scrolls rather than growing
+   the dialog past the screen on a workspace with thirty projects. */
+.proj-picks{display:flex;flex-direction:column;gap:2px;max-height:210px;overflow-y:auto;
+  border:1px solid var(--line2);border-radius:9px;padding:10px 11px;background:var(--panel2)}
+.proj-picks .consent{margin:0;padding:5px 0;font-size:14px;color:var(--text)}

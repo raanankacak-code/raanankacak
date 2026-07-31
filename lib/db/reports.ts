@@ -130,6 +130,39 @@ export async function listReportsViaSession(
   return (data ?? []).map((row) => mapDailyReportListItem(row as unknown as Record<string, unknown>));
 }
 
+/**
+ * The site diary as a client reads it: what was done, what held it up, and
+ * the photographs. Not the internal notes, and not the manpower breakdown.
+ *
+ * Read through the caller's session, so the SELECT policy is what decides
+ * which project's rows come back — this function cannot be talked into
+ * another project by a bad id, because it never takes one on trust.
+ */
+export async function listDiaryForClientViaSession(
+  orgId: string,
+  projectId: string,
+  limit = 30,
+): Promise<{ id: string; date: Date; weather: string | null; workCompleted: string | null; delays: string | null; photos: string[] }[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
+    .from("daily_reports")
+    .select("id, date, weather, work_completed, delays, photos")
+    .eq("org_id", orgId)
+    .eq("project_id", projectId)
+    .order("date", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    date: new Date(row.date as string),
+    weather: (row.weather as string | null) ?? null,
+    workCompleted: (row.work_completed as string | null) ?? null,
+    delays: (row.delays as string | null) ?? null,
+    photos: ((row.photos ?? []) as string[]) ?? [],
+  }));
+}
+
 /** Reports in a given status for one project, counted in the database. */
 export async function countReportsByStatusForProject(projectId: string, status: ReportStatus): Promise<number> {
   const supabase = await createSessionClient();

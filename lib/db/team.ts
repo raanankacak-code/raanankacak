@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { grantProjectAccess } from "@/lib/db/projectAccess";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { InviteStatus, OrgInvite, OrgMember, Role } from "@/lib/db/types";
 
@@ -92,11 +93,20 @@ export async function removeMember(orgId: string, id: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Team accounts in use, for the plan limit.
+ *
+ * Client accounts are excluded on purpose: a customer who has been given a
+ * login to watch their own job is not one of the contractor's five staff
+ * seats, and charging for them would make the feature something to avoid
+ * using.
+ */
 export async function countActiveMembersForOrg(orgId: string): Promise<number> {
   const { count, error } = await createAdminClient()
     .from("org_members")
     .select("*", { count: "exact", head: true })
     .eq("org_id", orgId)
+    .neq("role", "CLIENT")
     .eq("active", true);
   if (error) throw error;
   return count ?? 0;
@@ -107,6 +117,7 @@ export async function countPendingInvitesForOrg(orgId: string): Promise<number> 
     .from("org_invites")
     .select("*", { count: "exact", head: true })
     .eq("org_id", orgId)
+    .neq("role", "CLIENT")
     .eq("status", "PENDING");
   if (error) throw error;
   return count ?? 0;
@@ -279,6 +290,13 @@ export async function acceptInvite(
     .select("*")
     .single();
   if (memberError) throw memberError;
+
+  // A client invitation names the projects it is for. Granting them here,
+  // from the invitation rather than from anything the person signing up sent,
+  // is what stops a client widening their own access at signup.
+  if (invite.role === "CLIENT" && invite.projectIds.length > 0) {
+    await grantProjectAccess(invite.orgId, memberRow.id as string, invite.projectIds, invite.invitedByName);
+  }
 
   const { data: inviteRow, error: inviteError } = await supabase
     .from("org_invites")

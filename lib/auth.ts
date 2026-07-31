@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getMemberByUserId } from "@/lib/db/organizations";
-import { can, type Permission } from "@/lib/permissions";
+import { can, isClient, type Permission } from "@/lib/permissions";
 import { reportError, isClientDisconnect } from "@/lib/logger";
 import { getSubscriptionForOrgViaSession, isSubscriptionWritable } from "@/lib/db/subscriptions";
 import type { OrgMember } from "@/lib/db/types";
@@ -28,13 +28,38 @@ export class ApiError extends Error {
   }
 }
 
-/** For Route Handlers: gets the current member or throws a 401/403 ApiError. */
-export async function requireMember(permission?: Permission): Promise<CurrentMember> {
+/**
+ * For Route Handlers: gets the current member or throws a 401/403 ApiError.
+ *
+ * A CLIENT is refused outright unless the route says otherwise. That is the
+ * important part of this function: a client is inside the org, so every route
+ * that only checks a permission would have to remember to exclude them, and
+ * one that forgot would hand a customer the whole workspace. Default-deny
+ * here means a new route is closed to clients until someone decides
+ * otherwise, and the portal's own routes are the handful that opt in.
+ */
+export async function requireMember(
+  permission?: Permission,
+  options?: { allowClient?: boolean },
+): Promise<CurrentMember> {
   const member = await getCurrentMember();
   if (!member) throw new ApiError(401, "Not signed in");
+  if (isClient(member.role) && !options?.allowClient) {
+    // Deliberately the same wording a staff member gets for a permission they
+    // lack: a client should not be able to map the app by reading errors.
+    throw new ApiError(403, "Your role does not have this permission");
+  }
   if (permission && !can(member.role, permission)) {
     throw new ApiError(403, "Your role does not have this permission");
   }
+  return member;
+}
+
+/** For the portal's own routes: the caller must be a client, and nothing else. */
+export async function requireClient(): Promise<CurrentMember> {
+  const member = await getCurrentMember();
+  if (!member) throw new ApiError(401, "Not signed in");
+  if (!isClient(member.role)) throw new ApiError(403, "This area is for client accounts");
   return member;
 }
 

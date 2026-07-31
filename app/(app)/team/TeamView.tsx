@@ -19,6 +19,7 @@ const ROLES: Role[] = [
   "STOREKEEPER",
   "FINANCE",
   "VIEWER",
+  "CLIENT",
 ];
 
 type Member = { id: string; name: string; email: string; role: Role; active: boolean };
@@ -302,6 +303,7 @@ function ManageMemberModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const isSelf = member.id === myId;
+  const isClientAccount = member.role === "CLIENT";
 
   async function saveRole() {
     setSaving(true);
@@ -369,14 +371,27 @@ function ManageMemberModal({
         </div>
         <div className="full">
           <label htmlFor="teamview-role">Role</label>
-          <select id="teamview-role" value={role} onChange={(e) => setRole(e.target.value as Role)} disabled={isSelf}>
-            {ROLES.map((r) => (
+          <select
+            id="teamview-role"
+            value={role}
+            onChange={(e) => setRole(e.target.value as Role)}
+            disabled={isSelf || isClientAccount}
+          >
+            {/* A client is scoped by project and a staff account by company,
+                so one cannot be turned into the other in place. The server
+                refuses it too. */}
+            {(isClientAccount ? (["CLIENT"] as Role[]) : ROLES.filter((r) => r !== "CLIENT")).map((r) => (
               <option key={r} value={r}>
                 {ROLE_META[r].icon} {ROLE_LABELS[r]}
               </option>
             ))}
           </select>
           {isSelf && <div className="small faint" style={{ marginTop: 5 }}>You can&rsquo;t change your own role.</div>}
+          {isClientAccount && (
+            <div className="small faint" style={{ marginTop: 5 }}>
+              A client account can&rsquo;t become a staff account. Deactivate it here to take their access away.
+            </div>
+          )}
         </div>
       </div>
 
@@ -406,16 +421,45 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [emailFailed, setEmailFailed] = useState(false);
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projectIds, setProjectIds] = useState<string[]>([]);
+  const isClientInvite = role === "CLIENT";
+
+  // The project list is only needed for a client invitation, so it is fetched
+  // when one is being written rather than every time the modal opens.
+  useEffect(() => {
+    if (!isClientInvite || projects.length > 0) return;
+    let cancelled = false;
+    apiFetch<{ projects: { id: string; name: string }[] }>("/api/projects")
+      .then((res) => {
+        if (!cancelled) setProjects(res.projects ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Could not load your projects. Close this and try again.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isClientInvite, projects.length]);
 
   async function submit() {
     setError("");
     if (!name.trim()) return setError("Full name is required.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("Enter a valid email address.");
+    if (isClientInvite && projectIds.length === 0) {
+      return setError("Choose at least one project this client may see.");
+    }
     setSaving(true);
     try {
       const res = await apiFetch<{ emailSent: boolean }>("/api/team/invites", {
         method: "POST",
-        body: JSON.stringify({ name, email, role, department: department || undefined }),
+        body: JSON.stringify({
+          name,
+          email,
+          role,
+          department: department || undefined,
+          ...(isClientInvite ? { projectIds } : {}),
+        }),
       });
       // The invitation exists either way, so this is a warning rather than an
       // error — but closing the modal as if the email had gone would leave
@@ -477,6 +521,33 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <label htmlFor="teamview-department-optional">Department (optional)</label>
           <input id="teamview-department-optional" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Technical" />
         </div>
+        {isClientInvite && (
+          <div className="full">
+            <label>Projects this client may see *</label>
+            <p className="small mut" style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400, margin: "0 0 8px" }}>
+              They will see progress, the site diary and its photos, the safety record and the snag list — for these
+              projects and nothing else. Not costs, materials, workers or plant.
+            </p>
+            {projects.length === 0 ? (
+              <div className="small faint">No projects yet — create one first.</div>
+            ) : (
+              <div className="proj-picks">
+                {projects.map((p) => (
+                  <label key={p.id} className="consent">
+                    <input
+                      type="checkbox"
+                      checked={projectIds.includes(p.id)}
+                      onChange={(e) =>
+                        setProjectIds((ids) => (e.target.checked ? [...ids, p.id] : ids.filter((id) => id !== p.id)))
+                      }
+                    />
+                    <span>{p.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <div className="small faint" style={{ marginTop: 12 }}>
         They&rsquo;ll get an invitation link that expires in 7 days. Their role, company and access come from this invitation.

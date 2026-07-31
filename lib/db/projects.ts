@@ -103,6 +103,45 @@ export async function countActiveProjectsForOrg(orgId: string): Promise<number> 
   return count ?? 0;
 }
 
+/**
+ * The projects a client may see, read through their own session.
+ *
+ * No filter by project id here on purpose: the SELECT policy already narrows
+ * this to the rows in project_access for this account, so what comes back is
+ * the database's answer rather than the application's — if the two ever
+ * disagreed, this shows the narrower one. The staff list embeds a worker
+ * count; this does not, because a client cannot read the workers table.
+ */
+export async function listProjectsForClientViaSession(orgId: string): Promise<Project[]> {
+  const supabase = await createSessionClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapProject);
+}
+
+/**
+ * Of the ids given, the ones that actually belong to this org.
+ *
+ * Used to check a client invitation before it is created: a project id from
+ * another workspace must not become a row in project_access, because the RLS
+ * policy would then honour it.
+ */
+export async function listProjectIdsInOrg(orgId: string, ids: string[]): Promise<string[]> {
+  const wanted = [...new Set(ids.filter(isUuid))];
+  if (wanted.length === 0) return [];
+  const { data, error } = await createAdminClient()
+    .from("projects")
+    .select("id")
+    .eq("org_id", orgId)
+    .in("id", wanted);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.id as string);
+}
+
 export async function listProjectNamesForOrg(orgId: string): Promise<{ id: string; name: string }[]> {
   const { data, error } = await createAdminClient()
     .from("projects")

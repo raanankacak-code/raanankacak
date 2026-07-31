@@ -20,7 +20,12 @@ create type role as enum (
   'SAFETY_OFFICER',
   'STOREKEEPER',
   'FINANCE',
-  'VIEWER'
+  'VIEWER',
+  -- The client's own login. Separate from VIEWER on purpose: a Viewer is a
+  -- member of staff who reads every project, and a client must read exactly
+  -- the ones listed for them in project_access. That difference is enforced
+  -- by the SELECT policies at the end of this file, not only in app code.
+  'CLIENT'
 );
 
 create type project_status as enum (
@@ -136,6 +141,26 @@ create trigger projects_set_updated_at
   for each row execute function set_updated_at();
 
 alter table projects enable row level security;
+
+-- project_access -----------------------------------------------------------
+-- Which projects a CLIENT account may see. Staff are not listed here; they
+-- are scoped by org alone. org_id is denormalised, as on every other business
+-- table, so the tenant filter never depends on a join being right.
+
+create table project_access (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations(id) on delete cascade,
+  project_id uuid not null references projects(id) on delete cascade,
+  member_id uuid not null references org_members(id) on delete cascade,
+  granted_by_name text,
+  created_at timestamptz not null default now(),
+  unique (project_id, member_id)
+);
+
+create index project_access_member_id_idx on project_access (member_id);
+create index project_access_org_id_idx on project_access (org_id);
+
+alter table project_access enable row level security;
 
 -- workers ------------------------------------------------------------------
 -- Site labourers, not Supabase-authenticated users.
@@ -617,65 +642,147 @@ revoke execute on function auth_org_id() from public;
 revoke execute on function auth_org_id() from anon;
 grant execute on function auth_org_id() to authenticated;
 
+-- The client scope.
+--
+-- A CLIENT is inside the org like anybody else, so org_id alone would show
+-- them every project the contractor runs. These two functions are what
+-- narrows that to the projects listed for them in project_access. Both are
+-- SECURITY DEFINER for the same reason auth_org_id() is: they read
+-- org_members, whose own policy would otherwise recurse.
+--
+-- The role is compared as text rather than as the enum literal so that the
+-- migration adding 'CLIENT' and the migration creating these functions can
+-- be separate statements — Postgres refuses to use a new enum value in the
+-- same transaction that added it.
+
+create function auth_is_client() returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select coalesce(
+    (select role::text = 'CLIENT' from public.org_members
+      where user_id = auth.uid() and active = true limit 1),
+    false
+  );
+$$;
+
+create function auth_client_project_ids() returns setof uuid
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select pa.project_id
+    from public.project_access pa
+    join public.org_members m on m.id = pa.member_id
+   where m.user_id = auth.uid() and m.active = true;
+$$;
+
+revoke execute on function auth_is_client() from public, anon;
+revoke execute on function auth_client_project_ids() from public, anon;
+grant execute on function auth_is_client() to authenticated;
+grant execute on function auth_client_project_ids() to authenticated;
+
+-- Every policy below keeps its org filter and adds a clause that only
+-- engages for a client, so no existing role's access changes.
+-- `(select auth_is_client())` is wrapped in a scalar subquery deliberately:
+-- that makes Postgres evaluate it once per query as an InitPlan instead of
+-- once per row.
+
+-- The client's own contractor: the portal shows the company's name and logo.
 create policy "select_own_org" on organizations
   for select to authenticated
   using (id = auth_org_id());
 
+-- Their own membership row so the portal can greet them by name — not the
+-- rest of the contractor's staff list.
 create policy "select_own_org_members" on org_members
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (
+    org_id = auth_org_id()
+    and ((select auth_is_client()) = false or user_id = auth.uid())
+  );
 
+create policy "select_own_project_access" on project_access
+  for select to authenticated
+  using (
+    org_id = auth_org_id()
+    and (
+      (select auth_is_client()) = false
+      or member_id in (select id from org_members where user_id = auth.uid())
+    )
+  );
+
+-- What a client can see, scoped to their own projects: the project itself,
+-- the site diary, the safety record and the snag list.
 create policy "select_own_org_projects" on projects
   for select to authenticated
-  using (org_id = auth_org_id());
-
-create policy "select_own_org_workers" on workers
-  for select to authenticated
-  using (org_id = auth_org_id());
-
-create policy "select_own_org_attendance" on attendance_records
-  for select to authenticated
-  using (org_id = auth_org_id());
+  using (
+    org_id = auth_org_id()
+    and ((select auth_is_client()) = false or id in (select auth_client_project_ids()))
+  );
 
 create policy "select_own_org_reports" on daily_reports
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (
+    org_id = auth_org_id()
+    and ((select auth_is_client()) = false or project_id in (select auth_client_project_ids()))
+  );
+
+-- Everything else is staff-only: commercial data (materials and costs),
+-- other people's personal data (workers and their attendance), the plant
+-- register, the internal calendar, the audit log, invitations, billing and
+-- the document library — a document library is one bucket per project with
+-- no internal/shared distinction, so opening it would hand a client whatever
+-- happens to have been filed there.
+create policy "select_own_org_workers" on workers
+  for select to authenticated
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
+
+create policy "select_own_org_attendance" on attendance_records
+  for select to authenticated
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 create policy "select_own_org_invites" on org_invites
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 create policy "select_own_org_material_requests" on material_requests
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 create policy "select_own_org_material_events" on material_request_events
   for select to authenticated
-  using (request_id in (select id from material_requests where org_id = auth_org_id()));
+  using (
+    (select auth_is_client()) = false
+    and request_id in (select id from material_requests where org_id = auth_org_id())
+  );
 
 create policy "select_own_org_documents" on documents
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 create policy "select_own_org_calendar" on calendar_events
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 create policy "select_own_org_notifications" on notifications
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 create policy "select_own_org_bug_reports" on bug_reports
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 create policy "select_own_org_audit_log" on audit_log
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 create policy "select_own_org_subscription" on org_subscriptions
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 -- rls safety net ---------------------------------------------------------
 -- Enables row level security on any table created in `public`, so a new
@@ -787,7 +894,10 @@ alter table safety_inspections enable row level security;
 
 create policy "select_own_org_safety_inspections" on safety_inspections
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (
+    org_id = auth_org_id()
+    and ((select auth_is_client()) = false or project_id in (select auth_client_project_ids()))
+  );
 
 -- legal acceptances -------------------------------------------------------
 -- Who accepted the terms and privacy notice, at which version, and when.
@@ -828,7 +938,7 @@ alter table legal_acceptances enable row level security;
 -- role — rows are created by the server with the service key at signup and
 -- at invite acceptance, and nothing can forge or amend one afterwards.
 create policy legal_acceptances_select on legal_acceptances
-  for select using (org_id = auth_org_id());
+  for select using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 -- deleted workspaces ------------------------------------------------------
 -- What was deleted, by whom, when, and how much of it there was.
@@ -930,7 +1040,10 @@ alter table defects enable row level security;
 
 create policy "select_own_org_defects" on defects
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (
+    org_id = auth_org_id()
+    and ((select auth_is_client()) = false or project_id in (select auth_client_project_ids()))
+  );
 
 -- equipment ---------------------------------------------------------------
 -- The plant register: what you own or hire, where it is, and when it is next
@@ -981,7 +1094,7 @@ alter table equipment enable row level security;
 
 create policy "select_own_org_equipment" on equipment
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 -- One row per machine per day worked. Kept as rows rather than a running
 -- total on the equipment row, so a correction is visible rather than
@@ -1007,7 +1120,7 @@ alter table equipment_usage_logs enable row level security;
 
 create policy "select_own_org_equipment_usage_logs" on equipment_usage_logs
   for select to authenticated
-  using (org_id = auth_org_id());
+  using (org_id = auth_org_id() and (select auth_is_client()) = false);
 
 -- Totals computed from the logs, never stored beside them. A denormalised
 -- total drifts the first time a log is corrected, and the drift is silent.

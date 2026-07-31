@@ -5,7 +5,7 @@ import { getOrganizationById } from "@/lib/db/organizations";
 import { countRequestsByStatusForOrg } from "@/lib/db/materials";
 import { countOpenFindingsForOrg } from "@/lib/db/safety";
 import { getSubscriptionForOrgViaSession, isSubscriptionWritable, trialDaysLeft } from "@/lib/db/subscriptions";
-import { can } from "@/lib/permissions";
+import { can, isClient } from "@/lib/permissions";
 import { countOverdueDefectsForOrg } from "@/lib/db/defects";
 import { countEquipmentNeedingAttention } from "@/lib/db/equipment";
 import { todayInOrgTimezone } from "@/lib/today";
@@ -20,6 +20,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const member = await getCurrentMember();
   if (!member) redirect("/signup/company");
+  // A client has no business in the staff app, and every route handler under
+  // it refuses them anyway — landing here would be a page of empty cards and
+  // failed fetches rather than an answer.
+  if (isClient(member.role)) redirect("/portal");
 
   const org = await getOrganizationById(member.orgId);
   if (!org) redirect("/signup/company");
