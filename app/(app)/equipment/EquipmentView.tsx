@@ -161,7 +161,9 @@ export default function EquipmentView({
           </div>
         ) : (
           <div className="tbl-wrap">
-            <table>
+            {/* `cards` — one card per machine below 700px, so "service overdue"
+                is not off the right edge of a phone. See globals.css. */}
+            <table className="cards">
               <thead>
                 <tr>
                   <SortableTh label="Ref" sortKey="code" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
@@ -191,8 +193,8 @@ export default function EquipmentView({
                         }
                       }}
                     >
-                      <td className="num">{r.code}</td>
-                      <td>
+                      <td className="num" data-label="Ref">{r.code}</td>
+                      <td className="card-t">
                         <div style={{ fontWeight: 600 }}>{r.name}</div>
                         <div className="small mut">
                           {[r.type, r.registrationNo, r.owned ? "Owned" : `Hired${r.supplier ? ` · ${r.supplier}` : ""}`]
@@ -200,18 +202,20 @@ export default function EquipmentView({
                             .join(" · ")}
                         </div>
                       </td>
-                      <td>{r.project?.name ?? <span className="faint">In the yard</span>}</td>
-                      <td className="num">{r.totalHours > 0 ? `${r.totalHours}h` : <span className="faint">—</span>}</td>
-                      <td className="num">
+                      <td data-label="Where">{r.project?.name ?? <span className="faint">In the yard</span>}</td>
+                      <td className="num" data-label="Hours">
+                        {r.totalHours > 0 ? `${r.totalHours}h` : <span className="faint">—</span>}
+                      </td>
+                      <td className="num" data-label="Next service">
                         <DueCell date={r.nextServiceDate} warning={serviceWarning ? WARNING_LABELS[serviceWarning as never] : null} />
                       </td>
-                      <td className="num">
+                      <td className="num" data-label="Inspection">
                         <DueCell
                           date={r.inspectionExpiry}
                           warning={inspectionWarning ? WARNING_LABELS[inspectionWarning as never] : null}
                         />
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`badge ${STATUS_BADGE[r.status]}`}>
                           <i className="dot" />
                           {STATUS_LABELS[r.status]}

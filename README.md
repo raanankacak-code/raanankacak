@@ -178,6 +178,13 @@ trial, and a Stripe customer are each needed:
 - **`not-found`** — a missing id, a malformed id and a signed-out request
   each land somewhere branded rather than on a database error or Next's
   default page, and the soft 404 carries `noindex`.
+- **`mobile`** — the whole suite runs at 1280px except this one, which runs
+  at 390×844 and asks the questions a screenshot answers: the bottom nav is
+  laid out, marks where you are and can be tapped; every list page fits the
+  screen with no sideways scroll; each row is a labelled card rather than a
+  table with its important columns off the edge; and nothing on those pages
+  is a smaller tap target than WCAG 2.2 asks for. It seeds one row on every
+  list page first — an empty page proves nothing about a layout.
 - **`accessibility`** — hand-written checks for the things a scanner cannot
   judge (focus goes into a dialog and comes back out, the skip link works,
   sort state is announced, no `label` points at a control that does not
@@ -189,6 +196,34 @@ trial, and a Stripe customer are each needed:
 Teardown removes every seeded org, their users, and any objects they
 uploaded to storage. Specs that create users mid-run (an invitee does not
 exist until the test runs) clean those up themselves.
+
+## The phone layout
+
+Most of this app is read standing up, on a 5-inch screen, in a site office.
+Two conventions carry that, and a new list page needs both.
+
+**Rows become cards below 700px.** Put `className="cards"` on the `<table>`
+and give every `<td>` a `data-label`; `app/globals.css` then turns each row
+into a card whose cells carry their own labels and hides the header row. Two
+cells opt out instead: `card-t` is the row's headline (a project name, a
+machine) and renders first with no label, and `card-a` is the row's buttons
+and renders last, left-aligned so the floating Create Report button is not
+sitting on top of them. Nothing changes above 700px — the table, the sorting
+and the row click are untouched — so this is safe to add to an existing page.
+
+The reason it exists: a seven-column register on a 390px screen puts
+"service overdue", "inspection expired", the severity and the status off the
+right edge, behind a sideways scroll nobody performs. The columns that decide
+what someone does next were the ones you could not see.
+
+**Selectors must match what is rendered.** Six rules in `globals.css` styled
+`.mobile-nav button` while `AppShell` rendered links, so the bottom
+navigation was completely unstyled for twenty-one milestones — icons at
+natural size, labels in link amber running off the edge, no active marker.
+A selector matching nothing is not an error anywhere, and every browser test
+ran at desktop width where that nav is `display: none`. `lib/mobileStyles.test.ts`
+now pins the stylesheet to the markup, and `e2e/mobile.spec.ts` looks at the
+result in a browser at phone width.
 
 ## File uploads
 

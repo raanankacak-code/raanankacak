@@ -174,7 +174,8 @@ export default function MaterialsView({
           </div>
         ) : list.length ? (
           <div className="tbl-wrap">
-            <table>
+            {/* `cards` — one card per request below 700px. See globals.css. */}
+            <table className="cards">
               <thead>
                 <tr>
                   <SortableTh label="Ref" sortKey="ref" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
@@ -190,24 +191,24 @@ export default function MaterialsView({
                   const overdue = r.neededBy && r.neededBy <= daysAhead(2) && !["DELIVERED", "REJECTED"].includes(r.status);
                   return (
                     <tr key={r.id} className="rowlink" onClick={() => setOpenId(r.id)}>
-                      <td className="num">{r.code}</td>
-                      <td>
+                      <td className="num" data-label="Ref">{r.code}</td>
+                      <td className="card-t">
                         <b>{r.material}</b>
                         <div className="small faint">{r.project.name}</div>
                       </td>
-                      <td className="num">
+                      <td className="num" data-label="Qty">
                         {r.qty} {r.unit}
                       </td>
-                      <td className="num" style={{ color: overdue ? "var(--bad-text)" : "inherit" }}>
+                      <td className="num" data-label="Needed by" style={{ color: overdue ? "var(--bad-text)" : "inherit" }}>
                         {formatDate(r.neededBy)}
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`badge ${statusBadgeClass(r.status)}`}>
                           <i className="dot" />
                           {statusLabel(r.status)}
                         </span>
                       </td>
-                      <td className="small faint">{new Date(r.updatedAt).toLocaleString()}</td>
+                      <td className="small faint" data-label="Last update">{new Date(r.updatedAt).toLocaleString()}</td>
                     </tr>
                   );
                 })}
@@ -215,13 +216,18 @@ export default function MaterialsView({
             </table>
           </div>
         ) : null}
-        {!loading && requests.length > 0 && totalRequests > requests.length ? (
+        {!loading && requests.length > 0 && totalRequests > requests.length && (
           <div className="card-b" style={{ textAlign: "center" }}>
             <button className="btn" disabled={loadingMore} onClick={loadMore}>
               {loadingMore ? "Loading…" : `Load older requests (${totalRequests - requests.length} more)`}
             </button>
           </div>
-        ) : (
+        )}
+        {/* Only when there is genuinely nothing to show. This was the `else`
+            of the Load-older branch, which meant a workspace with requests
+            but no further page printed "No Material Requests" underneath a
+            table full of them. */}
+        {!loading && list.length === 0 && (
           <div className="empty">
             <div className="e-ic">📦</div>
             <div className="e-t">No Material Requests</div>

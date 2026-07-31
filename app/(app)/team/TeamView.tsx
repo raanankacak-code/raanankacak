@@ -128,7 +128,8 @@ export default function TeamView({ orgName, myRole, myId }: { orgName: string; m
             </div>
           ) : (
             <div className="tbl-wrap">
-              <table>
+              {/* `cards` — one card per member below 700px. See globals.css. */}
+              <table className="cards">
                 <thead>
                   <tr>
                     <SortableTh label="Person" sortKey="name" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
@@ -143,7 +144,7 @@ export default function TeamView({ orgName, myRole, myId }: { orgName: string; m
                     const canManage = m.role !== "OWNER" || myRole === "OWNER";
                     return (
                       <tr key={m.id} style={{ opacity: m.active ? 1 : 0.55 }}>
-                        <td>
+                        <td className="card-t">
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                             <div className="avatar" style={{ width: 30, height: 30, fontSize: 13 }}>
                               {initials(m.name)}
@@ -155,16 +156,16 @@ export default function TeamView({ orgName, myRole, myId }: { orgName: string; m
                             </div>
                           </div>
                         </td>
-                        <td>
+                        <td data-label="Role">
                           <RoleTag role={m.role} onClick={() => setRoleInfo(m.role)} />
                         </td>
-                        <td>
+                        <td data-label="Status">
                           <span className={`badge ${statusBadgeClass(m.active ? "ACTIVE" : "CANCELLED")}`}>
                             <i className="dot" />
                             {m.active ? "Active" : "Deactivated"}
                           </span>
                         </td>
-                        <td style={{ textAlign: "right" }}>
+                        <td className="card-a" style={{ textAlign: "right" }}>
                           {canManage && (
                             <button className="btn btn-ghost btn-sm" onClick={() => setManageTarget(m)} aria-label={`Manage ${m.name}`}>
                               Manage
@@ -187,7 +188,8 @@ export default function TeamView({ orgName, myRole, myId }: { orgName: string; m
           </div>
           {invites.length ? (
             <div className="tbl-wrap">
-              <table>
+              {/* `cards` — see globals.css and InviteRow below. */}
+              <table className="cards">
                 <thead>
                   <tr>
                     <th>Employee</th>
@@ -523,19 +525,19 @@ function InviteRow({ invite, onChanged }: { invite: Invite; onChanged: () => voi
 
   return (
     <tr>
-      <td>
+      <td className="card-t">
         <b>{invite.name}</b>
         <div className="small faint num">
           {invite.email}
           {invite.department ? ` · ${invite.department}` : ""}
         </div>
       </td>
-      <td>
+      <td data-label="Role">
         <span className={`badge ${ROLE_META[invite.role].badgeClass}`}>
           {ROLE_META[invite.role].icon} {ROLE_LABELS[invite.role]}
         </span>
       </td>
-      <td>
+      <td data-label="Invitation">
         <span className={`badge ${statusBadgeClass(invite.status)}`}>
           <i className="dot" />
           {statusLabel(invite.status)}
@@ -549,7 +551,7 @@ function InviteRow({ invite, onChanged }: { invite: Invite; onChanged: () => voi
           </div>
         )}
       </td>
-      <td style={{ whiteSpace: "nowrap", textAlign: "right" }}>
+      <td className="card-a" style={{ whiteSpace: "nowrap", textAlign: "right" }}>
         {invite.status === "PENDING" && (
           <button className="btn btn-ghost btn-sm" onClick={copyLink} aria-label={`Copy invitation link for ${invite.name}`}>
             {copied ? "Copied!" : "Copy link"}

@@ -160,7 +160,10 @@ export default function ProjectsView({
           </div>
         ) : (
           <div className="tbl-wrap">
-            <table>
+            {/* `cards` — one card per project below 700px. Status and
+                progress are the last two columns of eight, which on a phone
+                means invisible. See globals.css. */}
+            <table className="cards">
               <thead>
                 <tr>
                   <SortableTh label="Project" sortKey="name" sort={sort} onSort={onSort} />
@@ -176,16 +179,16 @@ export default function ProjectsView({
               <tbody>
                 {filtered.map((p) => (
                   <tr key={p.id} className="rowlink" onClick={() => router.push(`/projects/${p.id}`)}>
-                    <td style={{ minWidth: 220 }}>
+                    <td className="card-t" style={{ minWidth: 220 }}>
                       <b>{p.name}</b>
                       <div className="small faint">{p.siteAddress || "—"}</div>
                     </td>
-                    <td className="small">{p.client || "—"}</td>
-                    <td className="num">{formatCurrency(p.contractValue)}</td>
-                    <td className="num small">
+                    <td className="small" data-label="Client">{p.client || "—"}</td>
+                    <td className="num" data-label="Contract value">{formatCurrency(p.contractValue)}</td>
+                    <td className="num small" data-label="Duration">
                       {formatDate(p.startDate)} → {formatDate(p.endDate)}
                     </td>
-                    <td style={{ minWidth: 130 }}>
+                    <td data-label="Progress" style={{ minWidth: 130 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={{ flex: 1, height: 7, borderRadius: 99, background: "var(--panel2)", border: "1px solid var(--line2)", overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${p.progressPct}%`, background: "linear-gradient(90deg,var(--amber-deep),var(--amber))" }} />
@@ -193,14 +196,14 @@ export default function ProjectsView({
                         <span className="num small">{p.progressPct}%</span>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Status">
                       <span className={`badge ${statusBadgeClass(p.status)}`}>
                         <i className="dot" />
                         {statusLabel(p.status)}
                       </span>
                     </td>
-                    <td className="num">{p.workerCount}</td>
-                    <td style={{ whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
+                    <td className="num" data-label="Workers">{p.workerCount}</td>
+                    <td className="card-a" style={{ whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                       {canEdit || canDelete ? (
                         <>
                           {canEdit && (

@@ -145,6 +145,10 @@ tr:last-child td{border-bottom:0}
 tbody tr{transition:background .1s}
 tbody tr:hover{background:var(--panel2)}
 tr.rowlink{cursor:pointer}
+/* A cell of free text held to one line so it cannot stretch the table. The
+   card layout below 700px lets it wrap again, where there is no column to
+   protect. */
+.cell-clip{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
 
 /* ---------- badges / status ---------- */
@@ -529,10 +533,15 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   .topbar h2{font-size:24px}
   .mobile-nav{display:flex;position:fixed;left:0;right:0;bottom:0;background:#FFFFFFF2;backdrop-filter:blur(8px);border-top:1px solid var(--line2);z-index:50;padding:6px 4px calc(6px + env(safe-area-inset-bottom));overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .mobile-nav::-webkit-scrollbar{display:none}
-  .mobile-nav button{flex:1 0 74px;background:none;border:0;color:var(--faint);display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:6px 2px;border-radius:8px;position:relative}
-  .mobile-nav button svg{width:21px;height:21px}
-  .mobile-nav button.active{color:var(--amber-text)}
-  .mobile-nav button.active::before{content:"";position:absolute;top:-7px;left:25%;right:25%;height:3px;border-radius:0 0 4px 4px;background:var(--amber)}
+  /* These target <a>, not <button>: the bottom nav is a list of links, and
+     every one of these rules was written for a button that AppShell has
+     never rendered — so until now the icons came out at their natural size,
+     the labels ran off the right edge in link amber, and the active
+     indicator never appeared at all. */
+  .mobile-nav a{flex:1 0 74px;color:var(--faint);text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;padding:6px 2px;border-radius:8px;position:relative}
+  .mobile-nav a svg{width:21px;height:21px;flex:none}
+  .mobile-nav a.active{color:var(--amber-text)}
+  .mobile-nav a.active::before{content:"";position:absolute;top:-7px;left:25%;right:25%;height:3px;border-radius:0 0 4px 4px;background:var(--amber)}
   .mobile-topchip{display:flex!important}
   .filters>*{flex:1;min-width:130px}
   th,td{padding:9px 8px}
@@ -541,7 +550,9 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
 .mobile-topchip .brand-mark{width:30px;height:30px;font-size:15px}
 .mobile-topchip b{font-family:var(--font-disp);text-transform:uppercase;letter-spacing:.07em;font-size:18px}
 .mobile-topchip b span{color:var(--amber)}
-.mobile-topchip .btn{margin-left:auto}
+/* Without this, "Sign out" breaks onto two lines next to a long company
+   name and the chip grows a second row. */
+.mobile-topchip .btn{margin-left:auto;white-space:nowrap}
 /* ---------- mobile field-crew pass ---------- */
 .fab{display:none}
 @media (max-width:940px){
@@ -553,7 +564,7 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   .form-grid{grid-template-columns:1fr!important;gap:14px}
   .seg button{min-height:42px;padding:9px 13px}
   .tabbar button{min-height:46px}
-  .mobile-nav button{min-height:56px;font-size:11px}
+  .mobile-nav a{min-height:56px;font-size:11px}
   td,th{padding:13px 10px}
   .att-status button{width:46px;height:46px;font-size:15px}
   .stepper button{width:46px;height:46px;font-size:19px}
@@ -592,7 +603,15 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   .att-status{gap:8px}
   .att-status button{width:46px;height:44px;font-size:14.5px;border-radius:9px}
   tbody td{padding:13px 10px}
-  .mobile-nav button{min-height:60px;font-size:11.5px}
+  /* A column heading is a button, and at 19px tall it is a button for a
+     mouse pointer. Below 700px the card layout hides these entirely; this
+     is for the tablet range in between, and for the tables that stay
+     tables. */
+  .th-sort{min-height:44px}
+  /* "All projects →" and friends are 19px of text in a card header. Padding
+     rather than a height, so the text stays exactly where it was. */
+  .card-h a{display:inline-flex;align-items:center;min-height:32px}
+  .mobile-nav a{min-height:60px;font-size:11.5px}
   .modal-h .x{min-width:44px;min-height:44px}
   .cm-cell{min-height:76px}
   .filters select,.filters input{flex:1 1 46%;min-width:0}
@@ -608,6 +627,67 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   .cs-bar.dirty{position:fixed;left:12px;right:12px;bottom:86px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:45;box-shadow:0 12px 28px -8px rgba(23,33,45,.35);margin:0}
 
   .fab{bottom:90px;bottom:calc(90px + env(safe-area-inset-bottom));min-height:56px;padding:15px 22px;font-size:16.5px;box-shadow:0 12px 28px -8px rgba(23,33,45,.42)}
+}
+
+/* ---------- list tables as cards on a phone ----------
+   A seven-column register on a 390px screen puts the column that decides
+   what you do next — overdue, expired, severity, status — off the right
+   edge, behind a sideways scroll nobody performs. Below 700px a table
+   marked `cards` becomes one card per row, each cell carrying its own
+   label from data-label, so nothing needs a second dimension to be read.
+
+   Opt-in per table, and CSS-only: the markup, the sorting, the row click
+   and every desktop style are exactly what they were. The header row is
+   hidden because data-label already says the same thing on each cell —
+   leaving it would read every column name twice. */
+@media (max-width:700px){
+  table.cards,table.cards tbody,table.cards td{display:block}
+  table.cards thead{display:none}
+  /* Flex, so the title and the actions can be pulled to the ends of the
+     card with `order` regardless of where they sit in the row. */
+  table.cards tr{display:flex;flex-direction:column;border:1px solid var(--line2);border-radius:12px;
+    background:var(--panel);padding:11px 13px;margin-bottom:10px}
+  table.cards tr:last-child{margin-bottom:0}
+  table.cards tbody{padding:2px 0}
+  table.cards td{display:flex;gap:14px;align-items:baseline;justify-content:space-between;
+    padding:4px 0;border-bottom:0;text-align:left;font-size:14px}
+  table.cards td::before{content:attr(data-label);flex:0 0 auto;color:var(--faint);
+    font-family:var(--font-disp);text-transform:uppercase;letter-spacing:.07em;font-size:11px;font-weight:700}
+  table.cards td:not([data-label])::before{content:none}
+  table.cards td.num{text-align:right}
+  /* A cell whose value is a block — a progress bar, a two-line detail —
+     takes the space left over rather than collapsing to its content. */
+  table.cards td>div{flex:1 1 auto;min-width:0}
+  /* The row's headline — a project name, a machine, a defect. No label, it
+     reads first, and it is what the card is about. */
+  table.cards td.card-t{order:-1;display:block;padding:0 0 8px;margin-bottom:6px;
+    border-bottom:1px solid var(--line);font-size:15.5px;font-weight:600}
+  /* …but not the detail line under it, which is a caption, not a heading. */
+  table.cards td.card-t .small{font-weight:400}
+  table.cards td.card-t::before{content:none}
+  /* The card's title is often the row's only link. A line of text is 19px
+     tall, which is a target for a mouse and not for a thumb. */
+  table.cards td.card-t a{display:inline-block;padding:4px 0}
+  /* Row actions go to the bottom of the card, left-aligned: the floating
+     Create Report button occupies the bottom right of the screen, and a
+     Delete button underneath it is a Delete button nobody can press.
+     `!important` because these cells carry an inline `white-space: nowrap`
+     that keeps them on one line inside a real table column. */
+  table.cards td.card-a{order:1;justify-content:flex-start;flex-wrap:wrap;gap:8px;padding:10px 0 0;
+    margin-top:6px;border-top:1px solid var(--line);white-space:normal!important;text-align:left!important}
+  table.cards td.card-a::before{content:none}
+  table.cards td.card-a:empty{display:none}
+  /* Clipped-to-one-line cells have room to breathe in a card. */
+  table.cards td.cell-clip{max-width:none;white-space:normal;overflow:visible}
+  /* The card is the surface, so the card it sits in should not draw a
+     second border and a second padding around it. */
+  .card>.tbl-wrap:has(table.cards){padding:10px}
+
+  /* Filter bars stack. Side by side on a 390px screen, a project <select>
+     ends up stretched to the height of a seven-chip status filter that has
+     wrapped into a column beside it. */
+  .filters{flex-direction:column;align-items:stretch}
+  .filters>*{width:100%;min-width:0}
 }
 
 /* --- Loading skeletons -------------------------------------------------- */

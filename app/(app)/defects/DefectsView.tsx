@@ -161,7 +161,9 @@ export default function DefectsView({
           </div>
         ) : (
           <div className="tbl-wrap">
-            <table>
+            {/* `cards` — one card per defect below 700px, so severity, due
+                date and status survive a phone screen. See globals.css. */}
+            <table className="cards">
               <thead>
                 <tr>
                   <SortableTh label="Ref" sortKey="code" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
@@ -189,17 +191,17 @@ export default function DefectsView({
                         }
                       }}
                     >
-                      <td className="num">{r.code}</td>
-                      <td>
+                      <td className="num" data-label="Ref">{r.code}</td>
+                      <td className="card-t">
                         <div style={{ fontWeight: 600 }}>{r.title}</div>
                         {r.location && <div className="small mut">{r.location}</div>}
                       </td>
-                      <td>{r.project?.name ?? "—"}</td>
-                      <td>
+                      <td data-label="Project">{r.project?.name ?? "—"}</td>
+                      <td data-label="Severity">
                         <span className={`badge ${SEVERITY_BADGE[r.severity]}`}>{SEVERITY_LABELS[r.severity]}</span>
                       </td>
-                      <td>{r.assignedToName ?? <span className="faint">Unassigned</span>}</td>
-                      <td className="num">
+                      <td data-label="Assigned">{r.assignedToName ?? <span className="faint">Unassigned</span>}</td>
+                      <td className="num" data-label="Due">
                         {r.dueDate ? (
                           // The word, not just a colour: overdue has to
                           // survive a printout and a screen reader.
@@ -211,7 +213,7 @@ export default function DefectsView({
                           <span className="faint">—</span>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`badge ${STATUS_BADGE[r.status]}`}>
                           <i className="dot" />
                           {STATUS_LABELS[r.status]}

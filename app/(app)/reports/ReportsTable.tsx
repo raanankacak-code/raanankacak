@@ -38,7 +38,8 @@ export default function ReportsTable({ rows }: { rows: Row[] }) {
 
   return (
     <div className="tbl-wrap">
-      <table>
+      {/* `cards` — one card per report below 700px. See globals.css. */}
+      <table className="cards">
         <thead>
           <tr>
             <SortableTh label="Date" sortKey="date" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
@@ -52,18 +53,16 @@ export default function ReportsTable({ rows }: { rows: Row[] }) {
         <tbody>
           {sorted.map((r) => (
             <tr key={r.id} className="rowlink">
-              <td className="mono">{formatDate(r.date)}</td>
-              <td>
+              <td className="mono" data-label="Date">{formatDate(r.date)}</td>
+              <td className="card-t">
                 <Link href={`/reports/${r.id}`}>
                   <b>{r.projectName}</b>
                 </Link>
               </td>
-              <td>{r.weather || "—"}</td>
-              <td>{r.submittedByName}</td>
-              <td style={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {r.workCompleted || "—"}
-              </td>
-              <td>
+              <td data-label="Weather">{r.weather || "—"}</td>
+              <td data-label="Submitted by">{r.submittedByName}</td>
+              <td className="cell-clip" data-label="Work completed">{r.workCompleted || "—"}</td>
+              <td data-label="Status">
                 <span className={`badge ${statusBadgeClass(r.status)}`}>
                   <i className="dot" />
                   {statusLabel(r.status)}

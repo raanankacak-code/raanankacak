@@ -137,7 +137,9 @@ export default function SafetyView({
           </div>
         ) : (
           <div className="tbl-wrap">
-            <table>
+            {/* `cards` — one card per inspection below 700px, so the outcome
+                is not the column that falls off the edge. See globals.css. */}
+            <table className="cards">
               <thead>
                 <tr>
                   <SortableTh label="Ref" sortKey="code" sort={sort} onSort={(k) => setSort((s) => toggleSort(s, k))} />
@@ -157,17 +159,17 @@ export default function SafetyView({
                           openDetail(r.id);
                         }
                       }}>
-                    <td className="num">{r.code}</td>
-                    <td className="num">{formatDate(r.date)}</td>
-                    <td>{r.project?.name ?? "—"}</td>
-                    <td>{r.inspectorName}</td>
-                    <td>
+                    <td className="num" data-label="Ref">{r.code}</td>
+                    <td className="num" data-label="Date">{formatDate(r.date)}</td>
+                    <td className="card-t">{r.project?.name ?? "—"}</td>
+                    <td data-label="Inspector">{r.inspectorName}</td>
+                    <td data-label="Outcome">
                       <span className={`badge ${OUTCOME_BADGE[r.outcome]}`}>
                         {OUTCOME_LABEL[r.outcome]}
                         {r.failedCount > 0 ? ` · ${r.failedCount}` : ""}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Status">
                       <span className={`badge ${r.status === "CLOSED" ? "b-ok" : "b-mut"}`}>
                         <i className="dot" />
                         {r.status === "CLOSED" ? "Closed" : "Open"}
