@@ -160,7 +160,10 @@ export default async function DashboardPage() {
       </div>
 
       {quickActions.length > 0 && (
-        <div className="filters" style={{ marginBottom: 16 }}>
+        // qa-row, not filters: these are shortcuts rather than controls that
+        // narrow a list, and on a phone they belong two to a row rather than
+        // four stacked ones between the greeting and the numbers.
+        <div className="qa-row">
           {quickActions.map((a) => (
             <Link key={a.href} href={a.href} className="btn qa-btn">
               {a.label}
@@ -230,11 +233,6 @@ export default async function DashboardPage() {
           <div className="k-lbl">Labour Cost</div>
           <div className="k-val">{budgetUsage}%</div>
           <div className="k-sub">of {formatCurrency(totalContractValue)} contract value</div>
-        </div>
-        <div className="kpi" style={{ ["--kpi-c" as string]: "var(--amber-deep)" }}>
-          <div className="k-lbl">Daily Reports</div>
-          <div className="k-val">{recentReports.length}</div>
-          <div className="k-sub">most recent 6 shown below</div>
         </div>
       </div>
 

@@ -69,10 +69,18 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
   const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ projects: Project[] }>("/api/projects").then((d) => {
-      setProjects(d.projects);
-      if (!presetProjectId && d.projects[0]) setProjectId(d.projects[0].id);
-    });
+    apiFetch<{ projects: Project[] }>("/api/projects")
+      .then((d) => {
+        setProjects(d.projects);
+        if (!presetProjectId && d.projects[0]) setProjectId(d.projects[0].id);
+      })
+      // Without this, a failed fetch left an empty project picker and "No
+      // workers on this project" — which reads as "the roster is empty"
+      // rather than "this did not load", and sends someone looking for a
+      // problem that is not there.
+      .catch((err) =>
+        setError(err instanceof ApiClientError ? err.message : "Could not load your projects. Reload the page."),
+      );
   }, [presetProjectId]);
 
   const load = useCallback(async () => {
@@ -230,7 +238,8 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
               </div>
             ) : (
               <div className="tbl-wrap">
-                <table>
+                {/* `cards` — see globals.css. */}
+                <table className="cards">
                   <thead>
                     <tr>
                       <th>Worker</th>
@@ -246,17 +255,17 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                       const expSoon = r.cidbExpiry && r.cidbExpiry <= new Date(now + 30 * 86400000).toISOString().slice(0, 10);
                       return (
                         <tr key={r.id}>
-                          <td>
+                          <td className="card-t">
                             <b>{r.name}</b>
                             <div className="small faint num">{r.icNumber || "—"}</div>
                           </td>
-                          <td className="small">{r.trade || "—"}</td>
-                          <td className="num">{formatRM(r.dailyRate ?? 0)}</td>
-                          <td className="num">{r.daysWorked}</td>
-                          <td className="num">
+                          <td className="small" data-label="Trade">{r.trade || "—"}</td>
+                          <td className="num" data-label="Rate/day">{formatRM(r.dailyRate ?? 0)}</td>
+                          <td className="num" data-label="Days worked">{r.daysWorked}</td>
+                          <td className="num" data-label="Wages">
                             <b>{formatRM(r.wages)}</b>
                           </td>
-                          <td>
+                          <td data-label="Green card">
                             {r.cidbExpiry ? (
                               expSoon ? (
                                 <span className="badge b-bad">
@@ -325,7 +334,11 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
           </div>
         ) : (
           <div className="tbl-wrap">
-            <table>
+            {/* `cards` — one card per worker below 700px. This is the screen
+                taken standing in front of the line of workers it lists, so
+                it is the one that most needed to stop being a wide table.
+                See globals.css. */}
+            <table className="cards">
               <thead>
                 <tr>
                   <th>Worker</th>
@@ -342,11 +355,11 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                   const expDays = expiry && now ? Math.round((expiry.getTime() - now) / 86400000) : null;
                   return (
                     <tr key={w.id}>
-                      <td>
+                      <td className="card-t">
                         <b>{w.name}</b>
                         <div className="small mut">{w.trade || "—"}</div>
                       </td>
-                      <td>
+                      <td data-label="Green card">
                         {w.cidbNumber ? (
                           <>
                             <div className="small mono">{w.cidbNumber}</div>
@@ -361,7 +374,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                           "—"
                         )}
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <div className="att-status">
                           <button
                             type="button"
@@ -389,7 +402,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                           </button>
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Time in">
                         <input
                           // One input per worker per column: the column
                           // header alone does not say whose row this is.
@@ -401,7 +414,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                           onChange={(e) => setTime(w.id, "timeIn", e.target.value)}
                         />
                       </td>
-                      <td>
+                      <td data-label="Time out">
                         <input
                           aria-label={`Time out for ${w.name}`}
                           className="tm"

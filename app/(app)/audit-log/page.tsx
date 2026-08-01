@@ -44,7 +44,10 @@ export default async function AuditLogPage() {
           </div>
         ) : (
           <div className="tbl-wrap">
-            <table>
+            {/* `cards` — below 700px the event, which is the whole point of
+                the row, was squeezed into a third of the width and wrapped
+                to six lines beside a date that needed one. See globals.css. */}
+            <table className="cards">
               <thead>
                 <tr>
                   <th>When</th>
@@ -55,13 +58,13 @@ export default async function AuditLogPage() {
               <tbody>
                 {entries.map((entry) => (
                   <tr key={entry.id}>
-                    <td className="small mut" style={{ whiteSpace: "nowrap" }}>
+                    <td className="small mut" data-label="When" style={{ whiteSpace: "nowrap" }}>
                       {formatDateTime(entry.createdAt)}
                     </td>
-                    <td>
+                    <td data-label="Category">
                       <span className="badge b-mut">{CATEGORY_LABELS[entry.entityType] ?? entry.entityType}</span>
                     </td>
-                    <td>{entry.summary}</td>
+                    <td className="card-t">{entry.summary}</td>
                   </tr>
                 ))}
               </tbody>

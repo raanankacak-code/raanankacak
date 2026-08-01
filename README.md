@@ -198,11 +198,13 @@ trial, and a Stripe customer are each needed:
   the route handler is only the first of the two locks.
 - **`mobile`** — the whole suite runs at 1280px except this one, which runs
   at 390×844 and asks the questions a screenshot answers: the bottom nav is
-  laid out, marks where you are and can be tapped; every list page fits the
-  screen with no sideways scroll; each row is a labelled card rather than a
-  table with its important columns off the edge; and nothing on those pages
-  is a smaller tap target than WCAG 2.2 asks for. It seeds one row on every
-  list page first — an empty page proves nothing about a layout.
+  laid out, marks where you are and can be tapped; every list page, plus the
+  dashboard and the calendar, fits the screen with no sideways scroll; each
+  row is a labelled card rather than a table with its important columns off
+  the edge; and nothing on those pages is a smaller tap target than WCAG 2.2
+  asks for. It seeds a row on every list page first — including a worker, so
+  attendance has something to show — because an empty page proves nothing
+  about a layout.
 - **`accessibility`** — hand-written checks for the things a scanner cannot
   judge (focus goes into a dialog and comes back out, the skip link works,
   sort state is announced, no `label` points at a control that does not
@@ -289,6 +291,10 @@ client's access away, deactivate the account on the Team page.
 
 Most of this app is read standing up, on a 5-inch screen, in a site office.
 Two conventions carry that, and a new list page needs both.
+
+Attendance is the sharpest case: it is taken standing in front of the line of
+workers it lists, so below 700px each worker is a card with the
+present/half-day/absent buttons at a size a thumb can hit.
 
 **Rows become cards below 700px.** Put `className="cards"` on the `<table>`
 and give every `<td>` a `data-label`; `app/globals.css` then turns each row

@@ -17,7 +17,20 @@ import { AUTH_STATE_PATH } from "./seed";
  */
 
 const PHONE = { width: 390, height: 844 }; // iPhone 12/13/14 CSS pixels
-const LIST_PAGES = ["/projects", "/reports", "/safety", "/defects", "/equipment", "/materials", "/team"];
+const LIST_PAGES = [
+  "/projects",
+  "/reports",
+  "/safety",
+  "/defects",
+  "/equipment",
+  "/materials",
+  "/team",
+  "/attendance",
+  "/audit-log",
+];
+
+/** Pages that are not lists but still have to survive a 390px screen. */
+const OTHER_PAGES = ["/dashboard", "/calendar"];
 
 test.use({ storageState: AUTH_STATE_PATH, viewport: PHONE });
 
@@ -80,6 +93,11 @@ test.beforeAll(async ({ browser }) => {
   });
   await api.post("/api/materials", {
     data: { projectId, material: "OPC cement", qty: 40, unit: "bags", neededBy: "2026-08-05", status: "SUBMITTED" },
+  });
+  // Attendance has one row per worker, so without this its table does not
+  // exist and the card test would pass by finding nothing.
+  await api.post(`/api/projects/${projectId}/workers`, {
+    data: { name: "Azlan bin Osman", trade: "Concretor", dailyRate: 120, cidbNumber: "CIDB-0091" },
   });
   await api.post("/api/safety", {
     data: {
@@ -176,7 +194,7 @@ test.describe("the bottom navigation", () => {
 });
 
 test.describe("list pages on a phone", () => {
-  for (const path of LIST_PAGES) {
+  for (const path of [...OTHER_PAGES, ...LIST_PAGES]) {
     test(`${path} does not scroll sideways`, async ({ page }) => {
       await page.goto(path);
       await page.locator("h2, h3").first().waitFor();
@@ -192,6 +210,7 @@ test.describe("list pages on a phone", () => {
       expect(overflow.body, `overflowing: ${overflow.widest.join(", ")}`).toBeLessThanOrEqual(0);
     });
 
+    if (OTHER_PAGES.includes(path)) continue; // no table to turn into cards
     test(`${path} shows its rows as cards, not as a table to scroll`, async ({ page }) => {
       await page.goto(path);
       await page.locator("h2, h3").first().waitFor();
@@ -247,7 +266,7 @@ test.describe("tap targets", () => {
   // on the pages a site supervisor actually uses standing up.
   const MIN = 24;
 
-  for (const path of ["/dashboard", ...LIST_PAGES]) {
+  for (const path of [...OTHER_PAGES, ...LIST_PAGES]) {
     test(`${path} has nothing smaller than ${MIN}px`, async ({ page }) => {
       await page.goto(path);
       await page.locator("h2, h3").first().waitFor();

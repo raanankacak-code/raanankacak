@@ -57,6 +57,8 @@ describe("the phone card layout", () => {
     ["equipment", "app/(app)/equipment/EquipmentView.tsx"],
     ["materials", "app/(app)/materials/MaterialsView.tsx"],
     ["team", "app/(app)/team/TeamView.tsx"],
+    ["attendance", "app/(app)/attendance/AttendanceView.tsx"],
+    ["audit log", "app/(app)/audit-log/page.tsx"],
   ] as const;
 
   it.each(CARD_TABLES)("%s opts its list table into it", (_name, file) => {

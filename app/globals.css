@@ -683,11 +683,27 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
      second border and a second padding around it. */
   .card>.tbl-wrap:has(table.cards){padding:10px}
 
-  /* Filter bars stack. Side by side on a 390px screen, a project <select>
-     ends up stretched to the height of a seven-chip status filter that has
-     wrapped into a column beside it. */
-  .filters{flex-direction:column;align-items:stretch}
-  .filters>*{width:100%;min-width:0}
+  /* Nine numbers two-up is five rows of screen before any content. Tighter
+     padding and a smaller figure make that block about a third shorter
+     without hiding anything or moving it off to a swipe nobody performs. */
+  .kpi{padding:11px 12px}
+  .kpi .k-lbl{font-size:11px;letter-spacing:.06em}
+  .kpi .k-val{font-size:22px;margin-top:2px}
+  .kpi .k-sub{font-size:11.5px;line-height:1.35}
+  .kpis{gap:10px}
+  /* Shortcuts, two to a row. */
+  .qa-row>*{flex:1 1 44%;justify-content:center}
+
+  /* Filter bars: two to a row, top-aligned.
+     `align-items:flex-start` is the load-bearing half — without it a project
+     <select> is stretched to the height of a seven-chip status filter that
+     has wrapped into a column beside it. Stacking them one per row fixed
+     that too, but four filters then cost four rows before the calendar,
+     which is most of a phone screen spent on controls. */
+  .filters{align-items:flex-start}
+  .filters>*{flex:1 1 44%;min-width:0;width:auto}
+  /* A chip row needs the full width to wrap into, not half of it. */
+  .filters>.seg{flex-basis:100%}
 }
 
 /* ---------- client portal ----------
