@@ -152,3 +152,103 @@ export function inviteEmailHtml({
     </div>
   `;
 }
+
+/**
+ * The invitation a customer gets, as opposed to an employee.
+ *
+ * Worth its own template: "invited you to join E2E Test Co as a Client" reads
+ * like a job offer from a company they are paying. This one says what the
+ * login is for and, just as importantly, what it does not show them — a
+ * customer who thinks they have been given the run of their contractor's
+ * workspace is a support call at best.
+ */
+export function clientInviteEmailHtml({
+  orgName,
+  invitedByName,
+  projectNames,
+  link,
+}: {
+  orgName: string;
+  invitedByName: string;
+  projectNames: string[];
+  link: string;
+}): string {
+  const org = escapeHtml(orgName);
+  const invitedBy = escapeHtml(invitedByName);
+  const href = escapeHtml(link);
+  const projects = projectNames.map((n) => `<li style="margin-bottom:4px">${escapeHtml(n)}</li>`).join("");
+
+  return `
+    <div style="font-family:system-ui,-apple-system,sans-serif;color:#17212D;max-width:480px;margin:0 auto">
+      <div style="background:#F5A800;color:#241A02;font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;padding:16px 24px;border-radius:10px 10px 0 0">
+        BinaWorks
+      </div>
+      <div style="border:1px solid #E6EAF1;border-top:0;border-radius:0 0 10px 10px;padding:24px">
+        <h2 style="margin:0 0 12px;font-size:20px">Follow your project with ${org}</h2>
+        <p style="color:#55677B;line-height:1.55;margin:0 0 16px">
+          ${invitedBy} has given you a login to see how your work is progressing:
+        </p>
+        <ul style="color:#17212D;line-height:1.5;margin:0 0 16px;padding-left:20px">${projects}</ul>
+        <p style="color:#55677B;line-height:1.55;margin:0 0 20px">
+          You will see progress, the site diary and its photographs, the safety record and the snag list — and you
+          can sign off work when they ask you to. Nothing else in ${org}&rsquo;s account is visible to you.
+        </p>
+        <a href="${href}" style="display:inline-block;background:#F5A800;color:#241A02;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:8px">
+          Set up your login
+        </a>
+        <p style="color:#8797AA;font-size:12.5px;margin:20px 0 0">
+          If the button doesn&rsquo;t work, paste this link into your browser:<br>${href}
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * "Something needs your signature."
+ *
+ * Without this the request sits in the portal until the client happens to
+ * sign in, which for a sign-off is the difference between a decision this
+ * week and a decision when someone remembers to telephone.
+ */
+export function approvalRequestEmailHtml({
+  orgName,
+  projectName,
+  title,
+  description,
+  link,
+}: {
+  orgName: string;
+  projectName: string;
+  title: string;
+  description?: string | null;
+  link: string;
+}): string {
+  const org = escapeHtml(orgName);
+  const project = escapeHtml(projectName);
+  const what = escapeHtml(title);
+  const href = escapeHtml(link);
+  const detail = description?.trim()
+    ? `<p style="color:#55677B;line-height:1.55;margin:0 0 20px">${escapeHtml(description.trim())}</p>`
+    : "";
+
+  return `
+    <div style="font-family:system-ui,-apple-system,sans-serif;color:#17212D;max-width:480px;margin:0 auto">
+      <div style="background:#F5A800;color:#241A02;font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;padding:16px 24px;border-radius:10px 10px 0 0">
+        BinaWorks
+      </div>
+      <div style="border:1px solid #E6EAF1;border-top:0;border-radius:0 0 10px 10px;padding:24px">
+        <h2 style="margin:0 0 12px;font-size:20px">${org} needs your sign-off</h2>
+        <p style="color:#55677B;line-height:1.55;margin:0 0 8px">On <b>${project}</b>:</p>
+        <p style="font-size:17px;font-weight:600;margin:0 0 12px">${what}</p>
+        ${detail}
+        <a href="${href}" style="display:inline-block;background:#F5A800;color:#241A02;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:8px">
+          Open it and answer
+        </a>
+        <p style="color:#8797AA;font-size:12.5px;margin:20px 0 0">
+          You can approve it or reject it with a reason. Your answer is recorded with your name and the date.
+        </p>
+      </div>
+    </div>
+  `;
+}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import Modal from "@/components/app/Modal";
+import PhotoStrip from "@/components/app/PhotoStrip";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { APPROVAL_STATUS_BADGE, APPROVAL_STATUS_LABELS, canWithdraw, isDecided } from "@/lib/approvals";
 import type { ApprovalStatus } from "@/lib/db/types";
@@ -12,6 +13,7 @@ type Approval = {
   code: string;
   title: string;
   description: string | null;
+  photos: string[];
   status: ApprovalStatus;
   requestedByName: string;
   requestedAt: string;
@@ -254,6 +256,14 @@ export default function ClientPanel({
                   </span>
                 </div>
                 {a.description && <p className="small">{a.description}</p>}
+                {a.photos.length > 0 && (
+                  <div className="photo-strip">
+                    {a.photos.map((url) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={url} src={url} className="thumb" alt="" />
+                    ))}
+                  </div>
+                )}
                 <div className="small faint">
                   Sent by {a.requestedByName} · {formatDate(a.requestedAt)}
                 </div>
@@ -308,18 +318,32 @@ function RequestModal({
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [sent, setSent] = useState<{ emailsSent: number; clientCount: number } | null>(null);
 
   async function submit() {
     if (title.trim().length < 3) return setError("Say what you are asking them to sign off.");
     setSaving(true);
     setError("");
     try {
-      await apiFetch("/api/approvals", {
+      const res = await apiFetch<{ emailsSent: number; clientCount: number }>("/api/approvals", {
         method: "POST",
-        body: JSON.stringify({ projectId, title: title.trim(), description: description.trim() || undefined }),
+        body: JSON.stringify({
+          projectId,
+          title: title.trim(),
+          description: description.trim() || undefined,
+          photos: photos.length > 0 ? photos : undefined,
+        }),
       });
+      // The request exists either way, so a failed email is a warning rather
+      // than an error — but closing as if they had been told would leave the
+      // site team waiting on someone who never heard.
+      if (res.emailsSent < res.clientCount) {
+        setSent(res);
+        return;
+      }
       onCreated();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Failed to send.");
@@ -337,13 +361,20 @@ function RequestModal({
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn-amber" onClick={submit} disabled={saving}>
-            {saving ? "Sending…" : "Send to client"}
+          <button className="btn btn-amber" onClick={sent ? onCreated : submit} disabled={saving}>
+            {sent ? "Done" : saving ? "Sending…" : "Send to client"}
           </button>
         </>
       }
     >
       {error && <div className="auth-err">{error}</div>}
+      {sent && (
+        <div className="auth-err">
+          The request was created, but the email could not be sent
+          {sent.clientCount > 1 ? ` to all ${sent.clientCount} client accounts` : ""}. They will still see it the next
+          time they sign in — tell them it is waiting.
+        </div>
+      )}
       <div className="form-grid">
         <div className="full">
           <label htmlFor="approval-title">What are they signing off? *</label>
@@ -363,6 +394,11 @@ function RequestModal({
             placeholder="What was done, and anything they should look at before answering."
           />
         </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        {/* A photograph of what you are asking them to approve is half the
+            question. The column has always been there; nothing filled it. */}
+        <PhotoStrip photos={photos} onChange={setPhotos} max={12} label="Photos of the work being signed off" />
       </div>
       <p className="small mut" style={{ marginTop: 10 }}>
         The client sees this in their portal and can approve or reject it. Their answer is recorded with their name,

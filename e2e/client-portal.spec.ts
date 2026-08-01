@@ -398,12 +398,21 @@ test.describe("what the app will hand a client", () => {
     });
   }
 
-  test("and cannot change their own profile, which is PATCH-only", async ({ playwright }) => {
-    // Not a GET route, so it needs asking properly rather than being listed
-    // above. A client has no profile screen yet; when they get one this is
-    // the test that has to be changed deliberately.
+  test("but can change their own name, because it goes on a sign-off", async ({ playwright }) => {
+    // The one thing about themselves a client owns. Deliberately opened in
+    // milestone 27 — before that this route refused them like every other,
+    // and this test asserted the 403.
     const ctx = await clientCtx(playwright);
-    expect((await ctx.patch("/api/profile", { data: { name: "Renamed" } })).status()).toBe(403);
+    const res = await ctx.patch("/api/profile", { data: { name: "Sarawak Energy Bhd" } });
+    expect(res.ok()).toBeTruthy();
+    expect((await res.json()).member.name).toBe("Sarawak Energy Bhd");
+
+    // And nothing else about themselves: role and active state are not
+    // fields this route accepts, so sending them changes nothing.
+    const escalate = await ctx.patch("/api/profile", { data: { name: "Sarawak Energy", role: "OWNER", active: true } });
+    expect(escalate.ok()).toBeTruthy();
+    expect((await escalate.json()).member.role).toBe("CLIENT");
+
     await ctx.dispose();
   });
 

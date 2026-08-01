@@ -5,10 +5,16 @@ import { requireMember, apiErrorResponse } from "@/lib/auth";
 
 const schema = z.object({ name: z.string().min(1).max(120) });
 
-/** Self-service profile update — any signed-in member can rename themselves. */
+/**
+ * Self-service profile update — any signed-in member can rename themselves.
+ *
+ * Clients included: this is their own display name, and it is the name that
+ * goes on to a sign-off record, so being unable to correct a typo in it would
+ * be a poor joke. Nothing else about them is editable here.
+ */
 export async function PATCH(request: Request) {
   try {
-    const member = await requireMember();
+    const member = await requireMember(undefined, { allowClient: true });
     const body = schema.parse(await request.json());
     const updated = await updateMember(member.orgId, member.id, { name: body.name });
     return NextResponse.json({ member: updated });

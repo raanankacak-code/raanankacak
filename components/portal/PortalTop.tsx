@@ -41,7 +41,9 @@ export default function PortalTop({
           <span className="small faint">Client access</span>
         </span>
       </Link>
-      <span className="portal-who small mut">{memberName}</span>
+      <Link href="/portal/profile" className="portal-who small">
+        {memberName}
+      </Link>
       <button className="btn btn-ghost btn-sm" onClick={signOut}>
         Sign out
       </button>

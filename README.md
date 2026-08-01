@@ -225,9 +225,12 @@ nothing else: not costs, not material requests, not the workers or their IC
 numbers, not the plant register, not your other jobs, not your staff list.
 
 Invite one from **Team → Invite User**, choose the **Client** role, and tick
-the projects they may see. They get the same invitation email as an employee;
-accepting it lands them on `/portal` instead of the dashboard. Client accounts
-do not count against the team-account limit on your plan.
+the projects they may see. They get an invitation written for a customer
+rather than an employee — it names the projects and says what the login does
+*not* show them — and accepting it lands them on `/portal` instead of the
+dashboard. Client accounts do not count against the team-account limit on
+your plan. They can correct their own name and change their password from the
+account page in the portal; nothing else about themselves is theirs to edit.
 
 ### Sign-off
 
@@ -238,6 +241,14 @@ with their name and email **as they were at the moment of signing**, the exact
 time, and their comment.
 
 Three rules make it a record rather than a status field:
+
+When a request is raised, every client on that project is emailed. The
+response says how many were actually reached (`emailsSent` against
+`clientCount`), so the dialog can tell the site team when nobody was told
+rather than implying the message went. Photographs can be attached to the
+request — a picture of what you are asking them to approve is half the
+question — and the client can open them, which is the one case where a file
+in the shared bucket is deliberately readable by someone outside the company.
 
 1. **A decision is final.** Rejected does not go back to pending: the site
    team puts the work right and raises a fresh request, so the history shows

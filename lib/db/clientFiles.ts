@@ -42,6 +42,10 @@ export async function clientMaySeeFile(orgId: string, filename: string): Promise
   // has this url among its own photos.
   if (await referenced("safety_inspections", "photos", [url])) return true;
   if (await referenced("safety_inspections", "items", [{ photos: [url] }])) return true;
+  // A photograph of what they are being asked to sign off. Adding attachments
+  // to a sign-off request without adding this line made them 404 for the one
+  // person the request is addressed to.
+  if (await referenced("project_approvals", "photos", [url])) return true;
 
   return false;
 }

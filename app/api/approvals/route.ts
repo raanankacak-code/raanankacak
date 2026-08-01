@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createApproval, listApprovalsViaSession } from "@/lib/db/approvals";
 import { getProjectById } from "@/lib/db/projects";
-import { countClientsForProject } from "@/lib/db/projectAccess";
+import { countClientsForProject, listClientsForProject } from "@/lib/db/projectAccess";
+import { getOrganizationById } from "@/lib/db/organizations";
+import { sendEmail, approvalRequestEmailHtml } from "@/lib/email";
+import { appOrigin } from "@/lib/appOrigin";
 import { recordMemberAction } from "@/lib/db/auditLog";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { safeUrlSchema } from "@/lib/url-validation";
@@ -72,7 +75,36 @@ export async function POST(request: Request) {
       metadata: { code: approval.code, projectId: project.id },
     });
 
-    return NextResponse.json({ approval }, { status: 201 });
+    // Tell them. Without this the request waits in the portal until the
+    // client happens to sign in, which for a sign-off is the difference
+    // between an answer this week and an answer when somebody telephones.
+    // Deactivated accounts are skipped: they cannot sign in to answer.
+    const org = await getOrganizationById(member.orgId);
+    const link = `${appOrigin(request)}/portal/${project.id}`;
+    const recipients = (await listClientsForProject(member.orgId, project.id)).filter((c) => c.active);
+    const results = await Promise.all(
+      recipients.map((c) =>
+        sendEmail({
+          to: c.email,
+          subject: `${org?.name ?? "Your contractor"} needs your sign-off: ${approval.title}`,
+          html: approvalRequestEmailHtml({
+            orgName: org?.name ?? "Your contractor",
+            projectName: project.name,
+            title: approval.title,
+            description: approval.description,
+            link,
+          }),
+        }),
+      ),
+    );
+
+    // 201 either way: the request exists and the client will see it when they
+    // sign in. emailsSent is what lets the UI say whether anybody was told,
+    // rather than implying it.
+    return NextResponse.json(
+      { approval, emailsSent: results.filter((r) => r.delivered).length, clientCount: recipients.length },
+      { status: 201 },
+    );
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.issues[0]?.message ?? "Invalid input" }, { status: 400 });

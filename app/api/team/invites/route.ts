@@ -5,12 +5,12 @@ import { notify } from "@/lib/db/notifications";
 import { getOrganizationById } from "@/lib/db/organizations";
 import { requireMember, requireWritableMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { ROLE_LABELS } from "@/lib/permissions";
-import { sendEmail, inviteEmailHtml } from "@/lib/email";
+import { sendEmail, inviteEmailHtml, clientInviteEmailHtml } from "@/lib/email";
 import { appOrigin } from "@/lib/appOrigin";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { recordMemberAction } from "@/lib/db/auditLog";
 import { assertCanAddTeamAccount } from "@/lib/billing/limits";
-import { listProjectIdsInOrg } from "@/lib/db/projects";
+import { listProjectIdsInOrg, listProjectNamesByIds } from "@/lib/db/projects";
 
 const ROLES = [
   "OWNER",
@@ -95,16 +95,21 @@ export async function POST(request: Request) {
     });
 
     const org = await getOrganizationById(member.orgId);
+    const orgName = org?.name ?? "your company";
     const link = `${appOrigin(request)}/signup?invite=${invite.token}`;
+    // A customer and an employee get different letters. "Invited you to join
+    // E2E Test Co as a Client" reads like a job offer from a company they are
+    // paying, and says nothing about what the login actually shows them.
+    const isClientInvite = body.role === "CLIENT";
+    const projectNames = isClientInvite ? await listProjectNamesByIds(member.orgId, body.projectIds ?? []) : [];
     const email = await sendEmail({
       to: invite.email,
-      subject: `You're invited to join ${org?.name ?? "your company"} on BinaWorks`,
-      html: inviteEmailHtml({
-        orgName: org?.name ?? "your company",
-        roleLabel: ROLE_LABELS[body.role],
-        invitedByName: member.name,
-        link,
-      }),
+      subject: isClientInvite
+        ? `${orgName} has given you access to your project`
+        : `You're invited to join ${orgName} on BinaWorks`,
+      html: isClientInvite
+        ? clientInviteEmailHtml({ orgName, invitedByName: member.name, projectNames, link })
+        : inviteEmailHtml({ orgName, roleLabel: ROLE_LABELS[body.role], invitedByName: member.name, link }),
     });
 
     // Still 201: the invitation exists and the link works whether or not the

@@ -142,6 +142,20 @@ export async function listProjectIdsInOrg(orgId: string, ids: string[]): Promise
   return (data ?? []).map((r) => r.id as string);
 }
 
+/** The names behind a set of ids, for a message that has to read like a sentence. */
+export async function listProjectNamesByIds(orgId: string, ids: string[]): Promise<string[]> {
+  const wanted = [...new Set(ids.filter(isUuid))];
+  if (wanted.length === 0) return [];
+  const { data, error } = await createAdminClient()
+    .from("projects")
+    .select("name")
+    .eq("org_id", orgId)
+    .in("id", wanted)
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r) => r.name as string);
+}
+
 export async function listProjectNamesForOrg(orgId: string): Promise<{ id: string; name: string }[]> {
   const { data, error } = await createAdminClient()
     .from("projects")

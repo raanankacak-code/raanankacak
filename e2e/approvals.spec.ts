@@ -279,6 +279,80 @@ test.describe("the client answers", () => {
   });
 });
 
+test.describe("telling the client, and showing them what they are signing", () => {
+  test("a sign-off request carries its photographs", async ({ playwright }) => {
+    const owner = await ownerCtx(playwright);
+
+    const upload = await owner.post("/api/uploads", {
+      multipart: { file: { name: "pour.png", mimeType: "image/png", buffer: onePixelPng() } },
+    });
+    expect(upload.ok(), "could not upload, so this proves nothing about attachments").toBeTruthy();
+    const url = (await upload.json()).url as string;
+
+    const res = await owner.post("/api/approvals", {
+      data: { projectId, title: "Ground floor slab poured", photos: [url] },
+    });
+    expect(res.status()).toBe(201);
+    const body = await res.json();
+    expect(body.approval.photos).toEqual([url]);
+    // The route reports whether anybody was actually told, rather than
+    // implying it: there is one client on this project, and no mail provider
+    // configured in the test environment.
+    expect(body.clientCount).toBe(1);
+    expect(typeof body.emailsSent).toBe("number");
+
+    // And the client can fetch the photograph, which for a file attached to
+    // something they are being asked to sign is the whole point.
+    const client = await clientCtx(playwright);
+    expect((await client.get(url)).status()).toBe(200);
+    const page = await client.get(`/portal/${projectId}`);
+    expect(await page.text()).toContain("Ground floor slab poured");
+
+    await client.dispose();
+    await owner.dispose();
+  });
+
+  test("the client can correct their own name, and nothing else about themselves", async ({ playwright }) => {
+    const ctx = await clientCtx(playwright);
+
+    const res = await ctx.patch("/api/profile", { data: { name: "Sarawak Energy Berhad" } });
+    expect(res.ok()).toBeTruthy();
+    expect((await res.json()).member.name).toBe("Sarawak Energy Berhad");
+
+    // What they signed before the rename keeps the name they had then: the
+    // record is a copy, not a join.
+    const { data } = await adminClient()
+      .from("project_approvals")
+      .select("decided_by_name")
+      .eq("id", approvalId)
+      .single();
+    expect(data!.decided_by_name).toBe("Sarawak Energy");
+
+    await ctx.dispose();
+  });
+
+  test("their account page is theirs, and staff are sent away from it", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: undefined });
+    await context.addCookies(
+      clientCookie.split("; ").map((pair) => {
+        const eq = pair.indexOf("=");
+        return { name: pair.slice(0, eq), value: pair.slice(eq + 1), domain: "localhost", path: "/" };
+      }),
+    );
+    const page = await context.newPage();
+    await page.goto("/portal/profile");
+    await expect(page.getByRole("heading", { name: /your account/i })).toBeVisible();
+    await expect(page.getByLabel("Email")).toHaveValue(clientEmail);
+    await context.close();
+
+    const staff = await browser.newContext({ storageState: seed.orgA.members.OWNER.authStatePath });
+    const staffPage = await staff.newPage();
+    await staffPage.goto("/portal/profile");
+    await expect(staffPage).toHaveURL(/\/dashboard$/);
+    await staff.close();
+  });
+});
+
 test.describe("the record, and who can see it", () => {
   test("the client sees their own sign-offs in the portal", async ({ playwright }) => {
     const ctx = await clientCtx(playwright);
@@ -411,3 +485,11 @@ test.describe("what the database refuses regardless of the app", () => {
     await admin.from("project_approvals").delete().eq("id", raised!.id);
   });
 });
+
+/** The smallest valid PNG, so an upload is a real image without a fixture file. */
+function onePixelPng(): Buffer {
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+}
