@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripCssComments } from "./cssSource";
 
 /**
  * The stylesheet against the markup it is written for.
@@ -15,12 +16,16 @@ import { join } from "node:path";
  * These are three seconds of string matching that would have.
  */
 const root = process.cwd();
-const CSS = readFileSync(join(root, "app", "globals.css"), "utf8");
+// Comments stripped: this file's own explanation of the bug names the broken
+// selector, and a scanner that reads that sentence as a rule reports a
+// stylesheet problem that does not exist.
+const CSS = stripCssComments(readFileSync(join(root, "app", "globals.css"), "utf8"));
 const APP_SHELL = readFileSync(join(root, "components", "app", "AppShell.tsx"), "utf8");
+const PROJECT_PAGE = readFileSync(join(root, "app", "(app)", "projects", "[id]", "page.tsx"), "utf8");
 
-/** The element each `.mobile-nav <x>` rule expects to find. */
-function navRuleTargets(): string[] {
-  return [...CSS.matchAll(/\.mobile-nav\s+([a-z]+)/g)].map((m) => m[1]);
+/** The elements every `.<container> <x>` rule expects to find inside it. */
+function ruleTargets(container: string): Set<string> {
+  return new Set([...CSS.matchAll(new RegExp(`\\.${container}\\s+([a-z]+)`, "g"))].map((m) => m[1]));
 }
 
 describe("the mobile bottom navigation", () => {
@@ -30,7 +35,7 @@ describe("the mobile bottom navigation", () => {
     expect(navMarkup, "the .mobile-nav element moved — this test needs to follow it").toBeTruthy();
     expect(navMarkup, "the nav items are no longer <Link>s; check what the CSS targets").toContain("<Link");
 
-    const targets = new Set(navRuleTargets());
+    const targets = ruleTargets("mobile-nav");
     expect(targets.has("a"), "no rule targets the <a> the nav is built from").toBe(true);
     expect(
       targets.has("button"),
@@ -44,6 +49,26 @@ describe("the mobile bottom navigation", () => {
     // careless edit without waiting for a browser.
     const heights = [...CSS.matchAll(/\.mobile-nav a\{[^}]*min-height:(\d+)px/g)].map((m) => Number(m[1]));
     expect(heights.length, "no min-height on the nav items at all").toBeGreaterThan(0);
+    for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
+  });
+});
+
+describe("the project tab strip", () => {
+  it("is styled for the element the project page renders", () => {
+    // The second place this happened. Every `.tabbar` rule named `button`;
+    // the page has always navigated with links, so the padding, the uppercase
+    // and the active underline applied to nothing and the tabs came out as a
+    // run-on line of words.
+    const stripMarkup = /<div className="tabbar">([\s\S]*?)<\/div>/.exec(PROJECT_PAGE)?.[1];
+    expect(stripMarkup, "the .tabbar element moved — this test needs to follow it").toBeTruthy();
+    expect(stripMarkup, "the tabs are no longer <Link>s; check what the CSS targets").toContain("<Link");
+
+    expect(ruleTargets("tabbar").has("a"), "no rule targets the <a> the tab strip is built from").toBe(true);
+  });
+
+  it("keeps every tab big enough for a thumb", () => {
+    const heights = [...CSS.matchAll(/\.tabbar a\{[^}]*min-height:(\d+)px/g)].map((m) => Number(m[1]));
+    expect(heights.length, "no min-height on the tabs at all").toBeGreaterThan(0);
     for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
   });
 });

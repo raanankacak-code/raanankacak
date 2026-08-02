@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { stripCssComments } from "./cssSource";
 
 /**
  * One stylesheet, one meaning per class name.
@@ -23,7 +24,7 @@ function topLevelRules(css: string): string {
   // Comments first: a rule that follows one is still a rule, and an earlier
   // version of this test missed exactly those — which made it pass while the
   // duplicate it was written to catch sat in the file.
-  const noComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const noComments = stripCssComments(css);
 
   let out = "";
   let i = 0;

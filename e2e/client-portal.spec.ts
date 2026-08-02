@@ -514,6 +514,30 @@ test.describe("the portal", () => {
     });
   }
 
+  // The portal header is the tightest row in the app on a phone: a logo, a
+  // company name that can run to two lines, the client's own name and the
+  // way out, inside 390px. `.btn` never set white-space, so "Sign out" broke
+  // across two lines and the header grew to match.
+  test("the header survives a phone: nothing in it wraps", async ({ browser }) => {
+    const page = await newClientPage(browser, { width: 390, height: 844 });
+    await page.goto("/portal");
+
+    const signOut = page.getByRole("button", { name: /sign out/i });
+    await expect(signOut).toBeVisible();
+
+    const box = await signOut.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { height: el.getBoundingClientRect().height, line: parseFloat(s.lineHeight) || 0, wrap: s.whiteSpace };
+    });
+
+    expect(box.wrap, "the label is free to break across lines").toBe("nowrap");
+    // One line of text plus padding. Two lines is roughly 14px more, so this
+    // fails on the wrap rather than on a padding tweak.
+    expect(box.height, `"Sign out" is ${Math.round(box.height)}px tall — it has wrapped`).toBeLessThan(50);
+
+    await page.close();
+  });
+
   test("a signed-out visitor gets the sign-in page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: undefined });
     const page = await context.newPage();
@@ -524,8 +548,11 @@ test.describe("the portal", () => {
 });
 
 /** A browser signed in as the client, cookie jar and all. */
-async function newClientPage(browser: import("@playwright/test").Browser) {
-  const context = await browser.newContext({ storageState: undefined });
+async function newClientPage(
+  browser: import("@playwright/test").Browser,
+  viewport?: { width: number; height: number },
+) {
+  const context = await browser.newContext({ storageState: undefined, ...(viewport ? { viewport } : {}) });
   await context.addCookies(
     clientCookie.split("; ").map((pair) => {
       const eq = pair.indexOf("=");

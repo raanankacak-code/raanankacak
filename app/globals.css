@@ -77,7 +77,10 @@ h1,h2,h3{font-family:var(--font-disp);letter-spacing:.02em}
 .hazard{height:6px;background:var(--hazard);border-radius:99px}
 
 /* ---------- buttons ---------- */
-.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);background:var(--panel2);color:var(--text);border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600;transition:filter .12s, background .12s, border-color .12s, transform .1s, box-shadow .12s}
+/* white-space: a button is a fixed thing you press, not a paragraph. Without
+   it "Sign out" broke over two lines in the client portal's header, which is
+   the tightest row in the app on a phone. */
+.btn{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border:1px solid var(--line2);background:var(--panel2);color:var(--text);border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600;transition:filter .12s, background .12s, border-color .12s, transform .1s, box-shadow .12s}
 .btn:hover{background:#E4EAF2;border-color:#B9C6D6;transform:translateY(-1px);box-shadow:0 4px 10px -6px rgba(23,33,45,.25)}
 .btn:active{transform:translateY(0);box-shadow:none;filter:brightness(.97)}
 .btn-amber{background:var(--amber);border-color:var(--amber);color:#241A02}
@@ -407,9 +410,13 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
 /* ---------- project detail tabs ---------- */
 .tabbar{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line2);margin-bottom:16px;scrollbar-width:none}
 .tabbar::-webkit-scrollbar{display:none}
-.tabbar button{background:none;border:0;color:var(--mut);font-family:var(--font-disp);text-transform:uppercase;letter-spacing:.07em;font-size:14.5px;font-weight:700;padding:10px 14px;border-bottom:2.5px solid transparent;white-space:nowrap;margin-bottom:-1px;transition:color .12s,border-color .15s}
-.tabbar button:hover{color:var(--amber-text)}
-.tabbar button.on{color:var(--amber-text);border-bottom-color:var(--amber)}
+/* Both element types, because the project page navigates with links and the
+   selector that only named `button` styled nothing at all for milestones —
+   the same way `.mobile-nav button` did. `.auth-tabs` below already names
+   both; this is that rule catching up. */
+.tabbar button,.tabbar a{display:inline-flex;align-items:center;background:none;border:0;color:var(--mut);font-family:var(--font-disp);text-transform:uppercase;letter-spacing:.07em;font-size:14.5px;font-weight:700;padding:10px 14px;border-bottom:2.5px solid transparent;white-space:nowrap;margin-bottom:-1px;text-decoration:none;transition:color .12s,border-color .15s}
+.tabbar button:hover,.tabbar a:hover{color:var(--amber-text)}
+.tabbar button.on,.tabbar a.on{color:var(--amber-text);border-bottom-color:var(--amber)}
 
 /* ---------- charts ---------- */
 .chart{width:100%;max-width:100%;height:auto;display:block}
@@ -562,7 +569,7 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
   textarea{min-height:104px}
   .form-grid{grid-template-columns:1fr!important;gap:14px}
   .seg button{min-height:42px;padding:9px 13px}
-  .tabbar button{min-height:46px}
+  .tabbar button,.tabbar a{min-height:46px}
   .mobile-nav a{min-height:56px;font-size:11px}
   td,th{padding:13px 10px}
   .att-status button{width:46px;height:46px;font-size:15px}

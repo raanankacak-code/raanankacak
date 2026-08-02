@@ -32,6 +32,13 @@ const LIST_PAGES = [
 /** Pages that are not lists but still have to survive a 390px screen. */
 const OTHER_PAGES = ["/dashboard", "/calendar"];
 
+/**
+ * The pages carrying the app's longest button labels ("Delete this company
+ * permanently"). Buttons no longer wrap their text, so these are where that
+ * would first show up as a screen you have to scroll sideways.
+ */
+const WIDE_LABEL_PAGES = ["/settings", "/profile"];
+
 test.use({ storageState: AUTH_STATE_PATH, viewport: PHONE });
 
 /**
@@ -194,7 +201,7 @@ test.describe("the bottom navigation", () => {
 });
 
 test.describe("list pages on a phone", () => {
-  for (const path of [...OTHER_PAGES, ...LIST_PAGES]) {
+  for (const path of [...OTHER_PAGES, ...WIDE_LABEL_PAGES, ...LIST_PAGES]) {
     test(`${path} does not scroll sideways`, async ({ page }) => {
       await page.goto(path);
       await page.locator("h2, h3").first().waitFor();
@@ -210,7 +217,7 @@ test.describe("list pages on a phone", () => {
       expect(overflow.body, `overflowing: ${overflow.widest.join(", ")}`).toBeLessThanOrEqual(0);
     });
 
-    if (OTHER_PAGES.includes(path)) continue; // no table to turn into cards
+    if (!LIST_PAGES.includes(path)) continue; // no table to turn into cards
     test(`${path} shows its rows as cards, not as a table to scroll`, async ({ page }) => {
       await page.goto(path);
       await page.locator("h2, h3").first().waitFor();
@@ -259,6 +266,106 @@ test.describe("list pages on a phone", () => {
       expect(cells.labelled, "no cell carries its own label, so the card is unreadable").toBeGreaterThan(1);
     });
   }
+});
+
+test.describe("the project tab strip", () => {
+  /**
+   * The same bug as the bottom navigation, in a second place.
+   *
+   * globals.css styles `.tabbar button`; the project page has always rendered
+   * links. So the padding, the uppercase, the active underline, the nowrap
+   * and the 46px touch target applied to nothing at all, and the strip came
+   * out as a run-on line of words — "Overview Workers Documents Client Daily
+   * Reports Attendance Material Requests Safety" — that wrapped mid-label on
+   * a phone. It took a screenshot to see it, which is exactly what this file
+   * exists to stop.
+   *
+   * Every assertion below is a property of the rules rather than of the
+   * viewport, so this also covers the desktop symptom: zero padding is what
+   * made the tabs run together at 1440px too.
+   */
+  test("is styled — the rules apply to what the project page actually renders", async ({ page }) => {
+    await page.goto(`/projects/${projectId}`);
+    const strip = page.locator(".tabbar");
+    await expect(strip).toBeVisible();
+
+    const first = strip.locator("a").first();
+    const styles = await first.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return {
+        transform: s.textTransform,
+        wrap: s.whiteSpace,
+        padLeft: parseFloat(s.paddingLeft),
+        padRight: parseFloat(s.paddingRight),
+        decoration: s.textDecorationLine,
+      };
+    });
+
+    // Without the rules the link falls back to document defaults: no padding,
+    // sentence case, and free to break wherever the line runs out.
+    expect(styles.transform, "the tab is not being rendered as a tab").toBe("uppercase");
+    expect(styles.wrap, "a tab label is free to break across lines").toBe("nowrap");
+    expect(styles.padLeft, "no padding, so the tabs run into each other").toBeGreaterThanOrEqual(10);
+    expect(styles.padRight).toBeGreaterThanOrEqual(10);
+    expect(styles.decoration).toBe("none");
+  });
+
+  test("marks which tab you are on", async ({ page }) => {
+    await page.goto(`/projects/${projectId}?tab=workers`);
+    const active = page.locator(".tabbar a.on");
+    await expect(active).toHaveCount(1);
+    await expect(active).toHaveText(/workers/i);
+
+    // The amber underline is the only thing telling you where you are. A
+    // colour alone proves nothing: an unstyled link has no border at all, and
+    // its border-bottom-color still computes to the text colour.
+    const border = await active.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { width: parseFloat(s.borderBottomWidth), color: s.borderBottomColor };
+    });
+    expect(border.width, "the active tab has no underline").toBeGreaterThanOrEqual(2);
+    expect(border.color).not.toBe("rgba(0, 0, 0, 0)");
+  });
+
+  test("no label breaks across two lines", async ({ page }) => {
+    await page.goto(`/projects/${projectId}`);
+
+    // The flex row itself never wraps — what wrapped was the text inside a
+    // tab. "Daily Reports" was squeezed until it came out as "Daily" with
+    // "Reports" hanging underneath, which made that one tab twice as tall as
+    // its neighbours and the whole strip two lines deep. So: every tab the
+    // same height, and the strip no deeper than one of them.
+    const strip = await page.locator(".tabbar").evaluate((el) => ({
+      height: el.getBoundingClientRect().height,
+      tabs: [...el.querySelectorAll("a")].map((a) => ({
+        label: a.textContent?.trim() ?? "",
+        height: Math.round(a.getBoundingClientRect().height),
+      })),
+    }));
+
+    const tallest = Math.max(...strip.tabs.map((t) => t.height));
+    const uneven = strip.tabs.filter((t) => t.height < tallest).map((t) => `${t.label} ${t.height}px`);
+
+    expect(strip.tabs.length).toBeGreaterThan(4);
+    expect(uneven, `tabs of differing heights (tallest ${tallest}px) — a label has wrapped`).toEqual([]);
+    // +2 for the strip's own bottom border.
+    expect(strip.height, "the strip is deeper than a single row of tabs").toBeLessThanOrEqual(tallest + 2);
+  });
+
+  test("every tab is a thumb-sized target", async ({ page }) => {
+    await page.goto(`/projects/${projectId}`);
+
+    // Measured in the page rather than through boundingBox(): the strip
+    // scrolls sideways, and a tab past the right edge has no box to report.
+    const short = await page.locator(".tabbar").evaluate((strip) =>
+      [...strip.querySelectorAll("a")]
+        .map((a) => ({ label: a.textContent?.trim() ?? "", height: a.getBoundingClientRect().height }))
+        .filter((t) => t.height < 44)
+        .map((t) => `${t.label} is ${Math.round(t.height)}px tall`),
+    );
+
+    expect(short, "tabs too small for a thumb").toEqual([]);
+  });
 });
 
 test.describe("tap targets", () => {
