@@ -122,7 +122,10 @@ h1,h2,h3{font-family:var(--font-disp);letter-spacing:.02em}
 .proj-select{max-width:230px}
 
 /* ---------- cards / layout ---------- */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+/* min-width:0 belongs here rather than in a second `.card` rule further down
+   the file: a grid child needs it to be allowed to shrink, and a class with
+   two declarations is a collision waiting to happen. */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);min-width:0}
 .card-h{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
 .card-h h3{font-size:17px;text-transform:uppercase;letter-spacing:.07em}
 .card-h .right{margin-left:auto;display:flex;gap:8px;align-items:center}
@@ -216,9 +219,6 @@ kbd{font-family:var(--font-mono);font-size:11.5px;background:var(--panel2);borde
 .ob-tick{width:30px;height:30px;border-radius:99px;flex:none;display:grid;place-items:center;font-family:var(--font-disp);font-weight:700;font-size:14px;border:2px solid var(--line2);color:var(--faint)}
 .ob-step.done .ob-tick{background:var(--ok);border-color:var(--ok);color:#fff}
 .ob-step.done b{text-decoration:line-through;color:var(--mut)}
-
-/* ---------- branding ---------- */
-.letterhead{display:flex;gap:11px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:15px}
 
 /* ---------- help center ---------- */
 .help-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
@@ -415,7 +415,6 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
 .chart{width:100%;max-width:100%;height:auto;display:block}
 .two-col>*{min-width:0}
 .grid>*{min-width:0}
-.card{min-width:0}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--mut);padding:10px 16px 14px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .bar-anim rect{transform-origin:bottom;animation:grow .5s ease both}
@@ -793,6 +792,26 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
    PDF and emailed to an officer who will never log in. Everything the app
    uses to navigate is furniture on paper. */
 .print-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+/* The company's own heading. Everything in it is optional — a workspace that
+   has filled in nothing still gets its name rather than a row of empty
+   labels — so the styling has to survive one line or five. */
+.letterhead{display:flex;gap:13px;align-items:flex-start;min-width:0}
+.letterhead-logo{width:52px;height:52px;object-fit:contain;border-radius:6px;flex:none}
+.letterhead-name{font-family:var(--font-disp);font-size:19px;font-weight:700;letter-spacing:.02em;line-height:1.25}
+.letterhead-line{font-size:12.5px;color:var(--mut);line-height:1.5}
+.letterhead-doc{text-align:right;flex:none}
+.letterhead-title{font-family:var(--font-disp);text-transform:uppercase;letter-spacing:.07em;font-size:13px;color:var(--mut);font-weight:600}
+.letterhead-ref{font-size:20px;font-weight:700;margin-top:2px}
+/* A photo with a way to take it back off. */
+.photo-holder{position:relative;display:inline-flex}
+.photo-x{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:99px;border:1px solid var(--line2);
+  background:var(--panel);color:var(--bad-text);font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center}
+.photo-x:hover{background:#ff61611a;border-color:var(--bad)}
+@media (max-width:700px){
+  .print-head{flex-direction:column;gap:12px}
+  .letterhead-doc{text-align:left}
+  .photo-x{width:28px;height:28px}
+}
 .print-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:16px 18px;border-bottom:1px solid var(--line)}
 .print-group{padding:14px 18px;border-bottom:1px solid var(--line)}
 .print-group:last-of-type{border-bottom:0}
@@ -811,7 +830,7 @@ input.tm{width:92px;padding:6px 8px;font-family:var(--font-mono);font-size:13px}
 
 @media print{
   /* Navigation, banners and anything clickable are noise on paper. */
-  .side,.mobile-nav,.mobile-topchip,.billing-banner,.fab,.no-print,.skip-link{display:none!important}
+  .side,.mobile-nav,.mobile-topchip,.billing-banner,.fab,.no-print,.skip-link,.gs-wrap{display:none!important}
   .shell{display:block}
   .main{padding:0}
   body{background:#fff}

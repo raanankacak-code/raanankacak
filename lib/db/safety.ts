@@ -213,6 +213,69 @@ export async function closeInspection(
   return mapInspection(data);
 }
 
+/**
+ * Adds evidence to an inspection that has already been filed.
+ *
+ * Appends rather than replaces, and reads the current array first so two
+ * people uploading at once cannot overwrite each other's photographs. The
+ * checklist stays sealed either way: this touches `photos` and nothing else,
+ * so what was found on site cannot be revised after the fact.
+ */
+export async function appendInspectionPhotos(orgId: string, id: string, urls: string[]): Promise<SafetyInspection> {
+  const supabase = createAdminClient();
+  const { data: existing, error: readError } = await supabase
+    .from("safety_inspections")
+    .select("photos")
+    .eq("id", id)
+    .eq("org_id", orgId)
+    .single();
+  if (readError) throw readError;
+
+  const current = ((existing?.photos ?? []) as string[]) ?? [];
+  const next = [...current, ...urls.filter((u) => !current.includes(u))];
+
+  const { data, error } = await supabase
+    .from("safety_inspections")
+    .update({ photos: next })
+    .eq("id", id)
+    .eq("org_id", orgId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapInspection(data);
+}
+
+/**
+ * Takes one photograph back off.
+ *
+ * Deliberately narrow, and deliberately present: an accidental upload can
+ * carry someone's IC number, and "the record is immutable" is not an answer
+ * to a PDPA request. Only the roles that can close an inspection may do it,
+ * and the audit trail keeps the url of what went.
+ */
+export async function removeInspectionPhoto(orgId: string, id: string, url: string): Promise<SafetyInspection> {
+  const supabase = createAdminClient();
+  const { data: existing, error: readError } = await supabase
+    .from("safety_inspections")
+    .select("photos")
+    .eq("id", id)
+    .eq("org_id", orgId)
+    .single();
+  if (readError) throw readError;
+
+  const next = (((existing?.photos ?? []) as string[]) ?? []).filter((u) => u !== url);
+
+  const { data, error } = await supabase
+    .from("safety_inspections")
+    .update({ photos: next })
+    .eq("id", id)
+    .eq("org_id", orgId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return mapInspection(data);
+}
+
 export async function deleteInspection(orgId: string, id: string): Promise<void> {
   const { error } = await createAdminClient()
     .from("safety_inspections")

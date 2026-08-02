@@ -26,7 +26,8 @@ a real Next.js app with a Postgres (Supabase) database and Supabase Auth.
 - Attendance — daily check-in grid (Present/Half/Absent), CIDB Green Card
   expiry flags, monthly summary + CSV export
 - Materials/procurement with an approval workflow and full audit trail
-- Safety inspections — dated, attributed, photo evidence, printable record
+- Safety inspections — dated, attributed, photo evidence, and a printable
+  record on your own letterhead that takes photographs added after filing
 - Defect management — snag lists per project, with a photo of the problem and
   a photo of the fix, and sign-off by someone other than whoever fixed it
 - Equipment register — plant owned or hired, hours logged per machine, and
@@ -164,7 +165,10 @@ trial, and a Stripe customer are each needed:
   while leaving sign-in accounts intact.
 - **`safety`** — an inspection is filed, its evidence survives, and both the
   record page and its per-finding uploads are unreachable by another tenant
-  and by a signed-out visitor.
+  and by a signed-out visitor. Also the evidence added *after* filing: it
+  works on a closed inspection, it cannot touch the checklist, a Viewer is
+  refused, a Site Supervisor may add but not remove, and removing one takes
+  the file out of storage rather than orphaning it.
 - **`defects`** — the snag-list rules that only exist because a defect is
   evidence rather than a to-do item: a Site Supervisor can resolve one but
   cannot sign it off, "resolved" is refused without notes or a photo, a closed
@@ -297,6 +301,27 @@ Changing a staff account into a client account, or the reverse, is refused:
 the two are scoped differently, and converting one in place would leave an
 account holding the wrong kind of scope. Invite them again instead. To take a
 client's access away, deactivate the account on the Team page.
+
+## Printed documents
+
+`components/app/PrintLetterhead.tsx` is the company's own heading: logo, name,
+SSM and CIDB numbers, address and contact, beside the document's title and
+reference. Those two registration numbers are how a Malaysian contractor is
+identified on paper, so an officer handed a safety inspection should not have
+to ask for them. Every field is optional — a workspace that has filled none of
+them in still gets a clean heading with its name.
+
+Anything printable should use it. The `@media print` block in `globals.css`
+hides the app's furniture (sidebar, bottom nav, global search, floating
+button, anything marked `no-print`); `lib/styles.test.ts` checks that list has
+not lost an entry, because a search box on a printed record says the company
+sent a screenshot of an app rather than a document.
+
+That test also enforces one rule the hard way: **a bare class may be declared
+once**. A `.letterhead` written for the inspection record collided with a dead
+`.letterhead` from an abandoned branding preview, and the heading came out
+sitting in a grey box nobody asked for. Nothing errored; it took a screenshot
+to notice.
 
 ## The phone layout
 

@@ -8,6 +8,8 @@ import { getOrganizationById } from "@/lib/db/organizations";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type { SafetyInspectionItem } from "@/lib/db/types";
 import PrintButton from "@/components/app/PrintButton";
+import PrintLetterhead from "@/components/app/PrintLetterhead";
+import InspectionPhotos from "@/components/app/safety/InspectionPhotos";
 
 const OUTCOME_LABEL: Record<string, string> = {
   PASS: "Pass",
@@ -59,16 +61,14 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="card print-card">
-        <div className="print-head">
-          <div>
-            <h2 style={{ margin: 0 }}>Safety Inspection Record</h2>
-            <div className="small mut">{org?.name ?? "—"}</div>
-          </div>
-          <div className="num" style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{inspection.code}</div>
-            <div className="small mut">{formatDate(inspection.date)}</div>
-          </div>
-        </div>
+        {/* The company's own heading: an officer handed this should not have
+            to ask who the contractor is, or for their SSM and CIDB numbers. */}
+        <PrintLetterhead
+          org={org}
+          documentTitle="Safety Inspection Record"
+          reference={inspection.code}
+          date={formatDate(inspection.date)}
+        />
 
         <div className="print-meta">
           <div>
@@ -151,17 +151,12 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
           </div>
         )}
 
-        {inspection.photos.length > 0 && (
-          <div className="print-group">
-            <div className="field-label">Site photos</div>
-            <div className="photo-strip">
-              {inspection.photos.map((url) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={url} src={url} alt="Site photo" className="thumb" />
-              ))}
-            </div>
-          </div>
-        )}
+        <InspectionPhotos
+          inspectionId={inspection.id}
+          photos={inspection.photos}
+          canAdd={can(member.role, "submitInspections")}
+          canRemove={can(member.role, "closeInspections")}
+        />
 
         <div className="print-sign">
           <div>

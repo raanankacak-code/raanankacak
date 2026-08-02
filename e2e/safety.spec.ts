@@ -189,6 +189,143 @@ test.describe("safety inspections", () => {
     await ctx.dispose();
   });
 
+  test("a photo can be added after filing, and after closing", async ({ playwright }) => {
+    // The photograph of the fix arrives the next day. Until this it lived in
+    // somebody's phone gallery, which is not a record.
+    const ctx = await playwright.request.newContext({
+      storageState: AUTH_STATE_PATH,
+      baseURL: test.info().project.use.baseURL,
+    });
+
+    const png = { name: "after.png", mimeType: "image/png", buffer: Buffer.from([9, 9, 9, 9]) };
+    const url = (await (await ctx.post("/api/uploads", { multipart: { file: png } })).json()).url as string;
+
+    const before = (await (await ctx.get(`/api/safety/${cleanInspectionId}`)).json()).inspection;
+    // cleanInspectionId is CLOSED on arrival — a clean inspection has nothing
+    // to action — which is exactly the case that has to keep working.
+    expect(before.status).toBe("CLOSED");
+
+    const res = await ctx.post(`/api/safety/${cleanInspectionId}/photos`, { data: { photos: [url] } });
+    expect(res.status(), await res.text()).toBe(200);
+
+    const after = (await res.json()).inspection;
+    expect(after.photos).toContain(url);
+    // The checklist is untouched: this route can add evidence and nothing
+    // else, so what was found on site cannot be revised afterwards.
+    expect(after.items).toEqual(before.items);
+    expect(after.outcome).toBe(before.outcome);
+    expect(after.status).toBe(before.status);
+
+    await ctx.dispose();
+  });
+
+  test("the same photo twice does not appear twice", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({
+      storageState: AUTH_STATE_PATH,
+      baseURL: test.info().project.use.baseURL,
+    });
+    const existing = (await (await ctx.get(`/api/safety/${cleanInspectionId}`)).json()).inspection.photos as string[];
+    const res = await ctx.post(`/api/safety/${cleanInspectionId}/photos`, { data: { photos: [existing[0]] } });
+    expect(res.status()).toBe(200);
+    expect((await res.json()).inspection.photos).toEqual(existing);
+    await ctx.dispose();
+  });
+
+  test("a Viewer cannot add evidence to a safety record", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({
+      storageState: seed.orgA.members.VIEWER.authStatePath,
+      baseURL: test.info().project.use.baseURL,
+    });
+    const res = await ctx.post(`/api/safety/${cleanInspectionId}/photos`, {
+      data: { photos: ["/api/uploads/whatever/x.png"] },
+    });
+    expect(res.status()).toBe(403);
+    await ctx.dispose();
+  });
+
+  test("a Site Supervisor can add one but cannot take one away", async ({ playwright }) => {
+    // Adding evidence is part of filing; removing it from a safety record is
+    // not a routine act, so it sits with the roles that close inspections.
+    const ctx = await playwright.request.newContext({
+      storageState: seed.orgA.members.SITE_SUPERVISOR.authStatePath,
+      baseURL: test.info().project.use.baseURL,
+    });
+
+    const png = { name: "supervisor.png", mimeType: "image/png", buffer: Buffer.from([7, 7, 7, 7]) };
+    const url = (await (await ctx.post("/api/uploads", { multipart: { file: png } })).json()).url as string;
+
+    expect((await ctx.post(`/api/safety/${cleanInspectionId}/photos`, { data: { photos: [url] } })).status()).toBe(200);
+    expect((await ctx.delete(`/api/safety/${cleanInspectionId}/photos`, { data: { url } })).status()).toBe(403);
+
+    await ctx.dispose();
+  });
+
+  test("removing one takes the file with it, and only from this record", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({
+      storageState: AUTH_STATE_PATH,
+      baseURL: test.info().project.use.baseURL,
+    });
+
+    const png = { name: "mistake.png", mimeType: "image/png", buffer: Buffer.from([3, 3, 3, 3]) };
+    const url = (await (await ctx.post("/api/uploads", { multipart: { file: png } })).json()).url as string;
+    await ctx.post(`/api/safety/${cleanInspectionId}/photos`, { data: { photos: [url] } });
+
+    // A url that is not on this inspection is not this route's to delete.
+    const stranger = await ctx.delete(`/api/safety/${cleanInspectionId}/photos`, {
+      data: { url: "/api/uploads/00000000-0000-0000-0000-000000000000/nope.png" },
+    });
+    expect(stranger.status()).toBe(404);
+
+    const removed = await ctx.delete(`/api/safety/${cleanInspectionId}/photos`, { data: { url } });
+    expect(removed.status(), await removed.text()).toBe(200);
+    expect((await removed.json()).inspection.photos).not.toContain(url);
+
+    // The object goes too: a row that no longer points at it leaves an
+    // orphan, and an orphan still counts against the workspace's quota.
+    // Read once, after the delete — uploads are served immutable, so a read
+    // beforehand would be answered from cache.
+    expect((await ctx.get(url)).status(), "the removed photo was orphaned in storage").toBe(404);
+
+    await ctx.dispose();
+  });
+
+  test("another tenant cannot add evidence to this org's inspection", async ({ playwright }) => {
+    const ctx = await playwright.request.newContext({
+      storageState: seed.orgB.owner.authStatePath,
+      baseURL: test.info().project.use.baseURL,
+    });
+    const res = await ctx.post(`/api/safety/${cleanInspectionId}/photos`, {
+      data: { photos: ["/api/uploads/x/y.png"] },
+    });
+    expect(res.status()).toBe(404);
+    await ctx.dispose();
+  });
+
+  test("the record is on the company's own letterhead", async ({ playwright, browser }) => {
+    // What an officer is handed should say who the contractor is, with the
+    // two numbers a Malaysian contractor is identified by.
+    const api = await playwright.request.newContext({
+      storageState: AUTH_STATE_PATH,
+      baseURL: test.info().project.use.baseURL,
+    });
+    const saved = await api.patch("/api/orgs", {
+      data: { ssmNumber: "202301234567", cidbNumber: "0120230101-SW123456", phone: "082-123456" },
+    });
+    expect(saved.ok(), "could not set the company details, so this proves nothing").toBeTruthy();
+    await api.dispose();
+
+    const page = await (await browser.newContext({ storageState: AUTH_STATE_PATH })).newPage();
+    await page.goto(`/safety/${cleanInspectionId}`);
+
+    await expect(page.locator(".letterhead-name")).toContainText(seed.orgA.name.slice(0, 20));
+    await expect(page.getByText("SSM 202301234567")).toBeVisible();
+    await expect(page.getByText(/CIDB 0120230101-SW123456/)).toBeVisible();
+    // And the document still says what it is.
+    await expect(page.getByRole("heading", { name: /safety inspection record/i })).toBeVisible();
+
+    await page.close();
+  });
+
   test("the full record page shows everything checked, not only what failed", async ({ browser }) => {
     // The artefact handed to an officer. "We looked at all of this" is half of
     // what an inspection record is for, so passes must be on it too.
