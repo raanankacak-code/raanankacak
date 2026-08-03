@@ -286,11 +286,21 @@ export async function teardownOwnerSession(): Promise<void> {
     return; // nothing to clean up (setup never ran, or already torn down)
   }
 
-  // Uploaded objects are not covered by the database cascade.
+  // Uploaded objects are not covered by the database cascade. Paged, because
+  // list() returns 100 at a time and a run that uploads more than that would
+  // leave the remainder in the bucket for good — the org row is deleted just
+  // below, so nothing afterwards knows the folder was ever ours.
   for (const orgId of info.orgIds) {
-    const { data: objects } = await client.storage.from("uploads").list(orgId);
-    if (objects?.length) {
-      await client.storage.from("uploads").remove(objects.map((o) => `${orgId}/${o.name}`));
+    const PAGE = 100;
+    const keys: string[] = [];
+    for (let offset = 0; ; offset += PAGE) {
+      const { data } = await client.storage.from("uploads").list(orgId, { limit: PAGE, offset });
+      if (!data || data.length === 0) break;
+      for (const object of data) keys.push(`${orgId}/${object.name}`);
+      if (data.length < PAGE) break;
+    }
+    for (let i = 0; i < keys.length; i += PAGE) {
+      await client.storage.from("uploads").remove(keys.slice(i, i + PAGE));
     }
   }
 

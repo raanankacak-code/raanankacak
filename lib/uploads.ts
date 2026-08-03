@@ -99,6 +99,38 @@ export async function removeObjectsByUrl(orgId: string, urls: (string | null | u
 }
 
 /**
+ * Removes every object under an org's folder, and returns how many.
+ *
+ * Paged, for the same reason `sumStorageBytesForOrg` is: `list()` returns
+ * 100 objects unless told otherwise. An unpaged version of this silently
+ * deleted the first 100 files of a workspace and left the rest in the
+ * bucket with the organization row already gone — unreachable, and retained
+ * after the user asked for them to be deleted.
+ *
+ * The listing is completed before anything is removed. Deleting while
+ * paging by offset would shift the window under itself and skip objects.
+ */
+export async function removeAllObjectsForOrg(orgId: string): Promise<number> {
+  const storage = createAdminClient().storage.from(UPLOADS_BUCKET);
+  const PAGE = 100;
+  const keys: string[] = [];
+
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await storage.list(orgId, { limit: PAGE, offset });
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    for (const object of data) keys.push(objectKey(orgId, object.name));
+    if (data.length < PAGE) break;
+  }
+
+  for (let i = 0; i < keys.length; i += PAGE) {
+    const { error } = await storage.remove(keys.slice(i, i + PAGE));
+    if (error) throw error;
+  }
+  return keys.length;
+}
+
+/**
  * Total bytes stored under an org's folder, read straight from the bucket
  * rather than a counter column — no drift, and no migration needed for the
  * files that already exist.

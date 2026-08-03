@@ -11,7 +11,8 @@ vi.mock("@/lib/logger", () => ({
   errorFields: () => ({}),
 }));
 
-const { objectNameFromUrl, removeObjectsByUrl, sumStorageBytesForOrg } = await import("@/lib/uploads");
+const { objectNameFromUrl, removeAllObjectsForOrg, removeObjectsByUrl, sumStorageBytesForOrg } =
+  await import("@/lib/uploads");
 
 beforeEach(() => {
   createAdminClientMock.mockReset();
@@ -78,6 +79,71 @@ describe("removeObjectsByUrl", () => {
 
     await expect(removeObjectsByUrl("org-A", ["/api/uploads/org-A/one.png"])).resolves.toBeUndefined();
     expect(warnMock).toHaveBeenCalled();
+  });
+});
+
+describe("removeAllObjectsForOrg", () => {
+  it("removes every object under the org's folder", async () => {
+    listMock.mockResolvedValueOnce({ data: [{ name: "a.png" }, { name: "b.pdf" }], error: null });
+
+    expect(await removeAllObjectsForOrg("org-A")).toBe(2);
+    expect(removeMock).toHaveBeenCalledWith(["org-A/a.png", "org-A/b.pdf"]);
+  });
+
+  it("deletes past the first 100, not just the first page", async () => {
+    // The bug this guards: an unpaged list() returns 100 objects, so a
+    // workspace with more than that had the remainder left in the bucket
+    // while its organization row — the only thing tying those files to
+    // anyone — was deleted a moment later.
+    const full = Array.from({ length: 100 }, (_, i) => ({ name: `file-${i}.png` }));
+    listMock
+      .mockResolvedValueOnce({ data: full, error: null })
+      .mockResolvedValueOnce({ data: [{ name: "last.png" }], error: null });
+
+    expect(await removeAllObjectsForOrg("org-A")).toBe(101);
+    expect(listMock).toHaveBeenCalledTimes(2);
+    expect(removeMock).toHaveBeenCalledTimes(2);
+    expect(removeMock.mock.calls[1][0]).toEqual(["org-A/last.png"]);
+  });
+
+  it("lists everything before removing anything", async () => {
+    // Removing page by page while paging by offset shifts the window under
+    // itself: delete the first 100, and the second request's offset of 100
+    // now starts past objects that moved down into the first page.
+    const order: string[] = [];
+    const full = Array.from({ length: 100 }, (_, i) => ({ name: `file-${i}.png` }));
+    listMock.mockImplementation(async () => {
+      order.push("list");
+      return { data: order.filter((o) => o === "list").length === 1 ? full : [], error: null };
+    });
+    removeMock.mockImplementation(async () => {
+      order.push("remove");
+      return { error: null };
+    });
+
+    await removeAllObjectsForOrg("org-A");
+
+    expect(order.indexOf("remove")).toBeGreaterThan(order.lastIndexOf("list"));
+  });
+
+  it("does not call remove for an org that never uploaded anything", async () => {
+    expect(await removeAllObjectsForOrg("org-A")).toBe(0);
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
+  it("propagates a listing error rather than reporting a clean sweep", async () => {
+    // Returning 0 here would let deleteOrganization drop the org row while
+    // its files were still in the bucket.
+    listMock.mockResolvedValue({ data: null, error: new Error("list failed") });
+
+    await expect(removeAllObjectsForOrg("org-A")).rejects.toThrow("list failed");
+  });
+
+  it("propagates a removal error", async () => {
+    listMock.mockResolvedValueOnce({ data: [{ name: "a.png" }], error: null });
+    removeMock.mockResolvedValue({ error: new Error("remove failed") });
+
+    await expect(removeAllObjectsForOrg("org-A")).rejects.toThrow("remove failed");
   });
 });
 

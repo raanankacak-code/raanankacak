@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { UPLOADS_BUCKET } from "@/lib/uploads";
+import { removeAllObjectsForOrg } from "@/lib/uploads";
 import type { Organization, OrgMember, Role } from "@/lib/db/types";
 
 function mapOrganization(row: Record<string, unknown>): Organization {
@@ -181,14 +181,7 @@ export async function createOrganizationWithOwner(input: {
 export async function deleteOrganization(orgId: string): Promise<void> {
   const supabase = createAdminClient();
 
-  const { data: objects, error: listError } = await supabase.storage.from(UPLOADS_BUCKET).list(orgId);
-  if (listError) throw listError;
-  if (objects && objects.length > 0) {
-    const { error: removeError } = await supabase.storage
-      .from(UPLOADS_BUCKET)
-      .remove(objects.map((o) => `${orgId}/${o.name}`));
-    if (removeError) throw removeError;
-  }
+  await removeAllObjectsForOrg(orgId);
 
   // organizations -> members, projects, workers, reports, materials,
   // documents, calendar, notifications, audit log, subscription all cascade.

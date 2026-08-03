@@ -265,4 +265,70 @@ test.describe("workspace deletion", () => {
 
     await ctx.dispose();
   });
+
+  test("a workspace with more than a page of files loses all of them", async ({ playwright }) => {
+    // The test above uploads a single file, which is why this went unnoticed:
+    // storage list() returns 100 objects unless told otherwise, so deletion
+    // swept the first page and left everything after it in the bucket — with
+    // the organization row gone, and nothing left to say whose the files
+    // were. Anything at all past the boundary reproduces it.
+    const admin = adminClient();
+    const runId = Date.now();
+    const OBJECT_COUNT = 105;
+
+    const { data: org } = await admin
+      .from("organizations")
+      .insert({ name: `E2E Overflowing Co ${runId}` })
+      .select("*")
+      .single();
+    createdOrgIds.push(org.id);
+
+    const owner = await createAuthedUser(`e2e-overflow-owner-${runId}@example.com`);
+    createdUserIds.push(owner.userId);
+    await admin.from("org_members").insert({
+      org_id: org.id,
+      user_id: owner.userId,
+      name: "Overflow Owner",
+      email: `e2e-overflow-owner-${runId}@example.com`,
+      role: "OWNER",
+      active: true,
+    });
+
+    // Straight into the bucket rather than through /api/uploads: what is
+    // under test is the deletion, and 105 round trips through the upload
+    // route would only make the test slower and flakier.
+    await Promise.all(
+      Array.from({ length: OBJECT_COUNT }, (_, i) =>
+        admin.storage
+          .from("uploads")
+          .upload(`${org.id}/overflow-${i}.png`, Buffer.from([1, 2, 3]), { contentType: "image/png" }),
+      ),
+    );
+
+    const { data: before } = await admin.storage.from("uploads").list(org.id, { limit: 1000 });
+    expect(before!.length, "the fixture did not actually cross the page boundary").toBe(OBJECT_COUNT);
+
+    const ctx = await playwright.request.newContext({
+      baseURL: test.info().project.use.baseURL,
+      extraHTTPHeaders: { cookie: owner.cookie },
+    });
+    const res = await ctx.delete("/api/orgs", { data: { confirmName: org.name } });
+    expect(res.ok()).toBeTruthy();
+
+    // limit well past the page size — asking for the default 100 here would
+    // reproduce the very blind spot this test exists to close.
+    const { data: after } = await admin.storage.from("uploads").list(org.id, { limit: 1000 });
+    expect(after ?? [], "files left in the bucket after the workspace was deleted").toEqual([]);
+
+    // And the record says how many there were, which is what makes a leak
+    // detectable at all once the org row is gone.
+    const { data: record } = await admin
+      .from("deleted_workspaces")
+      .select("storage_object_count")
+      .eq("org_id", org.id)
+      .maybeSingle();
+    expect(record!.storage_object_count).toBe(OBJECT_COUNT);
+
+    await ctx.dispose();
+  });
 });
