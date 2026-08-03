@@ -51,10 +51,46 @@ function redactInvite(invite: Record<string, unknown>): Record<string, unknown> 
   return { ...rest, token: "[redacted]" };
 }
 
+/**
+ * PostgREST returns at most 1000 rows for a request that does not ask for a
+ * range, so every query below has to page. An export that stopped at the cap
+ * would be the exact failure the error check further down guards against —
+ * a file that looks complete and is not — except silent, with no error to
+ * catch. A workspace passes 1000 attendance records in its first few months.
+ */
+const EXPORT_PAGE = 1000;
+
+type Page = PromiseLike<{
+  data: Record<string, unknown>[] | null;
+  error: { message: string } | null;
+}>;
+
+/**
+ * Reads every row a query matches, one page at a time.
+ *
+ * The caller orders by `id`: paging by range over an unordered query is not
+ * stable, and rows can shift between pages — silently duplicating some and
+ * dropping others, which is worse than truncation because it looks fine.
+ */
+async function fetchAll(page: (from: number, to: number) => Page): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += EXPORT_PAGE) {
+    const { data, error } = await page(from, from + EXPORT_PAGE - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < EXPORT_PAGE) break;
+  }
+  return rows;
+}
+
 export async function buildOrgExport(orgId: string): Promise<OrgExport> {
   const supabase = createAdminClient();
 
-  const byOrg = (table: string) => supabase.from(table).select("*").eq("org_id", orgId);
+  const byOrg = (table: string) =>
+    fetchAll((from, to) =>
+      supabase.from(table).select("*").eq("org_id", orgId).order("id", { ascending: true }).range(from, to),
+    );
 
   const [
     organization,
@@ -100,17 +136,51 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     supabase.from("org_subscriptions").select("*").eq("org_id", orgId).maybeSingle(),
   ]);
 
-  for (const result of [
-    organization,
+  // Never hand back a partial export that looks complete — a customer
+  // migrating away would silently lose whatever failed. The paged reads
+  // above throw on error themselves; these two are single-row.
+  for (const result of [organization, subscription]) {
+    if (result.error) throw result.error;
+  }
+
+  // material_request_events has no org_id of its own; it hangs off the
+  // request, so scope it through the ids we just fetched. Chunked: `in()`
+  // goes into the URL, and a workspace with thousands of requests would
+  // otherwise build a query string long enough to be rejected outright.
+  const requestIds = materialRequests.map((r) => r.id as string);
+  const ID_CHUNK = 200;
+  const materialRequestEvents: Record<string, unknown>[] = [];
+  for (let i = 0; i < requestIds.length; i += ID_CHUNK) {
+    const chunk = requestIds.slice(i, i + ID_CHUNK);
+    const rows = await fetchAll((from, to) =>
+      supabase
+        .from("material_request_events")
+        .select("*")
+        .in("request_id", chunk)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    materialRequestEvents.push(...rows);
+  }
+
+  return {
+    exportedAt: new Date().toISOString(),
+    formatVersion: 1,
+    organization: organization.data ?? null,
     members,
-    invites,
+    invites: invites.map(redactInvite),
     projects,
+    // Who outside the company was given sight of which project — part of the
+    // record, and the thing a customer would need to rebuild it elsewhere.
     projectAccess,
+    // What the client signed off, and when. The part of the record a
+    // customer migrating away would most want to keep.
     projectApprovals,
     workers,
     attendance,
     dailyReports,
     materialRequests,
+    materialRequestEvents,
     documents,
     calendarEvents,
     safetyInspections,
@@ -120,53 +190,6 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     notifications,
     bugReports,
     auditLog,
-    subscription,
-  ]) {
-    // Never hand back a partial export that looks complete — a customer
-    // migrating away would silently lose whatever failed.
-    if (result.error) throw result.error;
-  }
-
-  // material_request_events has no org_id of its own; it hangs off the
-  // request, so scope it through the ids we just fetched.
-  const requestIds = (materialRequests.data ?? []).map((r) => r.id as string);
-  let materialRequestEvents: Record<string, unknown>[] = [];
-  if (requestIds.length > 0) {
-    const { data, error } = await supabase
-      .from("material_request_events")
-      .select("*")
-      .in("request_id", requestIds);
-    if (error) throw error;
-    materialRequestEvents = data ?? [];
-  }
-
-  return {
-    exportedAt: new Date().toISOString(),
-    formatVersion: 1,
-    organization: organization.data ?? null,
-    members: members.data ?? [],
-    invites: (invites.data ?? []).map(redactInvite),
-    projects: projects.data ?? [],
-    // Who outside the company was given sight of which project — part of the
-    // record, and the thing a customer would need to rebuild it elsewhere.
-    projectAccess: projectAccess.data ?? [],
-    // What the client signed off, and when. The part of the record a
-    // customer migrating away would most want to keep.
-    projectApprovals: projectApprovals.data ?? [],
-    workers: workers.data ?? [],
-    attendance: attendance.data ?? [],
-    dailyReports: dailyReports.data ?? [],
-    materialRequests: materialRequests.data ?? [],
-    materialRequestEvents,
-    documents: documents.data ?? [],
-    calendarEvents: calendarEvents.data ?? [],
-    safetyInspections: safetyInspections.data ?? [],
-    defects: defects.data ?? [],
-    equipment: equipment.data ?? [],
-    equipmentUsageLogs: equipmentUsageLogs.data ?? [],
-    notifications: notifications.data ?? [],
-    bugReports: bugReports.data ?? [],
-    auditLog: auditLog.data ?? [],
     subscription: subscription.data ?? null,
   };
 }
