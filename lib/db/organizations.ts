@@ -41,7 +41,9 @@ function mapOrgMember(row: Record<string, unknown>): OrgMember {
   };
 }
 
-export async function getOrganizationById(id: string): Promise<Organization | null> {
+export async function getOrganizationById(
+  id: string,
+): Promise<Organization | null> {
   const { data, error } = await createAdminClient()
     .from("organizations")
     .select("*")
@@ -105,7 +107,10 @@ export async function getMemberByUserId(
   userId: string,
   { activeOnly = false }: { activeOnly?: boolean } = {},
 ): Promise<OrgMember | null> {
-  let query = createAdminClient().from("org_members").select("*").eq("user_id", userId);
+  let query = createAdminClient()
+    .from("org_members")
+    .select("*")
+    .eq("user_id", userId);
   if (activeOnly) query = query.eq("active", true);
   const { data, error } = await query.maybeSingle();
   if (error) throw error;
@@ -185,6 +190,9 @@ export async function deleteOrganization(orgId: string): Promise<void> {
 
   // organizations -> members, projects, workers, reports, materials,
   // documents, calendar, notifications, audit log, subscription all cascade.
-  const { error } = await supabase.from("organizations").delete().eq("id", orgId);
+  const { error } = await supabase
+    .from("organizations")
+    .delete()
+    .eq("id", orgId);
   if (error) throw error;
 }

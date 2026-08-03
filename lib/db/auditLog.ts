@@ -34,16 +34,18 @@ export async function recordAuditEvent(
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> {
-  const { error } = await createAdminClient().from("audit_log").insert({
-    org_id: orgId,
-    actor_member_id: input.actorMemberId,
-    actor_name: input.actorName,
-    action: input.action,
-    entity_type: input.entityType,
-    entity_id: input.entityId ?? null,
-    summary: input.summary,
-    metadata: input.metadata ?? null,
-  });
+  const { error } = await createAdminClient()
+    .from("audit_log")
+    .insert({
+      org_id: orgId,
+      actor_member_id: input.actorMemberId,
+      actor_name: input.actorName,
+      action: input.action,
+      entity_type: input.entityType,
+      entity_id: input.entityId ?? null,
+      summary: input.summary,
+      metadata: input.metadata ?? null,
+    });
   if (error) throw error;
 }
 
@@ -72,7 +74,10 @@ export async function recordMemberAction(
   });
 }
 
-export async function listAuditLogForOrg(orgId: string, limit = 200): Promise<AuditLogEntry[]> {
+export async function listAuditLogForOrg(
+  orgId: string,
+  limit = 200,
+): Promise<AuditLogEntry[]> {
   const { data, error } = await createAdminClient()
     .from("audit_log")
     .select("*")
@@ -84,7 +89,10 @@ export async function listAuditLogForOrg(orgId: string, limit = 200): Promise<Au
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
-export async function listAuditLogForOrgViaSession(orgId: string, limit = 200): Promise<AuditLogEntry[]> {
+export async function listAuditLogForOrgViaSession(
+  orgId: string,
+  limit = 200,
+): Promise<AuditLogEntry[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("audit_log")

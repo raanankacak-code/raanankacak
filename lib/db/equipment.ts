@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
-import type { Equipment, EquipmentStatus, EquipmentUsageLog } from "@/lib/db/types";
+import type {
+  Equipment,
+  EquipmentStatus,
+  EquipmentUsageLog,
+} from "@/lib/db/types";
 import { isUuid } from "@/lib/uuid";
 
 export const DEFAULT_LIST_LIMIT = 200;
@@ -52,7 +56,8 @@ export interface EquipmentListItem extends Equipment {
   lastUsed: string | null;
 }
 
-const LIST_COLUMNS = "*, project:projects(id, name), hours:equipment_hours(total_hours, last_used)";
+const LIST_COLUMNS =
+  "*, project:projects(id, name), hours:equipment_hours(total_hours, last_used)";
 
 function mapListItem(row: Record<string, unknown>): EquipmentListItem {
   // PostgREST returns an embedded view as an array when it cannot prove the
@@ -85,7 +90,12 @@ export async function listEquipmentForOrgViaSession(
     status,
     limit = DEFAULT_LIST_LIMIT,
     offset = 0,
-  }: { projectId?: string; status?: EquipmentStatus; limit?: number; offset?: number } = {},
+  }: {
+    projectId?: string;
+    status?: EquipmentStatus;
+    limit?: number;
+    offset?: number;
+  } = {},
 ): Promise<EquipmentListItem[]> {
   const supabase = await createSessionClient();
   let query = supabase
@@ -99,7 +109,9 @@ export async function listEquipmentForOrgViaSession(
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map((row) => mapListItem(row as unknown as Record<string, unknown>));
+  return (data ?? []).map((row) =>
+    mapListItem(row as unknown as Record<string, unknown>),
+  );
 }
 
 export async function countEquipmentForOrg(
@@ -107,7 +119,10 @@ export async function countEquipmentForOrg(
   { projectId, status }: { projectId?: string; status?: EquipmentStatus } = {},
 ): Promise<number> {
   const supabase = await createSessionClient();
-  let query = supabase.from("equipment").select("*", { count: "exact", head: true }).eq("org_id", orgId);
+  let query = supabase
+    .from("equipment")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId);
   if (projectId) query = query.eq("project_id", projectId);
   if (status) query = query.eq("status", status);
 
@@ -144,10 +159,16 @@ export async function countEquipmentNeedingAttention(
 
   if (inspection.error) throw inspection.error;
   if (service.error) throw service.error;
-  return { inspectionExpired: inspection.count ?? 0, serviceOverdue: service.count ?? 0 };
+  return {
+    inspectionExpired: inspection.count ?? 0,
+    serviceOverdue: service.count ?? 0,
+  };
 }
 
-export async function getEquipmentById(orgId: string, id: string): Promise<Equipment | null> {
+export async function getEquipmentById(
+  orgId: string,
+  id: string,
+): Promise<Equipment | null> {
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("equipment")
@@ -189,7 +210,8 @@ export async function getEquipmentHours(
   orgId: string,
   equipmentId: string,
 ): Promise<{ totalHours: number; lastUsed: string | null; logCount: number }> {
-  if (!isUuid(equipmentId)) return { totalHours: 0, lastUsed: null, logCount: 0 };
+  if (!isUuid(equipmentId))
+    return { totalHours: 0, lastUsed: null, logCount: 0 };
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("equipment_hours")
@@ -308,7 +330,10 @@ export async function updateEquipment(
   return data ? mapEquipment(data) : null;
 }
 
-export async function deleteEquipment(orgId: string, id: string): Promise<boolean> {
+export async function deleteEquipment(
+  orgId: string,
+  id: string,
+): Promise<boolean> {
   if (!isUuid(id)) return false;
   const { data, error } = await createAdminClient()
     .from("equipment")

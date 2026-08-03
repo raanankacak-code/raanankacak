@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-function makeFakeAdminClient(response: { data: unknown; error: unknown } = { data: null, error: null }) {
+function makeFakeAdminClient(
+  response: { data: unknown; error: unknown } = { data: null, error: null },
+) {
   const insertMock = vi.fn(async () => response);
   const selectResult = { data: response.data, error: response.error };
   const builder: Record<string, unknown> = {};
@@ -9,7 +11,11 @@ function makeFakeAdminClient(response: { data: unknown; error: unknown } = { dat
   builder.eq = vi.fn(() => builder);
   builder.order = vi.fn(() => builder);
   builder.limit = vi.fn(async () => selectResult);
-  return { from: vi.fn(() => builder), _insertMock: insertMock, _builder: builder };
+  return {
+    from: vi.fn(() => builder),
+    _insertMock: insertMock,
+    _builder: builder,
+  };
 }
 
 const createAdminClientMock = vi.fn();
@@ -28,10 +34,15 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: createSessionClientMock,
 }));
 
-const { recordAuditEvent, listAuditLogForOrg, listAuditLogForOrgViaSession } = await import("@/lib/db/auditLog");
+const { recordAuditEvent, listAuditLogForOrg, listAuditLogForOrgViaSession } =
+  await import("@/lib/db/auditLog");
 
-function makeSessionChain(result: { data: unknown; error: unknown } = { data: [], error: null }) {
-  const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
+function makeSessionChain(
+  result: { data: unknown; error: unknown } = { data: [], error: null },
+) {
+  const chain: Record<string, unknown> = {
+    then: (resolve: (v: typeof result) => void) => resolve(result),
+  };
   chain.eq = eqMock.mockImplementation(() => chain);
   chain.order = orderMock.mockImplementation(() => chain);
   chain.limit = limitMock.mockImplementation(() => chain);
@@ -80,7 +91,10 @@ describe("recordAuditEvent", () => {
   });
 
   it("throws if the insert fails, instead of silently dropping the event", async () => {
-    const fake = makeFakeAdminClient({ data: null, error: new Error("db down") });
+    const fake = makeFakeAdminClient({
+      data: null,
+      error: new Error("db down"),
+    });
     createAdminClientMock.mockReturnValue(fake);
 
     await expect(
@@ -109,7 +123,9 @@ describe("listAuditLogForOrg", () => {
       metadata: { from: 150, to: 160 },
       created_at: "2026-07-19T00:00:00.000Z",
     };
-    createAdminClientMock.mockReturnValue(makeFakeAdminClient({ data: [row], error: null }));
+    createAdminClientMock.mockReturnValue(
+      makeFakeAdminClient({ data: [row], error: null }),
+    );
 
     const result = await listAuditLogForOrg("org-A");
 
@@ -147,8 +163,12 @@ describe("listAuditLogForOrgViaSession", () => {
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    selectMock.mockReturnValue(makeSessionChain({ data: null, error: new Error("query failed") }));
+    selectMock.mockReturnValue(
+      makeSessionChain({ data: null, error: new Error("query failed") }),
+    );
 
-    await expect(listAuditLogForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(listAuditLogForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });

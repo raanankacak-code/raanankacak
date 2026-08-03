@@ -16,9 +16,11 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: createSessionClientMock,
 }));
 
-const { getSubscriptionForOrgViaSession, isSubscriptionWritable, trialDaysLeft } = await import(
-  "@/lib/db/subscriptions"
-);
+const {
+  getSubscriptionForOrgViaSession,
+  isSubscriptionWritable,
+  trialDaysLeft,
+} = await import("@/lib/db/subscriptions");
 
 const NOW = new Date("2026-07-23T12:00:00.000Z").getTime();
 
@@ -44,7 +46,9 @@ describe("isSubscriptionWritable", () => {
   });
 
   it("becomes read-only the moment the trial has ended", () => {
-    expect(isSubscriptionWritable(sub({ trialEndsAt: new Date(NOW - 1) }), NOW)).toBe(false);
+    expect(
+      isSubscriptionWritable(sub({ trialEndsAt: new Date(NOW - 1) }), NOW),
+    ).toBe(false);
   });
 
   it("is writable when ACTIVE", () => {
@@ -56,18 +60,26 @@ describe("isSubscriptionWritable", () => {
   });
 
   it("is read-only when CANCELLED", () => {
-    expect(isSubscriptionWritable(sub({ status: "CANCELLED" }), NOW)).toBe(false);
+    expect(isSubscriptionWritable(sub({ status: "CANCELLED" }), NOW)).toBe(
+      false,
+    );
   });
 });
 
 describe("trialDaysLeft", () => {
   it("counts whole days remaining, rounding up", () => {
-    expect(trialDaysLeft(sub({ trialEndsAt: new Date(NOW + 7 * 86400000) }), NOW)).toBe(7);
-    expect(trialDaysLeft(sub({ trialEndsAt: new Date(NOW + 0.5 * 86400000) }), NOW)).toBe(1);
+    expect(
+      trialDaysLeft(sub({ trialEndsAt: new Date(NOW + 7 * 86400000) }), NOW),
+    ).toBe(7);
+    expect(
+      trialDaysLeft(sub({ trialEndsAt: new Date(NOW + 0.5 * 86400000) }), NOW),
+    ).toBe(1);
   });
 
   it("never goes negative after expiry", () => {
-    expect(trialDaysLeft(sub({ trialEndsAt: new Date(NOW - 3 * 86400000) }), NOW)).toBe(0);
+    expect(
+      trialDaysLeft(sub({ trialEndsAt: new Date(NOW - 3 * 86400000) }), NOW),
+    ).toBe(0);
   });
 });
 
@@ -119,13 +131,23 @@ describe("getSubscriptionForOrgViaSession", () => {
   it("maps the row into an OrgSubscription", async () => {
     const result = await getSubscriptionForOrgViaSession("org-A");
 
-    expect(result).toMatchObject({ id: "sub-1", orgId: "org-A", plan: "PROFESSIONAL", status: "TRIALING" });
+    expect(result).toMatchObject({
+      id: "sub-1",
+      orgId: "org-A",
+      plan: "PROFESSIONAL",
+      status: "TRIALING",
+    });
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    maybeSingleMock.mockResolvedValue({ data: null, error: new Error("query failed") });
+    maybeSingleMock.mockResolvedValue({
+      data: null,
+      error: new Error("query failed"),
+    });
 
-    await expect(getSubscriptionForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(getSubscriptionForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 
   it("falls back to the admin client to lazily create the trial on first-ever access", async () => {
@@ -134,8 +156,12 @@ describe("getSubscriptionForOrgViaSession", () => {
     // there is no INSERT policy for a session-scoped key, by design.
     maybeSingleMock.mockResolvedValue({ data: null, error: null });
 
-    const adminMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
-    const adminSingle = vi.fn().mockResolvedValue({ data: subscriptionRow(), error: null });
+    const adminMaybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+    const adminSingle = vi
+      .fn()
+      .mockResolvedValue({ data: subscriptionRow(), error: null });
     const adminBuilder: Record<string, unknown> = {};
     adminBuilder.select = vi.fn(() => adminBuilder);
     adminBuilder.eq = vi.fn(() => adminBuilder);

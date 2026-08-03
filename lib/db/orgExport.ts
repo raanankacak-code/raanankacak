@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/db/paging";
 
 /**
  * A complete, machine-readable copy of one organisation's data.
@@ -45,51 +46,25 @@ export interface OrgExport {
  * emailed around and dropped in shared drives, so the token must not travel
  * in it — the rest of the invite is still useful as a record.
  */
-function redactInvite(invite: Record<string, unknown>): Record<string, unknown> {
+function redactInvite(
+  invite: Record<string, unknown>,
+): Record<string, unknown> {
   const { token, ...rest } = invite;
   void token;
   return { ...rest, token: "[redacted]" };
-}
-
-/**
- * PostgREST returns at most 1000 rows for a request that does not ask for a
- * range, so every query below has to page. An export that stopped at the cap
- * would be the exact failure the error check further down guards against —
- * a file that looks complete and is not — except silent, with no error to
- * catch. A workspace passes 1000 attendance records in its first few months.
- */
-const EXPORT_PAGE = 1000;
-
-type Page = PromiseLike<{
-  data: Record<string, unknown>[] | null;
-  error: { message: string } | null;
-}>;
-
-/**
- * Reads every row a query matches, one page at a time.
- *
- * The caller orders by `id`: paging by range over an unordered query is not
- * stable, and rows can shift between pages — silently duplicating some and
- * dropping others, which is worse than truncation because it looks fine.
- */
-async function fetchAll(page: (from: number, to: number) => Page): Promise<Record<string, unknown>[]> {
-  const rows: Record<string, unknown>[] = [];
-  for (let from = 0; ; from += EXPORT_PAGE) {
-    const { data, error } = await page(from, from + EXPORT_PAGE - 1);
-    if (error) throw new Error(error.message);
-    if (!data || data.length === 0) break;
-    rows.push(...data);
-    if (data.length < EXPORT_PAGE) break;
-  }
-  return rows;
 }
 
 export async function buildOrgExport(orgId: string): Promise<OrgExport> {
   const supabase = createAdminClient();
 
   const byOrg = (table: string) =>
-    fetchAll((from, to) =>
-      supabase.from(table).select("*").eq("org_id", orgId).order("id", { ascending: true }).range(from, to),
+    fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from(table)
+        .select("*")
+        .eq("org_id", orgId)
+        .order("id", { ascending: true })
+        .range(from, to),
     );
 
   const [
@@ -133,7 +108,11 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
     byOrg("notifications"),
     byOrg("bug_reports"),
     byOrg("audit_log"),
-    supabase.from("org_subscriptions").select("*").eq("org_id", orgId).maybeSingle(),
+    supabase
+      .from("org_subscriptions")
+      .select("*")
+      .eq("org_id", orgId)
+      .maybeSingle(),
   ]);
 
   // Never hand back a partial export that looks complete — a customer
@@ -152,7 +131,7 @@ export async function buildOrgExport(orgId: string): Promise<OrgExport> {
   const materialRequestEvents: Record<string, unknown>[] = [];
   for (let i = 0; i < requestIds.length; i += ID_CHUNK) {
     const chunk = requestIds.slice(i, i + ID_CHUNK);
-    const rows = await fetchAll((from, to) =>
+    const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>
       supabase
         .from("material_request_events")
         .select("*")

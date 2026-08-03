@@ -5,6 +5,9 @@ const orderMock = vi.fn();
 const selectMock = vi.fn();
 const fromMock = vi.fn();
 const createSessionClientMock = vi.fn();
+// The list functions page with .range(); order() now returns the pager's
+// entry point rather than the rows themselves.
+let queryResult: { data: unknown; error: unknown };
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: createSessionClientMock,
@@ -23,7 +26,8 @@ beforeEach(() => {
   fromMock.mockReset();
   createSessionClientMock.mockReset();
 
-  orderMock.mockResolvedValue({ data: [], error: null });
+  queryResult = { data: [], error: null };
+  orderMock.mockReturnValue({ range: () => Promise.resolve(queryResult) });
   eqMock.mockReturnValue({ order: orderMock });
   selectMock.mockReturnValue({ eq: eqMock });
   fromMock.mockReturnValue({ select: selectMock });
@@ -49,8 +53,10 @@ describe("listProjectsForOrgViaSession", () => {
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    orderMock.mockResolvedValue({ data: null, error: new Error("query failed") });
+    queryResult = { data: null, error: new Error("query failed") };
 
-    await expect(listProjectsForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(listProjectsForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });

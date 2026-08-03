@@ -8,6 +8,7 @@ import type {
 } from "@/lib/db/types";
 import { deriveOutcome } from "@/lib/safety";
 import { isUuid } from "@/lib/uuid";
+import { fetchAllRows } from "@/lib/db/paging";
 
 /** One page of the list, matching the cap used by reports and materials. */
 export const DEFAULT_LIST_LIMIT = 200;
@@ -80,7 +81,11 @@ function mapListItem(row: Record<string, unknown>): SafetyInspectionListItem {
  */
 export async function listInspectionsForOrgViaSession(
   orgId: string,
-  { projectId, limit = DEFAULT_LIST_LIMIT, offset = 0 }: { projectId?: string; limit?: number; offset?: number } = {},
+  {
+    projectId,
+    limit = DEFAULT_LIST_LIMIT,
+    offset = 0,
+  }: { projectId?: string; limit?: number; offset?: number } = {},
 ): Promise<SafetyInspectionListItem[]> {
   const supabase = await createSessionClient();
   let query = supabase
@@ -94,12 +99,17 @@ export async function listInspectionsForOrgViaSession(
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map((row) => mapListItem(row as unknown as Record<string, unknown>));
+  return (data ?? []).map((row) =>
+    mapListItem(row as unknown as Record<string, unknown>),
+  );
 }
 
 export async function countInspectionsForOrg(
   orgId: string,
-  { projectId, status }: { projectId?: string; status?: SafetyInspectionStatus } = {},
+  {
+    projectId,
+    status,
+  }: { projectId?: string; status?: SafetyInspectionStatus } = {},
 ): Promise<number> {
   const supabase = await createSessionClient();
   let query = supabase
@@ -127,7 +137,10 @@ export async function countOpenFindingsForOrg(orgId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function getInspectionById(orgId: string, id: string): Promise<SafetyInspection | null> {
+export async function getInspectionById(
+  orgId: string,
+  id: string,
+): Promise<SafetyInspection | null> {
   // A malformed id can match no row; do not let Postgres throw over it.
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
@@ -204,7 +217,11 @@ export async function closeInspection(
 ): Promise<SafetyInspection> {
   const { data, error } = await createAdminClient()
     .from("safety_inspections")
-    .update({ status: "CLOSED", closed_at: new Date().toISOString(), closed_by_name: closedByName })
+    .update({
+      status: "CLOSED",
+      closed_at: new Date().toISOString(),
+      closed_by_name: closedByName,
+    })
     .eq("id", id)
     .eq("org_id", orgId)
     .select("*")
@@ -221,7 +238,11 @@ export async function closeInspection(
  * checklist stays sealed either way: this touches `photos` and nothing else,
  * so what was found on site cannot be revised after the fact.
  */
-export async function appendInspectionPhotos(orgId: string, id: string, urls: string[]): Promise<SafetyInspection> {
+export async function appendInspectionPhotos(
+  orgId: string,
+  id: string,
+  urls: string[],
+): Promise<SafetyInspection> {
   const supabase = createAdminClient();
   const { data: existing, error: readError } = await supabase
     .from("safety_inspections")
@@ -253,7 +274,11 @@ export async function appendInspectionPhotos(orgId: string, id: string, urls: st
  * to a PDPA request. Only the roles that can close an inspection may do it,
  * and the audit trail keeps the url of what went.
  */
-export async function removeInspectionPhoto(orgId: string, id: string, url: string): Promise<SafetyInspection> {
+export async function removeInspectionPhoto(
+  orgId: string,
+  id: string,
+  url: string,
+): Promise<SafetyInspection> {
   const supabase = createAdminClient();
   const { data: existing, error: readError } = await supabase
     .from("safety_inspections")
@@ -263,7 +288,9 @@ export async function removeInspectionPhoto(orgId: string, id: string, url: stri
     .single();
   if (readError) throw readError;
 
-  const next = (((existing?.photos ?? []) as string[]) ?? []).filter((u) => u !== url);
+  const next = (((existing?.photos ?? []) as string[]) ?? []).filter(
+    (u) => u !== url,
+  );
 
   const { data, error } = await supabase
     .from("safety_inspections")
@@ -276,7 +303,10 @@ export async function removeInspectionPhoto(orgId: string, id: string, url: stri
   return mapInspection(data);
 }
 
-export async function deleteInspection(orgId: string, id: string): Promise<void> {
+export async function deleteInspection(
+  orgId: string,
+  id: string,
+): Promise<void> {
   const { error } = await createAdminClient()
     .from("safety_inspections")
     .delete()
@@ -286,30 +316,42 @@ export async function deleteInspection(orgId: string, id: string): Promise<void>
 }
 
 /** For the org export, which takes everything. */
-export async function listInspectionsForOrg(orgId: string): Promise<SafetyInspection[]> {
-  const { data, error } = await createAdminClient()
-    .from("safety_inspections")
-    .select("*")
-    .eq("org_id", orgId)
-    .order("date", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(mapInspection);
+export async function listInspectionsForOrg(
+  orgId: string,
+): Promise<SafetyInspection[]> {
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("safety_inspections")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("date", { ascending: false })
+      .range(from, to),
+  );
+  return data.map(mapInspection);
 }
 
 /** Used by project deletion, which has to collect photos before the cascade. */
-export async function listInspectionsForProject(orgId: string, projectId: string): Promise<SafetyInspection[]> {
-  const { data, error } = await createAdminClient()
-    .from("safety_inspections")
-    .select("*")
-    .eq("org_id", orgId)
-    .eq("project_id", projectId);
-  if (error) throw error;
-  return (data ?? []).map(mapInspection);
+export async function listInspectionsForProject(
+  orgId: string,
+  projectId: string,
+): Promise<SafetyInspection[]> {
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("safety_inspections")
+      .select("*")
+      .eq("org_id", orgId)
+      .eq("project_id", projectId)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  return data.map(mapInspection);
 }
 
-
 /** Open inspections with findings on one project — for its attention card. */
-export async function countOpenFindingsForProject(orgId: string, projectId: string): Promise<number> {
+export async function countOpenFindingsForProject(
+  orgId: string,
+  projectId: string,
+): Promise<number> {
   const supabase = await createSessionClient();
   const { count, error } = await supabase
     .from("safety_inspections")

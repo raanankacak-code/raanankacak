@@ -116,7 +116,10 @@ export async function recordDecision(
 }
 
 /** The contractor's way out, and only while the client has not answered. */
-export async function withdrawApproval(orgId: string, id: string): Promise<ProjectApproval | null> {
+export async function withdrawApproval(
+  orgId: string,
+  id: string,
+): Promise<ProjectApproval | null> {
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("project_approvals")
@@ -130,7 +133,10 @@ export async function withdrawApproval(orgId: string, id: string): Promise<Proje
   return data ? mapApproval(data) : null;
 }
 
-export async function getApprovalById(orgId: string, id: string): Promise<ProjectApproval | null> {
+export async function getApprovalById(
+  orgId: string,
+  id: string,
+): Promise<ProjectApproval | null> {
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
     .from("project_approvals")
@@ -159,7 +165,12 @@ export async function listApprovalsViaSession(
     status,
     limit = DEFAULT_LIST_LIMIT,
     offset = 0,
-  }: { projectId?: string; status?: ApprovalStatus; limit?: number; offset?: number } = {},
+  }: {
+    projectId?: string;
+    status?: ApprovalStatus;
+    limit?: number;
+    offset?: number;
+  } = {},
 ): Promise<ProjectApproval[]> {
   const supabase = await createSessionClient();
   let query = supabase
@@ -185,7 +196,10 @@ export async function listApprovalsViaSession(
  * and the route answers 404. The check and the read are the same query, so
  * there is no window between them and no second rule to keep in step.
  */
-export async function getApprovalViaSession(orgId: string, id: string): Promise<ProjectApproval | null> {
+export async function getApprovalViaSession(
+  orgId: string,
+  id: string,
+): Promise<ProjectApproval | null> {
   if (!isUuid(id)) return null;
   const supabase = await createSessionClient();
   const { data, error } = await supabase
@@ -199,7 +213,9 @@ export async function getApprovalViaSession(orgId: string, id: string): Promise<
 }
 
 /** What is waiting on a client, counted in the database rather than by fetching. */
-export async function countPendingApprovalsForOrg(orgId: string): Promise<number> {
+export async function countPendingApprovalsForOrg(
+  orgId: string,
+): Promise<number> {
   const supabase = await createSessionClient();
   const { count, error } = await supabase
     .from("project_approvals")

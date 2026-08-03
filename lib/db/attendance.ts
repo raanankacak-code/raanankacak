@@ -50,7 +50,10 @@ export async function countAttendanceByStatusForOrgDate(
   return Object.fromEntries(results) as Record<AttendanceStatus, number>;
 }
 
-export async function listAttendanceForProjectDate(projectId: string, date: string): Promise<AttendanceRecord[]> {
+export async function listAttendanceForProjectDate(
+  projectId: string,
+  date: string,
+): Promise<AttendanceRecord[]> {
   const { data, error } = await createAdminClient()
     .from("attendance_records")
     .select("*")
@@ -61,7 +64,10 @@ export async function listAttendanceForProjectDate(projectId: string, date: stri
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
-export async function listAttendanceForProjectDateViaSession(projectId: string, date: string): Promise<AttendanceRecord[]> {
+export async function listAttendanceForProjectDateViaSession(
+  projectId: string,
+  date: string,
+): Promise<AttendanceRecord[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("attendance_records")
@@ -86,16 +92,22 @@ export async function getDaysWorkedByWorker(
   range: { from: string; to: string },
   projectId?: string,
 ): Promise<Record<string, number>> {
-  const { data, error } = await createAdminClient().rpc("days_worked_by_worker", {
-    p_org_id: orgId,
-    p_from: range.from,
-    p_to: range.to,
-    p_project_id: projectId ?? null,
-  });
+  const { data, error } = await createAdminClient().rpc(
+    "days_worked_by_worker",
+    {
+      p_org_id: orgId,
+      p_from: range.from,
+      p_to: range.to,
+      p_project_id: projectId ?? null,
+    },
+  );
   if (error) throw error;
 
   const days: Record<string, number> = {};
-  for (const row of (data ?? []) as { worker_id: string; days: number | string }[]) {
+  for (const row of (data ?? []) as {
+    worker_id: string;
+    days: number | string;
+  }[]) {
     days[row.worker_id] = Number(row.days);
   }
   return days;
@@ -111,7 +123,9 @@ export async function getDaysWorkedByWorker(
  * wage total that stopped growing.
  */
 export async function sumLaborCostForOrg(orgId: string): Promise<number> {
-  const { data, error } = await createAdminClient().rpc("labor_cost_for_org", { p_org_id: orgId });
+  const { data, error } = await createAdminClient().rpc("labor_cost_for_org", {
+    p_org_id: orgId,
+  });
   if (error) throw error;
   return Number(data ?? 0);
 }
@@ -125,14 +139,22 @@ export async function sumLaborCostForOrg(orgId: string): Promise<number> {
  * already 1000 attendance records — so the figure would quietly come out
  * low, with nothing to show it had.
  */
-export async function getDaysWorkedByWorkerForProject(projectId: string): Promise<Record<string, number>> {
-  const { data, error } = await createAdminClient().rpc("days_worked_by_worker_for_project", {
-    p_project_id: projectId,
-  });
+export async function getDaysWorkedByWorkerForProject(
+  projectId: string,
+): Promise<Record<string, number>> {
+  const { data, error } = await createAdminClient().rpc(
+    "days_worked_by_worker_for_project",
+    {
+      p_project_id: projectId,
+    },
+  );
   if (error) throw error;
 
   const days: Record<string, number> = {};
-  for (const row of (data ?? []) as { worker_id: string; days: number | string }[]) {
+  for (const row of (data ?? []) as {
+    worker_id: string;
+    days: number | string;
+  }[]) {
     days[row.worker_id] = Number(row.days);
   }
   return days;
@@ -145,10 +167,15 @@ export async function getDaysWorkedByWorkerForProject(projectId: string): Promis
  * money figure on a cost report, and understating cost is the wrong way to
  * be wrong.
  */
-export async function sumLaborCostForProject(projectId: string): Promise<number> {
-  const { data, error } = await createAdminClient().rpc("labor_cost_for_project", {
-    p_project_id: projectId,
-  });
+export async function sumLaborCostForProject(
+  projectId: string,
+): Promise<number> {
+  const { data, error } = await createAdminClient().rpc(
+    "labor_cost_for_project",
+    {
+      p_project_id: projectId,
+    },
+  );
   if (error) throw error;
   return Number(data ?? 0);
 }
@@ -157,7 +184,12 @@ export async function upsertAttendanceRecords(
   orgId: string,
   projectId: string,
   date: string,
-  records: { workerId: string; status: AttendanceStatus; timeIn?: string; timeOut?: string }[],
+  records: {
+    workerId: string;
+    status: AttendanceStatus;
+    timeIn?: string;
+    timeOut?: string;
+  }[],
 ): Promise<AttendanceRecord[]> {
   const supabase = createAdminClient();
 

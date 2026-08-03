@@ -54,7 +54,9 @@ export async function createBugReport(
   return mapBugReport(data);
 }
 
-export async function listBugReportsForOrg(orgId: string): Promise<BugReport[]> {
+export async function listBugReportsForOrg(
+  orgId: string,
+): Promise<BugReport[]> {
   const { data, error } = await createAdminClient()
     .from("bug_reports")
     .select("*")

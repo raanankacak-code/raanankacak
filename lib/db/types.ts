@@ -180,7 +180,13 @@ export interface OrgInvite {
   updatedAt: Date;
 }
 
-export type MaterialRequestStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "ORDERED" | "DELIVERED";
+export type MaterialRequestStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "ORDERED"
+  | "DELIVERED";
 
 export interface MaterialRequestEvent {
   id: string;
@@ -228,7 +234,13 @@ export interface ProjectDocument {
   createdAt: Date;
 }
 
-export type CalendarEventType = "DEADLINE" | "DELIVERY" | "INSPECTION" | "MEETING" | "LEAVE" | "HOLIDAY";
+export type CalendarEventType =
+  | "DEADLINE"
+  | "DELIVERY"
+  | "INSPECTION"
+  | "MEETING"
+  | "LEAVE"
+  | "HOLIDAY";
 export type CalendarEventPriority = "LOW" | "MEDIUM" | "HIGH";
 export type CalendarEventStatus = "SCHEDULED" | "COMPLETED" | "CANCELLED";
 

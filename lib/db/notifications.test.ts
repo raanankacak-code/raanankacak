@@ -15,10 +15,15 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(),
 }));
 
-const { listNotificationsForOrgViaSession } = await import("@/lib/db/notifications");
+const { listNotificationsForOrgViaSession } =
+  await import("@/lib/db/notifications");
 
-function makeChain(result: { data: unknown; error: unknown } = { data: [], error: null }) {
-  const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
+function makeChain(
+  result: { data: unknown; error: unknown } = { data: [], error: null },
+) {
+  const chain: Record<string, unknown> = {
+    then: (resolve: (v: typeof result) => void) => resolve(result),
+  };
   chain.eq = eqMock.mockImplementation(() => chain);
   chain.order = orderMock.mockImplementation(() => chain);
   chain.limit = limitMock.mockImplementation(() => chain);
@@ -60,8 +65,12 @@ describe("listNotificationsForOrgViaSession", () => {
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    selectMock.mockReturnValue(makeChain({ data: null, error: new Error("query failed") }));
+    selectMock.mockReturnValue(
+      makeChain({ data: null, error: new Error("query failed") }),
+    );
 
-    await expect(listNotificationsForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(listNotificationsForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });

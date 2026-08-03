@@ -7,6 +7,7 @@ import type {
   CalendarEventType,
 } from "@/lib/db/types";
 import { isUuid } from "@/lib/uuid";
+import { fetchAllRows } from "@/lib/db/paging";
 
 function mapEvent(row: Record<string, unknown>): CalendarEvent {
   return {
@@ -33,11 +34,15 @@ export async function listEventsForOrg(
   orgId: string,
   range?: { from: string; to: string },
 ): Promise<CalendarEvent[]> {
-  let query = createAdminClient().from("calendar_events").select("*").eq("org_id", orgId);
+  let query = createAdminClient()
+    .from("calendar_events")
+    .select("*")
+    .eq("org_id", orgId);
   if (range) query = query.gte("date", range.from).lte("date", range.to);
-  const { data, error } = await query.order("date", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map(mapEvent);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    query.order("date", { ascending: true }).range(from, to),
+  );
+  return data.map(mapEvent);
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
@@ -48,12 +53,16 @@ export async function listEventsForOrgViaSession(
   const supabase = await createSessionClient();
   let query = supabase.from("calendar_events").select("*").eq("org_id", orgId);
   if (range) query = query.gte("date", range.from).lte("date", range.to);
-  const { data, error } = await query.order("date", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map(mapEvent);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    query.order("date", { ascending: true }).range(from, to),
+  );
+  return data.map(mapEvent);
 }
 
-export async function getEventById(orgId: string, id: string): Promise<CalendarEvent | null> {
+export async function getEventById(
+  orgId: string,
+  id: string,
+): Promise<CalendarEvent | null> {
   // A malformed id can match no row; do not let Postgres throw over it.
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
@@ -145,6 +154,10 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(orgId: string, id: string): Promise<void> {
-  const { error } = await createAdminClient().from("calendar_events").delete().eq("id", id).eq("org_id", orgId);
+  const { error } = await createAdminClient()
+    .from("calendar_events")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", orgId);
   if (error) throw error;
 }

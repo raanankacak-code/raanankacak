@@ -59,7 +59,8 @@ export async function recordLegalAcceptance(input: {
       { onConflict: "org_id,user_id,document,version", ignoreDuplicates: true },
     );
 
-  if (error) throw new Error(`Failed to record legal acceptance: ${error.message}`);
+  if (error)
+    throw new Error(`Failed to record legal acceptance: ${error.message}`);
 }
 
 /**
@@ -68,7 +69,9 @@ export async function recordLegalAcceptance(input: {
  * Session-bound, so RLS answers "which org" rather than this function
  * trusting an org id passed in — the same shape as every other read here.
  */
-export async function listLegalAcceptancesForOrg(orgId: string): Promise<LegalAcceptance[]> {
+export async function listLegalAcceptancesForOrg(
+  orgId: string,
+): Promise<LegalAcceptance[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("legal_acceptances")
@@ -80,6 +83,7 @@ export async function listLegalAcceptancesForOrg(orgId: string): Promise<LegalAc
     // ends up on two pages of the same list.
     .order("id");
 
-  if (error) throw new Error(`Failed to load legal acceptances: ${error.message}`);
+  if (error)
+    throw new Error(`Failed to load legal acceptances: ${error.message}`);
   return (data ?? []).map(mapAcceptance);
 }

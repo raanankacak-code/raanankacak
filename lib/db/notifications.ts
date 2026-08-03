@@ -14,7 +14,10 @@ function mapNotification(row: Record<string, unknown>): AppNotification {
   };
 }
 
-export async function listNotificationsForOrg(orgId: string, limit = 50): Promise<AppNotification[]> {
+export async function listNotificationsForOrg(
+  orgId: string,
+  limit = 50,
+): Promise<AppNotification[]> {
   const { data, error } = await createAdminClient()
     .from("notifications")
     .select("*")
@@ -26,7 +29,10 @@ export async function listNotificationsForOrg(orgId: string, limit = 50): Promis
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
-export async function listNotificationsForOrgViaSession(orgId: string, limit = 50): Promise<AppNotification[]> {
+export async function listNotificationsForOrgViaSession(
+  orgId: string,
+  limit = 50,
+): Promise<AppNotification[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("notifications")
@@ -48,7 +54,12 @@ export async function countUnread(orgId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function notify(orgId: string, type: string, title: string, description?: string): Promise<void> {
+export async function notify(
+  orgId: string,
+  type: string,
+  title: string,
+  description?: string,
+): Promise<void> {
   const { error } = await createAdminClient()
     .from("notifications")
     .insert({ org_id: orgId, type, title, description });
@@ -73,7 +84,14 @@ export async function markAllRead(orgId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function deleteNotification(orgId: string, id: string): Promise<void> {
-  const { error } = await createAdminClient().from("notifications").delete().eq("id", id).eq("org_id", orgId);
+export async function deleteNotification(
+  orgId: string,
+  id: string,
+): Promise<void> {
+  const { error } = await createAdminClient()
+    .from("notifications")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", orgId);
   if (error) throw error;
 }

@@ -14,7 +14,10 @@ import { createClient as createSessionClient } from "@/lib/supabase/server";
  * here for exactly the same reason it is invisible in the portal. That means
  * this check cannot drift away from the policy — there is only one rule.
  */
-export async function clientMaySeeFile(orgId: string, filename: string): Promise<boolean> {
+export async function clientMaySeeFile(
+  orgId: string,
+  filename: string,
+): Promise<boolean> {
   const url = `/api/uploads/${orgId}/${filename}`;
   const supabase = await createSessionClient();
 
@@ -41,7 +44,8 @@ export async function clientMaySeeFile(orgId: string, filename: string): Promise
   // inside it — jsonb containment matches an element of the items array that
   // has this url among its own photos.
   if (await referenced("safety_inspections", "photos", [url])) return true;
-  if (await referenced("safety_inspections", "items", [{ photos: [url] }])) return true;
+  if (await referenced("safety_inspections", "items", [{ photos: [url] }]))
+    return true;
   // A photograph of what they are being asked to sign off. Adding attachments
   // to a sign-off request without adding this line made them 404 for the one
   // person the request is addressed to.

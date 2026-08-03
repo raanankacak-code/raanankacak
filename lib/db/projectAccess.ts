@@ -44,7 +44,9 @@ export async function grantProjectAccess(
   }));
   if (rows.length === 0) return;
 
-  const { error } = await supabase.from("project_access").upsert(rows, { onConflict: "project_id,member_id" });
+  const { error } = await supabase
+    .from("project_access")
+    .upsert(rows, { onConflict: "project_id,member_id" });
   if (error) throw error;
 }
 
@@ -58,18 +60,27 @@ export interface ProjectClient {
   grantedAt: Date;
 }
 
-export async function listClientsForProject(orgId: string, projectId: string): Promise<ProjectClient[]> {
+export async function listClientsForProject(
+  orgId: string,
+  projectId: string,
+): Promise<ProjectClient[]> {
   if (!isUuid(projectId)) return [];
   const { data, error } = await createAdminClient()
     .from("project_access")
-    .select("member_id, granted_by_name, created_at, member:org_members!inner(id, name, email, active, role)")
+    .select(
+      "member_id, granted_by_name, created_at, member:org_members!inner(id, name, email, active, role)",
+    )
     .eq("org_id", orgId)
     .eq("project_id", projectId)
     .order("created_at", { ascending: true });
   if (error) throw error;
 
   return (data ?? []).map((row) => {
-    const member = row.member as unknown as { name: string; email: string; active: boolean };
+    const member = row.member as unknown as {
+      name: string;
+      email: string;
+      active: boolean;
+    };
     return {
       memberId: row.member_id as string,
       name: member.name,
@@ -82,7 +93,10 @@ export async function listClientsForProject(orgId: string, projectId: string): P
 }
 
 /** Whether anybody outside the company can see this project at all. */
-export async function countClientsForProject(orgId: string, projectId: string): Promise<number> {
+export async function countClientsForProject(
+  orgId: string,
+  projectId: string,
+): Promise<number> {
   if (!isUuid(projectId)) return 0;
   const { count, error } = await createAdminClient()
     .from("project_access")
@@ -101,7 +115,11 @@ export async function countClientsForProject(orgId: string, projectId: string): 
  * remember to check. What was signed off stays on the record either way —
  * project_approvals keeps the name and email as they were.
  */
-export async function revokeProjectAccess(orgId: string, projectId: string, memberId: string): Promise<void> {
+export async function revokeProjectAccess(
+  orgId: string,
+  projectId: string,
+  memberId: string,
+): Promise<void> {
   const { error } = await createAdminClient()
     .from("project_access")
     .delete()

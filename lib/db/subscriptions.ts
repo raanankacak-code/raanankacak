@@ -1,8 +1,18 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
-import { PLANS, TRIAL_DAYS, TRIAL_PLAN, type Plan, type PlanId } from "@/lib/billing/plans";
+import {
+  PLANS,
+  TRIAL_DAYS,
+  TRIAL_PLAN,
+  type Plan,
+  type PlanId,
+} from "@/lib/billing/plans";
 
-export type SubscriptionStatus = "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELLED";
+export type SubscriptionStatus =
+  | "TRIALING"
+  | "ACTIVE"
+  | "PAST_DUE"
+  | "CANCELLED";
 
 export interface OrgSubscription {
   id: string;
@@ -24,7 +34,9 @@ function mapSubscription(row: Record<string, unknown>): OrgSubscription {
     plan: row.plan as PlanId,
     status: row.status as SubscriptionStatus,
     trialEndsAt: new Date(row.trial_ends_at as string),
-    currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end as string) : null,
+    currentPeriodEnd: row.current_period_end
+      ? new Date(row.current_period_end as string)
+      : null,
     stripeCustomerId: row.stripe_customer_id as string | null,
     stripeSubscriptionId: row.stripe_subscription_id as string | null,
     createdAt: new Date(row.created_at as string),
@@ -36,7 +48,9 @@ function mapSubscription(row: Record<string, unknown>): OrgSubscription {
  * Returns the org's subscription, creating a fresh trial on first access.
  * Lazy creation doubles as the backfill for orgs that predate billing.
  */
-export async function getSubscriptionForOrg(orgId: string): Promise<OrgSubscription> {
+export async function getSubscriptionForOrg(
+  orgId: string,
+): Promise<OrgSubscription> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("org_subscriptions")
@@ -46,10 +60,17 @@ export async function getSubscriptionForOrg(orgId: string): Promise<OrgSubscript
   if (error) throw error;
   if (data) return mapSubscription(data);
 
-  const trialEndsAt = new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString();
+  const trialEndsAt = new Date(
+    Date.now() + TRIAL_DAYS * 86400000,
+  ).toISOString();
   const { data: created, error: insertError } = await supabase
     .from("org_subscriptions")
-    .insert({ org_id: orgId, plan: TRIAL_PLAN, status: "TRIALING", trial_ends_at: trialEndsAt })
+    .insert({
+      org_id: orgId,
+      plan: TRIAL_PLAN,
+      status: "TRIALING",
+      trial_ends_at: trialEndsAt,
+    })
     .select("*")
     .single();
   if (insertError) {
@@ -74,7 +95,9 @@ export async function getSubscriptionForOrg(orgId: string): Promise<OrgSubscript
  * design — see supabase/schema.sql), so this falls back to
  * getSubscriptionForOrg only for that one-time, first-ever-access case.
  */
-export async function getSubscriptionForOrgViaSession(orgId: string): Promise<OrgSubscription> {
+export async function getSubscriptionForOrgViaSession(
+  orgId: string,
+): Promise<OrgSubscription> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("org_subscriptions")
@@ -91,7 +114,10 @@ export async function getSubscriptionForOrgViaSession(orgId: string): Promise<Or
  * writable — payment problems get a dunning window (handled in Phase B),
  * not an instant lockout.
  */
-export function isSubscriptionWritable(sub: OrgSubscription, now: number = Date.now()): boolean {
+export function isSubscriptionWritable(
+  sub: OrgSubscription,
+  now: number = Date.now(),
+): boolean {
   switch (sub.status) {
     case "TRIALING":
       return sub.trialEndsAt.getTime() > now;
@@ -104,7 +130,10 @@ export function isSubscriptionWritable(sub: OrgSubscription, now: number = Date.
 }
 
 /** Whole trial days remaining, never negative. */
-export function trialDaysLeft(sub: OrgSubscription, now: number = Date.now()): number {
+export function trialDaysLeft(
+  sub: OrgSubscription,
+  now: number = Date.now(),
+): number {
   return Math.max(0, Math.ceil((sub.trialEndsAt.getTime() - now) / 86400000));
 }
 
@@ -113,7 +142,10 @@ export function planFor(sub: OrgSubscription): Plan {
 }
 
 /** Persists the Stripe customer id the first time an org starts checkout. */
-export async function setStripeCustomerId(orgId: string, stripeCustomerId: string): Promise<void> {
+export async function setStripeCustomerId(
+  orgId: string,
+  stripeCustomerId: string,
+): Promise<void> {
   const { error } = await createAdminClient()
     .from("org_subscriptions")
     .update({ stripe_customer_id: stripeCustomerId })
@@ -121,7 +153,9 @@ export async function setStripeCustomerId(orgId: string, stripeCustomerId: strin
   if (error) throw error;
 }
 
-export async function getSubscriptionByStripeCustomerId(stripeCustomerId: string): Promise<OrgSubscription | null> {
+export async function getSubscriptionByStripeCustomerId(
+  stripeCustomerId: string,
+): Promise<OrgSubscription | null> {
   const { data, error } = await createAdminClient()
     .from("org_subscriptions")
     .select("*")
@@ -152,7 +186,9 @@ export async function syncSubscriptionFromStripe(
       stripe_subscription_id: input.stripeSubscriptionId,
       plan: input.plan,
       status: input.status,
-      current_period_end: input.currentPeriodEnd ? input.currentPeriodEnd.toISOString() : null,
+      current_period_end: input.currentPeriodEnd
+        ? input.currentPeriodEnd.toISOString()
+        : null,
     })
     .eq("stripe_customer_id", stripeCustomerId)
     .select("org_id");

@@ -1,8 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
-import type { MaterialRequest, MaterialRequestEvent, MaterialRequestStatus, MaterialRequestWithTimeline } from "@/lib/db/types";
+import type {
+  MaterialRequest,
+  MaterialRequestEvent,
+  MaterialRequestStatus,
+  MaterialRequestWithTimeline,
+} from "@/lib/db/types";
 import { DEFAULT_LIST_LIMIT } from "@/lib/db/reports";
 import { isUuid } from "@/lib/uuid";
+import { fetchAllRows } from "@/lib/db/paging";
 
 function mapRequest(row: Record<string, unknown>): MaterialRequest {
   return {
@@ -16,7 +22,10 @@ function mapRequest(row: Record<string, unknown>): MaterialRequest {
     neededBy: row.needed_by ? new Date(row.needed_by as string) : null,
     justification: row.justification as string | null,
     status: row.status as MaterialRequestStatus,
-    receivedQty: row.received_qty === null || row.received_qty === undefined ? null : Number(row.received_qty),
+    receivedQty:
+      row.received_qty === null || row.received_qty === undefined
+        ? null
+        : Number(row.received_qty),
     requestedById: row.requested_by_id as string,
     requestedByName: row.requested_by_name as string,
     createdAt: new Date(row.created_at as string),
@@ -51,7 +60,9 @@ export interface MaterialRequestListItem {
 const LIST_COLUMNS =
   "id, code, project_id, material, qty, unit, needed_by, status, received_qty, requested_by_id, updated_at, project:projects(id, name)";
 
-function mapRequestListItem(row: Record<string, unknown>): MaterialRequestListItem {
+function mapRequestListItem(
+  row: Record<string, unknown>,
+): MaterialRequestListItem {
   return {
     id: row.id as string,
     code: row.code as string,
@@ -61,7 +72,10 @@ function mapRequestListItem(row: Record<string, unknown>): MaterialRequestListIt
     unit: row.unit as string,
     neededBy: row.needed_by ? new Date(row.needed_by as string) : null,
     status: row.status as MaterialRequestStatus,
-    receivedQty: row.received_qty === null || row.received_qty === undefined ? null : Number(row.received_qty),
+    receivedQty:
+      row.received_qty === null || row.received_qty === undefined
+        ? null
+        : Number(row.received_qty),
     requestedById: row.requested_by_id as string,
     updatedAt: new Date(row.updated_at as string),
     project: row.project as { id: string; name: string },
@@ -82,13 +96,15 @@ function mapEvent(row: Record<string, unknown>): MaterialRequestEvent {
 export async function listRequestsForOrg(
   orgId: string,
 ): Promise<(MaterialRequest & { project: { id: string; name: string } })[]> {
-  const { data, error } = await createAdminClient()
-    .from("material_requests")
-    .select("*, project:projects(id, name)")
-    .eq("org_id", orgId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((row) => ({
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("material_requests")
+      .select("*, project:projects(id, name)")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .range(from, to),
+  );
+  return data.map((row) => ({
     ...mapRequest(row),
     project: row.project as { id: string; name: string },
   }));
@@ -110,7 +126,10 @@ export async function listRequestsForOrg(
  */
 export async function listRequestsForOrgViaSession(
   orgId: string,
-  { limit = DEFAULT_LIST_LIMIT, offset = 0 }: { limit?: number; offset?: number } = {},
+  {
+    limit = DEFAULT_LIST_LIMIT,
+    offset = 0,
+  }: { limit?: number; offset?: number } = {},
 ): Promise<MaterialRequestListItem[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
@@ -121,7 +140,9 @@ export async function listRequestsForOrgViaSession(
     .order("id", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) throw error;
-  return (data ?? []).map((row) => mapRequestListItem(row as unknown as Record<string, unknown>));
+  return (data ?? []).map((row) =>
+    mapRequestListItem(row as unknown as Record<string, unknown>),
+  );
 }
 
 /**
@@ -163,7 +184,10 @@ export async function countRequestsByStatusForOrg(
 }
 
 /** Requests needed within `throughDate` that are still outstanding. */
-export async function countUrgentRequestsForOrg(orgId: string, throughDate: string): Promise<number> {
+export async function countUrgentRequestsForOrg(
+  orgId: string,
+  throughDate: string,
+): Promise<number> {
   const supabase = await createSessionClient();
   const { count, error } = await supabase
     .from("material_requests")
@@ -202,17 +226,24 @@ export async function countRequestsByStatusForProject(
   return Object.fromEntries(results) as Record<MaterialRequestStatus, number>;
 }
 
-export async function listRequestsForProject(projectId: string): Promise<MaterialRequest[]> {
-  const { data, error } = await createAdminClient()
-    .from("material_requests")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(mapRequest);
+export async function listRequestsForProject(
+  projectId: string,
+): Promise<MaterialRequest[]> {
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("material_requests")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false })
+      .range(from, to),
+  );
+  return data.map(mapRequest);
 }
 
-export async function getRequestById(orgId: string, id: string): Promise<MaterialRequestWithTimeline | null> {
+export async function getRequestById(
+  orgId: string,
+  id: string,
+): Promise<MaterialRequestWithTimeline | null> {
   // A malformed id can match no row; do not let Postgres throw over it.
   if (!isUuid(id)) return null;
   const supabase = createAdminClient();
@@ -296,7 +327,12 @@ export async function createRequest(
 export async function transitionRequest(
   orgId: string,
   id: string,
-  input: { status: MaterialRequestStatus; comment?: string; actorName: string; receivedQty?: number },
+  input: {
+    status: MaterialRequestStatus;
+    comment?: string;
+    actorName: string;
+    receivedQty?: number;
+  },
 ): Promise<MaterialRequest> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -322,7 +358,11 @@ export async function transitionRequest(
 }
 
 export async function deleteRequest(orgId: string, id: string): Promise<void> {
-  const { error } = await createAdminClient().from("material_requests").delete().eq("id", id).eq("org_id", orgId);
+  const { error } = await createAdminClient()
+    .from("material_requests")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", orgId);
   if (error) throw error;
 }
 

@@ -91,7 +91,12 @@ export async function listDefectsForOrgViaSession(
     status,
     limit = DEFAULT_LIST_LIMIT,
     offset = 0,
-  }: { projectId?: string; status?: DefectStatus; limit?: number; offset?: number } = {},
+  }: {
+    projectId?: string;
+    status?: DefectStatus;
+    limit?: number;
+    offset?: number;
+  } = {},
 ): Promise<DefectListItem[]> {
   const supabase = await createSessionClient();
   let query = supabase
@@ -106,7 +111,9 @@ export async function listDefectsForOrgViaSession(
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map((row) => mapListItem(row as unknown as Record<string, unknown>));
+  return (data ?? []).map((row) =>
+    mapListItem(row as unknown as Record<string, unknown>),
+  );
 }
 
 export async function countDefectsForOrg(
@@ -114,7 +121,10 @@ export async function countDefectsForOrg(
   { projectId, status }: { projectId?: string; status?: DefectStatus } = {},
 ): Promise<number> {
   const supabase = await createSessionClient();
-  let query = supabase.from("defects").select("*", { count: "exact", head: true }).eq("org_id", orgId);
+  let query = supabase
+    .from("defects")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId);
   if (projectId) query = query.eq("project_id", projectId);
   if (status) query = query.eq("status", status);
 
@@ -129,7 +139,9 @@ export async function countDefectsForOrg(
  * RESOLVED is included deliberately: someone has said it is fixed and nobody
  * has agreed yet. See isOutstanding in lib/defects.ts.
  */
-export async function countOutstandingDefectsForOrg(orgId: string): Promise<number> {
+export async function countOutstandingDefectsForOrg(
+  orgId: string,
+): Promise<number> {
   const supabase = await createSessionClient();
   const { count, error } = await supabase
     .from("defects")
@@ -141,7 +153,10 @@ export async function countOutstandingDefectsForOrg(orgId: string): Promise<numb
 }
 
 /** Outstanding and past its due date, for the dashboard's attention list. */
-export async function countOverdueDefectsForOrg(orgId: string, today: string): Promise<number> {
+export async function countOverdueDefectsForOrg(
+  orgId: string,
+  today: string,
+): Promise<number> {
   const supabase = await createSessionClient();
   const { count, error } = await supabase
     .from("defects")
@@ -180,7 +195,10 @@ export async function countDefectsForProject(
   return { outstanding: outstanding.count ?? 0, overdue: overdue.count ?? 0 };
 }
 
-export async function getDefectById(orgId: string, id: string): Promise<Defect | null> {
+export async function getDefectById(
+  orgId: string,
+  id: string,
+): Promise<Defect | null> {
   // A malformed id can match no row; do not let Postgres throw over it.
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
@@ -281,12 +299,16 @@ export async function updateDefect(
   if (input.location !== undefined) patch.location = input.location;
   if (input.description !== undefined) patch.description = input.description;
   if (input.severity !== undefined) patch.severity = input.severity;
-  if (input.assignedToId !== undefined) patch.assigned_to_id = input.assignedToId;
-  if (input.assignedToName !== undefined) patch.assigned_to_name = input.assignedToName;
+  if (input.assignedToId !== undefined)
+    patch.assigned_to_id = input.assignedToId;
+  if (input.assignedToName !== undefined)
+    patch.assigned_to_name = input.assignedToName;
   if (input.dueDate !== undefined) patch.due_date = input.dueDate;
   if (input.photos !== undefined) patch.photos = input.photos;
-  if (input.resolutionNotes !== undefined) patch.resolution_notes = input.resolutionNotes;
-  if (input.resolutionPhotos !== undefined) patch.resolution_photos = input.resolutionPhotos;
+  if (input.resolutionNotes !== undefined)
+    patch.resolution_notes = input.resolutionNotes;
+  if (input.resolutionPhotos !== undefined)
+    patch.resolution_photos = input.resolutionPhotos;
 
   if (input.status !== undefined) {
     patch.status = input.status;
@@ -314,7 +336,10 @@ export async function updateDefect(
   return data ? mapDefect(data) : null;
 }
 
-export async function deleteDefect(orgId: string, id: string): Promise<boolean> {
+export async function deleteDefect(
+  orgId: string,
+  id: string,
+): Promise<boolean> {
   if (!isUuid(id)) return false;
   const { data, error } = await createAdminClient()
     .from("defects")

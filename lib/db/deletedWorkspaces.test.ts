@@ -6,7 +6,8 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: createAdminClientMock,
 }));
 
-const { countWorkspaceContents, recordWorkspaceDeletion } = await import("@/lib/db/deletedWorkspaces");
+const { countWorkspaceContents, recordWorkspaceDeletion } =
+  await import("@/lib/db/deletedWorkspaces");
 
 /** Records what each table was asked for, and answers with a fixed count. */
 function stubDatabase(counts: Record<string, number>) {
@@ -24,10 +25,12 @@ function stubDatabase(counts: Record<string, number>) {
 
 /** Storage pages of `size` objects each, so paging can be exercised. */
 function stubStorage(pages: { name: string; metadata?: { size: number } }[][]) {
-  const list = vi.fn(async (_prefix: string, opts: { limit: number; offset: number }) => {
-    const index = opts.offset / opts.limit;
-    return { data: pages[index] ?? [], error: null };
-  });
+  const list = vi.fn(
+    async (_prefix: string, opts: { limit: number; offset: number }) => {
+      const index = opts.offset / opts.limit;
+      return { data: pages[index] ?? [], error: null };
+    },
+  );
   return { from: () => ({ list }), list };
 }
 
@@ -37,23 +40,45 @@ beforeEach(() => {
 
 describe("countWorkspaceContents", () => {
   it("counts without reading a single row of content", async () => {
-    const db = stubDatabase({ org_members: 4, projects: 2, workers: 30, daily_reports: 118 });
-    createAdminClientMock.mockReturnValue({ ...db, storage: stubStorage([[]]) });
+    const db = stubDatabase({
+      org_members: 4,
+      projects: 2,
+      workers: 30,
+      daily_reports: 118,
+    });
+    createAdminClientMock.mockReturnValue({
+      ...db,
+      storage: stubStorage([[]]),
+    });
 
     const result = await countWorkspaceContents("org-1");
 
-    expect(result).toMatchObject({ memberCount: 4, projectCount: 2, workerCount: 30, reportCount: 118 });
+    expect(result).toMatchObject({
+      memberCount: 4,
+      projectCount: 2,
+      workerCount: 30,
+      reportCount: 118,
+    });
     // head: true means PostgREST returns the count and no rows. A workspace
     // being deleted can hold tens of thousands of records and the user is
     // waiting on this.
-    expect(db.seen.every((s) => s.head), "a count query fetched rows").toBe(true);
-    expect(db.seen.every((s) => s.orgId === "org-1"), "a count escaped the org filter").toBe(true);
+    expect(
+      db.seen.every((s) => s.head),
+      "a count query fetched rows",
+    ).toBe(true);
+    expect(
+      db.seen.every((s) => s.orgId === "org-1"),
+      "a count escaped the org filter",
+    ).toBe(true);
   });
 
   it("pages through storage instead of trusting the first 100", async () => {
     // list() caps at 100 by default. A silent cap gives a number that is
     // wrong but entirely plausible, which is the worst kind.
-    const full = Array.from({ length: 100 }, (_, i) => ({ name: `f${i}.jpg`, metadata: { size: 10 } }));
+    const full = Array.from({ length: 100 }, (_, i) => ({
+      name: `f${i}.jpg`,
+      metadata: { size: 10 },
+    }));
     const rest = [{ name: "last.jpg", metadata: { size: 5 } }];
     createAdminClientMock.mockReturnValue({
       ...stubDatabase({}),
@@ -80,13 +105,17 @@ describe("countWorkspaceContents", () => {
 
   it("fails loudly when a count fails, rather than recording a zero", async () => {
     const from = vi.fn(() => ({
-      select: () => ({ eq: () => Promise.resolve({ count: null, error: { message: "boom" } }) }),
+      select: () => ({
+        eq: () => Promise.resolve({ count: null, error: { message: "boom" } }),
+      }),
     }));
     createAdminClientMock.mockReturnValue({ from, storage: stubStorage([[]]) });
 
     // A silent zero here would be worse than an error: the record would say
     // an empty workspace was deleted, which is a false statement of fact.
-    await expect(countWorkspaceContents("org-1")).rejects.toThrow(/Failed to count/);
+    await expect(countWorkspaceContents("org-1")).rejects.toThrow(
+      /Failed to count/,
+    );
   });
 });
 
@@ -101,9 +130,12 @@ describe("recordWorkspaceDeletion", () => {
   };
 
   function stubUpsert(error: unknown = null) {
-    const upsert = vi.fn<(row: Record<string, unknown>, opts: { onConflict: string }) => Promise<{ error: unknown }>>(
-      () => Promise.resolve({ error }),
-    );
+    const upsert = vi.fn<
+      (
+        row: Record<string, unknown>,
+        opts: { onConflict: string },
+      ) => Promise<{ error: unknown }>
+    >(() => Promise.resolve({ error }));
     createAdminClientMock.mockReturnValue({ from: vi.fn(() => ({ upsert })) });
     return upsert;
   }

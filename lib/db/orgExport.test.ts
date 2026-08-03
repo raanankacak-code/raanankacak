@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createAdminClientMock = vi.fn();
 
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: createAdminClientMock }));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: createAdminClientMock,
+}));
 
 const { buildOrgExport } = await import("@/lib/db/orgExport");
 
@@ -28,7 +30,8 @@ function builderFor(table: string) {
     eq: () => chain,
     in: (_column: string, values: string[]) => {
       const previous = filtered;
-      filtered = () => previous().filter((r) => values.includes(r.request_id as string));
+      filtered = () =>
+        previous().filter((r) => values.includes(r.request_id as string));
       return chain;
     },
     order: () => chain,
@@ -49,11 +52,20 @@ beforeEach(() => {
   tables = {};
   rangeCalls = [];
   createAdminClientMock.mockReset();
-  createAdminClientMock.mockReturnValue({ from: (table: string) => builderFor(table) });
+  createAdminClientMock.mockReturnValue({
+    from: (table: string) => builderFor(table),
+  });
 });
 
-function seed(table: string, count: number, extra: (i: number) => Record<string, unknown> = () => ({})) {
-  tables[table] = Array.from({ length: count }, (_, i) => ({ id: `${table}-${i}`, ...extra(i) }));
+function seed(
+  table: string,
+  count: number,
+  extra: (i: number) => Record<string, unknown> = () => ({}),
+) {
+  tables[table] = Array.from({ length: count }, (_, i) => ({
+    id: `${table}-${i}`,
+    ...extra(i),
+  }));
 }
 
 describe("buildOrgExport", () => {
@@ -120,18 +132,24 @@ describe("buildOrgExport", () => {
     const result = await buildOrgExport("org-1");
 
     expect(result.materialRequestEvents).toHaveLength(1200);
-    const chunks = rangeCalls.filter((c) => c.table === "material_request_events");
+    const chunks = rangeCalls.filter(
+      (c) => c.table === "material_request_events",
+    );
     expect(chunks.length).toBeGreaterThan(1);
   });
 
   it("skips the events query entirely when there are no material requests", async () => {
     await buildOrgExport("org-1");
 
-    expect(rangeCalls.some((c) => c.table === "material_request_events")).toBe(false);
+    expect(rangeCalls.some((c) => c.table === "material_request_events")).toBe(
+      false,
+    );
   });
 
   it("still redacts invite tokens", async () => {
-    tables.org_invites = [{ id: "invite-1", token: "secret-bearer-token", email: "a@b.com" }];
+    tables.org_invites = [
+      { id: "invite-1", token: "secret-bearer-token", email: "a@b.com" },
+    ];
 
     const result = await buildOrgExport("org-1");
 
@@ -143,7 +161,10 @@ describe("buildOrgExport", () => {
       from: (table: string) => {
         const chain = builderFor(table) as Record<string, unknown>;
         if (table === "workers") {
-          chain.range = async () => ({ data: null, error: { message: "read failed" } });
+          chain.range = async () => ({
+            data: null,
+            error: { message: "read failed" },
+          });
         }
         return chain;
       },

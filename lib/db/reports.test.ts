@@ -17,10 +17,15 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(),
 }));
 
-const { listReportsViaSession, DEFAULT_LIST_LIMIT } = await import("@/lib/db/reports");
+const { listReportsViaSession, DEFAULT_LIST_LIMIT } =
+  await import("@/lib/db/reports");
 
-function makeChain(result: { data: unknown; error: unknown } = { data: [], error: null }) {
-  const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
+function makeChain(
+  result: { data: unknown; error: unknown } = { data: [], error: null },
+) {
+  const chain: Record<string, unknown> = {
+    then: (resolve: (v: typeof result) => void) => resolve(result),
+  };
   chain.eq = eqMock.mockImplementation(() => chain);
   chain.gte = gteMock.mockImplementation(() => chain);
   chain.lte = lteMock.mockImplementation(() => chain);
@@ -62,7 +67,11 @@ describe("listReportsViaSession", () => {
   });
 
   it("applies the optional projectId/from/to filters when provided", async () => {
-    await listReportsViaSession("org-A", { projectId: "project-1", from: "2026-07-01", to: "2026-07-31" });
+    await listReportsViaSession("org-A", {
+      projectId: "project-1",
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
 
     expect(eqMock).toHaveBeenCalledWith("project_id", "project-1");
     expect(gteMock).toHaveBeenCalledWith("date", "2026-07-01");
@@ -106,6 +115,8 @@ describe("listReportsViaSession", () => {
     const chain = makeChain({ data: null, error: new Error("query failed") });
     selectMock.mockReturnValue(chain);
 
-    await expect(listReportsViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(listReportsViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });

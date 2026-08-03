@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
 import type { Worker } from "@/lib/db/types";
 import { isUuid } from "@/lib/uuid";
+import { fetchAllRows } from "@/lib/db/paging";
 
 export function mapWorker(row: Record<string, unknown>): Worker {
   return {
@@ -10,7 +11,10 @@ export function mapWorker(row: Record<string, unknown>): Worker {
     projectId: row.project_id as string,
     name: row.name as string,
     trade: row.trade as string | null,
-    dailyRate: row.daily_rate === null || row.daily_rate === undefined ? null : Number(row.daily_rate),
+    dailyRate:
+      row.daily_rate === null || row.daily_rate === undefined
+        ? null
+        : Number(row.daily_rate),
     icNumber: row.ic_number as string | null,
     cidbNumber: row.cidb_number as string | null,
     cidbExpiry: row.cidb_expiry ? new Date(row.cidb_expiry as string) : null,
@@ -20,42 +24,70 @@ export function mapWorker(row: Record<string, unknown>): Worker {
   };
 }
 
-export async function listActiveWorkersForProject(projectId: string): Promise<Worker[]> {
-  const { data, error } = await createAdminClient()
-    .from("workers")
-    .select("*")
-    .eq("project_id", projectId)
-    .eq("active", true)
-    .order("name", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map(mapWorker);
+export async function listActiveWorkersForProject(
+  projectId: string,
+): Promise<Worker[]> {
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("workers")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("active", true)
+      .order("name", { ascending: true })
+      .range(from, to),
+  );
+  return data.map(mapWorker);
 }
 
 /** Ids of every worker on a project (any active status) — used to validate that
  * worker ids submitted by a client actually belong to the project before writing
  * records keyed on them (e.g. attendance), instead of trusting the client. */
-export async function listWorkerIdsForProject(projectId: string): Promise<Set<string>> {
-  const { data, error } = await createAdminClient().from("workers").select("id").eq("project_id", projectId);
-  if (error) throw error;
-  return new Set((data ?? []).map((row) => row.id as string));
+export async function listWorkerIdsForProject(
+  projectId: string,
+): Promise<Set<string>> {
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("workers")
+      .select("id")
+      .eq("project_id", projectId)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  return new Set(data.map((row) => row.id as string));
 }
 
-export async function listActiveWorkersForOrg(orgId: string, projectId?: string): Promise<Worker[]> {
-  let query = createAdminClient().from("workers").select("*").eq("org_id", orgId).eq("active", true);
+export async function listActiveWorkersForOrg(
+  orgId: string,
+  projectId?: string,
+): Promise<Worker[]> {
+  let query = createAdminClient()
+    .from("workers")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("active", true);
   if (projectId) query = query.eq("project_id", projectId);
-  const { data, error } = await query.order("name", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map(mapWorker);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    query.order("name", { ascending: true }).range(from, to),
+  );
+  return data.map(mapWorker);
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
-export async function listActiveWorkersForOrgViaSession(orgId: string, projectId?: string): Promise<Worker[]> {
+export async function listActiveWorkersForOrgViaSession(
+  orgId: string,
+  projectId?: string,
+): Promise<Worker[]> {
   const supabase = await createSessionClient();
-  let query = supabase.from("workers").select("*").eq("org_id", orgId).eq("active", true);
+  let query = supabase
+    .from("workers")
+    .select("*")
+    .eq("org_id", orgId)
+    .eq("active", true);
   if (projectId) query = query.eq("project_id", projectId);
-  const { data, error } = await query.order("name", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map(mapWorker);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    query.order("name", { ascending: true }).range(from, to),
+  );
+  return data.map(mapWorker);
 }
 
 export async function countActiveWorkersForOrg(orgId: string): Promise<number> {
@@ -68,7 +100,10 @@ export async function countActiveWorkersForOrg(orgId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function getWorkerById(orgId: string, id: string): Promise<Worker | null> {
+export async function getWorkerById(
+  orgId: string,
+  id: string,
+): Promise<Worker | null> {
   // A malformed id can match no row; do not let Postgres throw over it.
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
@@ -144,6 +179,10 @@ export async function updateWorker(
 }
 
 export async function deleteWorker(orgId: string, id: string): Promise<void> {
-  const { error } = await createAdminClient().from("workers").delete().eq("id", id).eq("org_id", orgId);
+  const { error } = await createAdminClient()
+    .from("workers")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", orgId);
   if (error) throw error;
 }

@@ -20,8 +20,14 @@ function makeFakeAdminClient(
     for (const m of methods) {
       builder[m] = vi.fn(() => builder);
     }
-    builder.maybeSingle = vi.fn(async () => ({ data: responsesByTable[table], error: null }));
-    builder.single = vi.fn(async () => ({ data: responsesByTable[table], error: null }));
+    builder.maybeSingle = vi.fn(async () => ({
+      data: responsesByTable[table],
+      error: null,
+    }));
+    builder.single = vi.fn(async () => ({
+      data: responsesByTable[table],
+      error: null,
+    }));
     return builder;
   }
   return { from: vi.fn((table: string) => chain(table)) };
@@ -42,7 +48,12 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: createSessionClientMock,
 }));
 
-const { acceptInvite, listMembersForOrgViaSession, listInvitesForOrgViaSession, createInvite } = await import("@/lib/db/team");
+const {
+  acceptInvite,
+  listMembersForOrgViaSession,
+  listInvitesForOrgViaSession,
+  createInvite,
+} = await import("@/lib/db/team");
 
 const NOW = Date.now();
 
@@ -80,8 +91,12 @@ function memberRow() {
   };
 }
 
-function makeChain(result: { data: unknown; error: unknown } = { data: [], error: null }) {
-  const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
+function makeChain(
+  result: { data: unknown; error: unknown } = { data: [], error: null },
+) {
+  const chain: Record<string, unknown> = {
+    then: (resolve: (v: typeof result) => void) => resolve(result),
+  };
   chain.eq = eqMock.mockImplementation(() => chain);
   chain.order = orderMock.mockImplementation(() => chain);
   return chain;
@@ -106,17 +121,26 @@ describe("acceptInvite", () => {
     // check, anyone who obtained a valid token (forwarded link, browser
     // history, etc.) could join the org under a completely different account.
     createAdminClientMock.mockReturnValue(
-      makeFakeAdminClient({ org_invites: inviteRow(), org_members: memberRow() }),
+      makeFakeAdminClient({
+        org_invites: inviteRow(),
+        org_members: memberRow(),
+      }),
     );
 
     await expect(
-      acceptInvite("tok-abc", { userId: "user-attacker", email: "attacker@evil.test" }),
+      acceptInvite("tok-abc", {
+        userId: "user-attacker",
+        email: "attacker@evil.test",
+      }),
     ).rejects.toThrow("This invitation was sent to a different email address");
   });
 
   it("matches email case-insensitively", async () => {
     createAdminClientMock.mockReturnValue(
-      makeFakeAdminClient({ org_invites: inviteRow(), org_members: memberRow() }),
+      makeFakeAdminClient({
+        org_invites: inviteRow(),
+        org_members: memberRow(),
+      }),
     );
 
     await expect(
@@ -126,7 +150,10 @@ describe("acceptInvite", () => {
 
   it("still rejects an already-accepted invitation", async () => {
     createAdminClientMock.mockReturnValue(
-      makeFakeAdminClient({ org_invites: inviteRow({ status: "ACCEPTED" }), org_members: memberRow() }),
+      makeFakeAdminClient({
+        org_invites: inviteRow({ status: "ACCEPTED" }),
+        org_members: memberRow(),
+      }),
     );
 
     await expect(
@@ -137,7 +164,9 @@ describe("acceptInvite", () => {
   it("still rejects an expired invitation, even with a matching email", async () => {
     createAdminClientMock.mockReturnValue(
       makeFakeAdminClient({
-        org_invites: inviteRow({ expires_at: new Date(NOW - 1000).toISOString() }),
+        org_invites: inviteRow({
+          expires_at: new Date(NOW - 1000).toISOString(),
+        }),
         org_members: memberRow(),
       }),
     );
@@ -167,7 +196,10 @@ describe("acceptInvite: one workspace per account", () => {
 
   it("still accepts when the account has no membership yet", async () => {
     createAdminClientMock.mockReturnValue(
-      makeFakeAdminClient({ org_invites: inviteRow(), org_members: memberRow() }, { org_members: [] }),
+      makeFakeAdminClient(
+        { org_invites: inviteRow(), org_members: memberRow() },
+        { org_members: [] },
+      ),
     );
 
     await expect(
@@ -192,9 +224,13 @@ describe("listMembersForOrgViaSession", () => {
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    selectMock.mockReturnValue(makeChain({ data: null, error: new Error("query failed") }));
+    selectMock.mockReturnValue(
+      makeChain({ data: null, error: new Error("query failed") }),
+    );
 
-    await expect(listMembersForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(listMembersForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });
 
@@ -214,9 +250,13 @@ describe("listInvitesForOrgViaSession", () => {
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    selectMock.mockReturnValue(makeChain({ data: null, error: new Error("query failed") }));
+    selectMock.mockReturnValue(
+      makeChain({ data: null, error: new Error("query failed") }),
+    );
 
-    await expect(listInvitesForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(listInvitesForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });
 
@@ -234,7 +274,10 @@ describe("invite token strength", () => {
           return builder;
         });
         builder.select = vi.fn(() => builder);
-        builder.single = vi.fn(async () => ({ data: inviteRow(), error: null }));
+        builder.single = vi.fn(async () => ({
+          data: inviteRow(),
+          error: null,
+        }));
         return builder;
       },
     });
@@ -263,12 +306,20 @@ describe("invite token strength", () => {
           return builder;
         });
         builder.select = vi.fn(() => builder);
-        builder.single = vi.fn(async () => ({ data: inviteRow(), error: null }));
+        builder.single = vi.fn(async () => ({
+          data: inviteRow(),
+          error: null,
+        }));
         return builder;
       },
     });
 
-    const input = { name: "Jane", email: "jane@org-a.test", role: "ENGINEER" as const, invitedByName: "Owner" };
+    const input = {
+      name: "Jane",
+      email: "jane@org-a.test",
+      role: "ENGINEER" as const,
+      invitedByName: "Owner",
+    };
     await createInvite("org-A", input);
     await createInvite("org-A", input);
 

@@ -7,13 +7,20 @@ const selectMock = vi.fn();
 const fromMock = vi.fn();
 const createSessionClientMock = vi.fn();
 
-vi.mock("@/lib/supabase/server", () => ({ createClient: createSessionClientMock }));
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: createSessionClientMock,
+}));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 
-const { listInspectionsForOrgViaSession, DEFAULT_LIST_LIMIT } = await import("@/lib/db/safety");
+const { listInspectionsForOrgViaSession, DEFAULT_LIST_LIMIT } =
+  await import("@/lib/db/safety");
 
-function makeChain(result: { data: unknown; error: unknown } = { data: [], error: null }) {
-  const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
+function makeChain(
+  result: { data: unknown; error: unknown } = { data: [], error: null },
+) {
+  const chain: Record<string, unknown> = {
+    then: (resolve: (v: typeof result) => void) => resolve(result),
+  };
   chain.eq = eqMock.mockImplementation(() => chain);
   chain.order = orderMock.mockImplementation(() => chain);
   chain.range = rangeMock.mockImplementation(() => chain);
@@ -22,7 +29,15 @@ function makeChain(result: { data: unknown; error: unknown } = { data: [], error
 }
 
 beforeEach(() => {
-  for (const m of [eqMock, orderMock, rangeMock, selectMock, fromMock, createSessionClientMock]) m.mockReset();
+  for (const m of [
+    eqMock,
+    orderMock,
+    rangeMock,
+    selectMock,
+    fromMock,
+    createSessionClientMock,
+  ])
+    m.mockReset();
   selectMock.mockReturnValue(makeChain());
   fromMock.mockReturnValue({ select: selectMock });
   createSessionClientMock.mockResolvedValue({ from: fromMock });
@@ -76,8 +91,11 @@ describe("listInspectionsForOrgViaSession", () => {
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    selectMock.mockReturnValue(makeChain({ data: null, error: new Error("query failed") }));
-    await expect(listInspectionsForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    selectMock.mockReturnValue(
+      makeChain({ data: null, error: new Error("query failed") }),
+    );
+    await expect(listInspectionsForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });
-

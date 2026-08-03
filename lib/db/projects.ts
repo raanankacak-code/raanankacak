@@ -1,8 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
-import type { Project, ProjectStatus, ProjectWithWorkerCount, ProjectWithWorkers } from "@/lib/db/types";
+import type {
+  Project,
+  ProjectStatus,
+  ProjectWithWorkerCount,
+  ProjectWithWorkers,
+} from "@/lib/db/types";
 import { mapWorker } from "@/lib/db/workers";
 import { isUuid } from "@/lib/uuid";
+import { fetchAllRows } from "@/lib/db/paging";
 
 function toDate(value: unknown): Date | null {
   return value ? new Date(value as string) : null;
@@ -31,19 +37,25 @@ export function mapProject(row: Record<string, unknown>): Project {
   };
 }
 
-function mapProjectWithWorkerCount(row: Record<string, unknown>): ProjectWithWorkerCount {
+function mapProjectWithWorkerCount(
+  row: Record<string, unknown>,
+): ProjectWithWorkerCount {
   const workers = row.workers as { count: number }[] | undefined;
   return { ...mapProject(row), _count: { workers: workers?.[0]?.count ?? 0 } };
 }
 
-export async function listProjectsForOrg(orgId: string): Promise<ProjectWithWorkerCount[]> {
-  const { data, error } = await createAdminClient()
-    .from("projects")
-    .select("*, workers(count)")
-    .eq("org_id", orgId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(mapProjectWithWorkerCount);
+export async function listProjectsForOrg(
+  orgId: string,
+): Promise<ProjectWithWorkerCount[]> {
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("projects")
+      .select("*, workers(count)")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .range(from, to),
+  );
+  return data.map(mapProjectWithWorkerCount);
 }
 
 /**
@@ -57,15 +69,19 @@ export async function listProjectsForOrg(orgId: string): Promise<ProjectWithWork
  * caller's own org's rows — verified live against the real database with
  * a second throwaway org/user, not just asserted by a mock.
  */
-export async function listProjectsForOrgViaSession(orgId: string): Promise<ProjectWithWorkerCount[]> {
+export async function listProjectsForOrgViaSession(
+  orgId: string,
+): Promise<ProjectWithWorkerCount[]> {
   const supabase = await createSessionClient();
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*, workers(count)")
-    .eq("org_id", orgId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(mapProjectWithWorkerCount);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    supabase
+      .from("projects")
+      .select("*, workers(count)")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .range(from, to),
+  );
+  return data.map(mapProjectWithWorkerCount);
 }
 
 /**
@@ -74,9 +90,16 @@ export async function listProjectsForOrgViaSession(orgId: string): Promise<Proje
  * Same reason as countRequestsByStatusForOrg: filtering a fetched list is
  * wrong once the list is capped at 1000 rows, and it silently stays wrong.
  */
-export async function countProjectsByStatusForOrg(orgId: string): Promise<Record<ProjectStatus, number>> {
+export async function countProjectsByStatusForOrg(
+  orgId: string,
+): Promise<Record<ProjectStatus, number>> {
   const supabase = await createSessionClient();
-  const statuses: ProjectStatus[] = ["PLANNING", "ACTIVE", "COMPLETED", "ON_HOLD"];
+  const statuses: ProjectStatus[] = [
+    "PLANNING",
+    "ACTIVE",
+    "COMPLETED",
+    "ON_HOLD",
+  ];
 
   const results = await Promise.all(
     statuses.map(async (status) => {
@@ -93,7 +116,9 @@ export async function countProjectsByStatusForOrg(orgId: string): Promise<Record
 }
 
 /** Projects that count against the plan's active-project limit (everything not COMPLETED). */
-export async function countActiveProjectsForOrg(orgId: string): Promise<number> {
+export async function countActiveProjectsForOrg(
+  orgId: string,
+): Promise<number> {
   const { count, error } = await createAdminClient()
     .from("projects")
     .select("*", { count: "exact", head: true })
@@ -112,15 +137,19 @@ export async function countActiveProjectsForOrg(orgId: string): Promise<number> 
  * disagreed, this shows the narrower one. The staff list embeds a worker
  * count; this does not, because a client cannot read the workers table.
  */
-export async function listProjectsForClientViaSession(orgId: string): Promise<Project[]> {
+export async function listProjectsForClientViaSession(
+  orgId: string,
+): Promise<Project[]> {
   const supabase = await createSessionClient();
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("org_id", orgId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(mapProject);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    supabase
+      .from("projects")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .range(from, to),
+  );
+  return data.map(mapProject);
 }
 
 /**
@@ -130,42 +159,60 @@ export async function listProjectsForClientViaSession(orgId: string): Promise<Pr
  * another workspace must not become a row in project_access, because the RLS
  * policy would then honour it.
  */
-export async function listProjectIdsInOrg(orgId: string, ids: string[]): Promise<string[]> {
+export async function listProjectIdsInOrg(
+  orgId: string,
+  ids: string[],
+): Promise<string[]> {
   const wanted = [...new Set(ids.filter(isUuid))];
   if (wanted.length === 0) return [];
-  const { data, error } = await createAdminClient()
-    .from("projects")
-    .select("id")
-    .eq("org_id", orgId)
-    .in("id", wanted);
-  if (error) throw error;
-  return (data ?? []).map((r) => r.id as string);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("projects")
+      .select("id")
+      .eq("org_id", orgId)
+      .in("id", wanted)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  return data.map((r) => r.id as string);
 }
 
 /** The names behind a set of ids, for a message that has to read like a sentence. */
-export async function listProjectNamesByIds(orgId: string, ids: string[]): Promise<string[]> {
+export async function listProjectNamesByIds(
+  orgId: string,
+  ids: string[],
+): Promise<string[]> {
   const wanted = [...new Set(ids.filter(isUuid))];
   if (wanted.length === 0) return [];
-  const { data, error } = await createAdminClient()
-    .from("projects")
-    .select("name")
-    .eq("org_id", orgId)
-    .in("id", wanted)
-    .order("name", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map((r) => r.name as string);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    createAdminClient()
+      .from("projects")
+      .select("name")
+      .eq("org_id", orgId)
+      .in("id", wanted)
+      .order("name", { ascending: true })
+      .range(from, to),
+  );
+  return data.map((r) => r.name as string);
 }
 
-export async function listProjectNamesForOrg(orgId: string): Promise<{ id: string; name: string }[]> {
-  const { data, error } = await createAdminClient()
-    .from("projects")
-    .select("id, name")
-    .eq("org_id", orgId);
-  if (error) throw error;
-  return data ?? [];
+export async function listProjectNamesForOrg(
+  orgId: string,
+): Promise<{ id: string; name: string }[]> {
+  return await fetchAllRows<{ id: string; name: string }>((from, to) =>
+    createAdminClient()
+      .from("projects")
+      .select("id, name")
+      .eq("org_id", orgId)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 }
 
-export async function getProjectById(orgId: string, id: string): Promise<Project | null> {
+export async function getProjectById(
+  orgId: string,
+  id: string,
+): Promise<Project | null> {
   // A malformed id can match no row; do not let Postgres throw over it.
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
@@ -178,7 +225,10 @@ export async function getProjectById(orgId: string, id: string): Promise<Project
   return data ? mapProject(data) : null;
 }
 
-export async function getProjectWithWorkers(orgId: string, id: string): Promise<ProjectWithWorkers | null> {
+export async function getProjectWithWorkers(
+  orgId: string,
+  id: string,
+): Promise<ProjectWithWorkers | null> {
   // A malformed id can match no row; do not let Postgres throw over it.
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
@@ -190,7 +240,9 @@ export async function getProjectWithWorkers(orgId: string, id: string): Promise<
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const { workers, ...projectRow } = data as Record<string, unknown> & { workers: Record<string, unknown>[] };
+  const { workers, ...projectRow } = data as Record<string, unknown> & {
+    workers: Record<string, unknown>[];
+  };
   return { ...mapProject(projectRow), workers: workers.map(mapWorker) };
 }
 
@@ -265,6 +317,10 @@ export async function updateProject(
 }
 
 export async function deleteProject(orgId: string, id: string): Promise<void> {
-  const { error } = await createAdminClient().from("projects").delete().eq("id", id).eq("org_id", orgId);
+  const { error } = await createAdminClient()
+    .from("projects")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", orgId);
   if (error) throw error;
 }

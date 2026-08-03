@@ -1,6 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createSessionClient } from "@/lib/supabase/server";
-import type { DailyReport, DailyReportWithProject, ReportStatus } from "@/lib/db/types";
+import type {
+  DailyReport,
+  DailyReportWithProject,
+  ReportStatus,
+} from "@/lib/db/types";
 import { isUuid } from "@/lib/uuid";
 
 /**
@@ -30,8 +34,12 @@ function mapDailyReport(row: Record<string, unknown>): DailyReport {
   };
 }
 
-function mapDailyReportWithProject(row: Record<string, unknown>): DailyReportWithProject {
-  const { project, ...rest } = row as Record<string, unknown> & { project: { id: string; name: string } };
+function mapDailyReportWithProject(
+  row: Record<string, unknown>,
+): DailyReportWithProject {
+  const { project, ...rest } = row as Record<string, unknown> & {
+    project: { id: string; name: string };
+  };
   return { ...mapDailyReport(rest), project };
 }
 
@@ -60,7 +68,9 @@ export interface DailyReportListItem {
 const LIST_COLUMNS =
   "id, project_id, date, weather, work_completed, status, submitted_by_id, submitted_by_name, project:projects(id, name)";
 
-function mapDailyReportListItem(row: Record<string, unknown>): DailyReportListItem {
+function mapDailyReportListItem(
+  row: Record<string, unknown>,
+): DailyReportListItem {
   return {
     id: row.id as string,
     projectId: row.project_id as string,
@@ -109,7 +119,13 @@ export async function listReports(
  */
 export async function listReportsViaSession(
   orgId: string,
-  filters: { projectId?: string; from?: string; to?: string; limit?: number; offset?: number } = {},
+  filters: {
+    projectId?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
 ): Promise<DailyReportListItem[]> {
   const supabase = await createSessionClient();
   const limit = filters.limit ?? DEFAULT_LIST_LIMIT;
@@ -127,7 +143,9 @@ export async function listReportsViaSession(
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map((row) => mapDailyReportListItem(row as unknown as Record<string, unknown>));
+  return (data ?? []).map((row) =>
+    mapDailyReportListItem(row as unknown as Record<string, unknown>),
+  );
 }
 
 /**
@@ -142,7 +160,16 @@ export async function listDiaryForClientViaSession(
   orgId: string,
   projectId: string,
   limit = 30,
-): Promise<{ id: string; date: Date; weather: string | null; workCompleted: string | null; delays: string | null; photos: string[] }[]> {
+): Promise<
+  {
+    id: string;
+    date: Date;
+    weather: string | null;
+    workCompleted: string | null;
+    delays: string | null;
+    photos: string[];
+  }[]
+> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("daily_reports")
@@ -164,7 +191,10 @@ export async function listDiaryForClientViaSession(
 }
 
 /** Reports in a given status for one project, counted in the database. */
-export async function countReportsByStatusForProject(projectId: string, status: ReportStatus): Promise<number> {
+export async function countReportsByStatusForProject(
+  projectId: string,
+  status: ReportStatus,
+): Promise<number> {
   const supabase = await createSessionClient();
   const { count, error } = await supabase
     .from("daily_reports")
@@ -175,7 +205,10 @@ export async function countReportsByStatusForProject(projectId: string, status: 
   return count ?? 0;
 }
 
-export async function listRecentReportsForOrg(orgId: string, limit: number): Promise<DailyReportWithProject[]> {
+export async function listRecentReportsForOrg(
+  orgId: string,
+  limit: number,
+): Promise<DailyReportWithProject[]> {
   const { data, error } = await createAdminClient()
     .from("daily_reports")
     .select("*, project:projects(id, name)")
@@ -186,7 +219,10 @@ export async function listRecentReportsForOrg(orgId: string, limit: number): Pro
   return (data ?? []).map(mapDailyReportWithProject);
 }
 
-export async function getReportById(orgId: string, id: string): Promise<DailyReportWithProject | null> {
+export async function getReportById(
+  orgId: string,
+  id: string,
+): Promise<DailyReportWithProject | null> {
   // A malformed id can match no row; do not let Postgres throw over it.
   if (!isUuid(id)) return null;
   const { data, error } = await createAdminClient()
@@ -199,7 +235,9 @@ export async function getReportById(orgId: string, id: string): Promise<DailyRep
   return data ? mapDailyReportWithProject(data) : null;
 }
 
-export async function getLatestReportForProject(projectId: string): Promise<DailyReport | null> {
+export async function getLatestReportForProject(
+  projectId: string,
+): Promise<DailyReport | null> {
   const { data, error } = await createAdminClient()
     .from("daily_reports")
     .select("*")
@@ -211,7 +249,9 @@ export async function getLatestReportForProject(projectId: string): Promise<Dail
   return data ? mapDailyReport(data) : null;
 }
 
-export async function countReportsForProject(projectId: string): Promise<number> {
+export async function countReportsForProject(
+  projectId: string,
+): Promise<number> {
   const { count, error } = await createAdminClient()
     .from("daily_reports")
     .select("*", { count: "exact", head: true })
@@ -256,7 +296,11 @@ export async function createReport(
   return mapDailyReport(data);
 }
 
-export async function updateReportStatus(orgId: string, id: string, status: ReportStatus): Promise<DailyReport> {
+export async function updateReportStatus(
+  orgId: string,
+  id: string,
+  status: ReportStatus,
+): Promise<DailyReport> {
   const { data, error } = await createAdminClient()
     .from("daily_reports")
     .update({ status })
@@ -269,7 +313,11 @@ export async function updateReportStatus(orgId: string, id: string, status: Repo
 }
 
 export async function deleteReport(orgId: string, id: string): Promise<void> {
-  const { error } = await createAdminClient().from("daily_reports").delete().eq("id", id).eq("org_id", orgId);
+  const { error } = await createAdminClient()
+    .from("daily_reports")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", orgId);
   if (error) throw error;
 }
 

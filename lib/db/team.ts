@@ -50,7 +50,9 @@ export async function listMembersForOrg(orgId: string): Promise<OrgMember[]> {
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
-export async function listMembersForOrgViaSession(orgId: string): Promise<OrgMember[]> {
+export async function listMembersForOrgViaSession(
+  orgId: string,
+): Promise<OrgMember[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("org_members")
@@ -61,7 +63,10 @@ export async function listMembersForOrgViaSession(orgId: string): Promise<OrgMem
   return (data ?? []).map(mapOrgMember);
 }
 
-export async function getMemberById(orgId: string, id: string): Promise<OrgMember | null> {
+export async function getMemberById(
+  orgId: string,
+  id: string,
+): Promise<OrgMember | null> {
   const { data, error } = await createAdminClient()
     .from("org_members")
     .select("*")
@@ -89,7 +94,11 @@ export async function updateMember(
 }
 
 export async function removeMember(orgId: string, id: string): Promise<void> {
-  const { error } = await createAdminClient().from("org_members").delete().eq("id", id).eq("org_id", orgId);
+  const { error } = await createAdminClient()
+    .from("org_members")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", orgId);
   if (error) throw error;
 }
 
@@ -112,7 +121,9 @@ export async function countActiveMembersForOrg(orgId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function countPendingInvitesForOrg(orgId: string): Promise<number> {
+export async function countPendingInvitesForOrg(
+  orgId: string,
+): Promise<number> {
   const { count, error } = await createAdminClient()
     .from("org_invites")
     .select("*", { count: "exact", head: true })
@@ -145,7 +156,9 @@ export async function listInvitesForOrg(orgId: string): Promise<OrgInvite[]> {
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
-export async function listInvitesForOrgViaSession(orgId: string): Promise<OrgInvite[]> {
+export async function listInvitesForOrgViaSession(
+  orgId: string,
+): Promise<OrgInvite[]> {
   const supabase = await createSessionClient();
   const { data, error } = await supabase
     .from("org_invites")
@@ -156,7 +169,9 @@ export async function listInvitesForOrgViaSession(orgId: string): Promise<OrgInv
   return (data ?? []).map(mapInvite);
 }
 
-export async function getInviteByToken(token: string): Promise<OrgInvite | null> {
+export async function getInviteByToken(
+  token: string,
+): Promise<OrgInvite | null> {
   const { data, error } = await createAdminClient()
     .from("org_invites")
     .select("*")
@@ -166,7 +181,10 @@ export async function getInviteByToken(token: string): Promise<OrgInvite | null>
   return data ? mapInvite(data) : null;
 }
 
-export async function getInviteById(orgId: string, id: string): Promise<OrgInvite | null> {
+export async function getInviteById(
+  orgId: string,
+  id: string,
+): Promise<OrgInvite | null> {
   const { data, error } = await createAdminClient()
     .from("org_invites")
     .select("*")
@@ -222,7 +240,10 @@ export async function createInvite(
   return mapInvite(data);
 }
 
-export async function resendInvite(orgId: string, id: string): Promise<OrgInvite> {
+export async function resendInvite(
+  orgId: string,
+  id: string,
+): Promise<OrgInvite> {
   const { data, error } = await createAdminClient()
     .from("org_invites")
     .update({
@@ -254,8 +275,10 @@ export async function acceptInvite(
   const supabase = createAdminClient();
   const invite = await getInviteByToken(token);
   if (!invite) throw new Error("Invitation not found");
-  if (invite.status !== "PENDING") throw new Error("This invitation is no longer valid");
-  if (invite.expiresAt.getTime() < Date.now()) throw new Error("This invitation has expired");
+  if (invite.status !== "PENDING")
+    throw new Error("This invitation is no longer valid");
+  if (invite.expiresAt.getTime() < Date.now())
+    throw new Error("This invitation has expired");
   // The token alone is a bearer credential — anyone who obtains it (a forwarded
   // link, a browser history entry, etc.) could otherwise join the org under a
   // different account. Require the signed-in account's email to match.
@@ -295,7 +318,12 @@ export async function acceptInvite(
   // from the invitation rather than from anything the person signing up sent,
   // is what stops a client widening their own access at signup.
   if (invite.role === "CLIENT" && invite.projectIds.length > 0) {
-    await grantProjectAccess(invite.orgId, memberRow.id as string, invite.projectIds, invite.invitedByName);
+    await grantProjectAccess(
+      invite.orgId,
+      memberRow.id as string,
+      invite.projectIds,
+      invite.invitedByName,
+    );
   }
 
   const { data: inviteRow, error: inviteError } = await supabase

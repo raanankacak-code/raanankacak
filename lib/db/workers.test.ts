@@ -5,6 +5,9 @@ const orderMock = vi.fn();
 const selectMock = vi.fn();
 const fromMock = vi.fn();
 const createSessionClientMock = vi.fn();
+// The list functions page with .range(); order() now returns the pager's
+// entry point rather than the rows themselves.
+let queryResult: { data: unknown; error: unknown };
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: createSessionClientMock,
@@ -23,9 +26,14 @@ beforeEach(() => {
   fromMock.mockReset();
   createSessionClientMock.mockReset();
 
-  const chain = { eq: eqMock, order: orderMock, then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }) };
+  const chain = {
+    eq: eqMock,
+    order: orderMock,
+    then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }),
+  };
   eqMock.mockReturnValue(chain);
-  orderMock.mockResolvedValue({ data: [], error: null });
+  queryResult = { data: [], error: null };
+  orderMock.mockReturnValue({ range: () => Promise.resolve(queryResult) });
   selectMock.mockReturnValue(chain);
   fromMock.mockReturnValue({ select: selectMock });
   createSessionClientMock.mockResolvedValue({ from: fromMock });
@@ -53,8 +61,10 @@ describe("listActiveWorkersForOrgViaSession", () => {
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    orderMock.mockResolvedValue({ data: null, error: new Error("query failed") });
+    queryResult = { data: null, error: new Error("query failed") };
 
-    await expect(listActiveWorkersForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(listActiveWorkersForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });

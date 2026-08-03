@@ -18,8 +18,15 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 const { listEventsForOrgViaSession } = await import("@/lib/db/calendar");
 
-function makeChain(result: { data: unknown; error: unknown } = { data: [], error: null }) {
-  const chain: Record<string, unknown> = { then: (resolve: (v: typeof result) => void) => resolve(result) };
+function makeChain(
+  result: { data: unknown; error: unknown } = { data: [], error: null },
+) {
+  const chain: Record<string, unknown> = {
+    then: (resolve: (v: typeof result) => void) => resolve(result),
+  };
+  // The list functions page with .range(); a short page ends the loop,
+  // so one call returning the whole fixture is a faithful stand-in.
+  chain.range = () => Promise.resolve(result);
   chain.eq = eqMock.mockImplementation(() => chain);
   chain.gte = gteMock.mockImplementation(() => chain);
   chain.lte = lteMock.mockImplementation(() => chain);
@@ -56,15 +63,22 @@ describe("listEventsForOrgViaSession", () => {
   });
 
   it("applies the optional date range filter when provided", async () => {
-    await listEventsForOrgViaSession("org-A", { from: "2026-07-01", to: "2026-07-31" });
+    await listEventsForOrgViaSession("org-A", {
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
 
     expect(gteMock).toHaveBeenCalledWith("date", "2026-07-01");
     expect(lteMock).toHaveBeenCalledWith("date", "2026-07-31");
   });
 
   it("propagates a query error instead of swallowing it", async () => {
-    selectMock.mockReturnValue(makeChain({ data: null, error: new Error("query failed") }));
+    selectMock.mockReturnValue(
+      makeChain({ data: null, error: new Error("query failed") }),
+    );
 
-    await expect(listEventsForOrgViaSession("org-A")).rejects.toThrow("query failed");
+    await expect(listEventsForOrgViaSession("org-A")).rejects.toThrow(
+      "query failed",
+    );
   });
 });

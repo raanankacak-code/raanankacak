@@ -35,7 +35,9 @@ export interface WorkspaceContents {
  * matters here: a workspace being deleted may hold tens of thousands of
  * attendance records, and this runs while the user waits.
  */
-export async function countWorkspaceContents(orgId: string): Promise<WorkspaceContents> {
+export async function countWorkspaceContents(
+  orgId: string,
+): Promise<WorkspaceContents> {
   const supabase = createAdminClient();
 
   async function count(table: string): Promise<number> {
@@ -47,12 +49,13 @@ export async function countWorkspaceContents(orgId: string): Promise<WorkspaceCo
     return n ?? 0;
   }
 
-  const [memberCount, projectCount, workerCount, reportCount] = await Promise.all([
-    count("org_members"),
-    count("projects"),
-    count("workers"),
-    count("daily_reports"),
-  ]);
+  const [memberCount, projectCount, workerCount, reportCount] =
+    await Promise.all([
+      count("org_members"),
+      count("projects"),
+      count("workers"),
+      count("daily_reports"),
+    ]);
 
   // Storage is listed rather than counted, because the bucket has no row to
   // count. Paged, since list() caps at 100 by default and a silent cap is
@@ -74,7 +77,14 @@ export async function countWorkspaceContents(orgId: string): Promise<WorkspaceCo
     offset += PAGE;
   }
 
-  return { memberCount, projectCount, workerCount, reportCount, storageObjectCount, storageBytes };
+  return {
+    memberCount,
+    projectCount,
+    workerCount,
+    reportCount,
+    storageObjectCount,
+    storageBytes,
+  };
 }
 
 /**
@@ -99,40 +109,42 @@ export async function recordWorkspaceDeletion(input: {
   plan: string | null;
   contents: WorkspaceContents;
 }): Promise<void> {
-  const { error } = await createAdminClient()
-    .from("deleted_workspaces")
-    .upsert(
-      {
-        org_id: input.orgId,
-        org_name: input.orgName,
-        deleted_by_user_id: input.deletedByUserId,
-        deleted_by_email: input.deletedByEmail,
-        deleted_by_name: input.deletedByName,
-        plan: input.plan,
-        member_count: input.contents.memberCount,
-        project_count: input.contents.projectCount,
-        worker_count: input.contents.workerCount,
-        report_count: input.contents.reportCount,
-        storage_object_count: input.contents.storageObjectCount,
-        storage_bytes: input.contents.storageBytes,
-      },
-      // A retry after a failed deletion must not collide with the row the
-      // first attempt already wrote.
-      { onConflict: "org_id" },
-    );
+  const { error } = await createAdminClient().from("deleted_workspaces").upsert(
+    {
+      org_id: input.orgId,
+      org_name: input.orgName,
+      deleted_by_user_id: input.deletedByUserId,
+      deleted_by_email: input.deletedByEmail,
+      deleted_by_name: input.deletedByName,
+      plan: input.plan,
+      member_count: input.contents.memberCount,
+      project_count: input.contents.projectCount,
+      worker_count: input.contents.workerCount,
+      report_count: input.contents.reportCount,
+      storage_object_count: input.contents.storageObjectCount,
+      storage_bytes: input.contents.storageBytes,
+    },
+    // A retry after a failed deletion must not collide with the row the
+    // first attempt already wrote.
+    { onConflict: "org_id" },
+  );
 
-  if (error) throw new Error(`Failed to record workspace deletion: ${error.message}`);
+  if (error)
+    throw new Error(`Failed to record workspace deletion: ${error.message}`);
 }
 
 /** Operator-side lookup. There is no UI for this and deliberately so. */
-export async function findDeletedWorkspace(orgId: string): Promise<DeletedWorkspace | null> {
+export async function findDeletedWorkspace(
+  orgId: string,
+): Promise<DeletedWorkspace | null> {
   const { data, error } = await createAdminClient()
     .from("deleted_workspaces")
     .select("*")
     .eq("org_id", orgId)
     .maybeSingle();
 
-  if (error) throw new Error(`Failed to load deleted workspace: ${error.message}`);
+  if (error)
+    throw new Error(`Failed to load deleted workspace: ${error.message}`);
   if (!data) return null;
 
   return {
