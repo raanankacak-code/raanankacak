@@ -1,4 +1,5 @@
 import type { ApprovalStatus } from "@/lib/db/types";
+import { ORG_TIMEZONE } from "@/lib/today";
 
 /**
  * The rules a sign-off has to obey.
@@ -78,6 +79,14 @@ export function signOffLine(input: {
 }): string | null {
   if (!isDecided(input.status) || !input.decidedByName || !input.decidedAt) return null;
   const verb = input.status === "APPROVED" ? "Approved" : "Rejected";
-  const date = input.decidedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+  // In the workspace's zone, not the server's. This line goes on the record
+  // a client signed: rendered in UTC, a sign-off at 07:00 in Kuching would
+  // carry the previous day's date.
+  const date = input.decidedAt.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    timeZone: ORG_TIMEZONE,
+  });
   return `${verb} by ${input.decidedByName} on ${date}`;
 }

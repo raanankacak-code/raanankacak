@@ -110,6 +110,19 @@ describe("the line that goes on the record", () => {
     expect(signOffLine({ status: "PENDING", decidedByName: null, decidedAt: null })).toBeNull();
   });
 
+  it("dates the sign-off by the workspace's day, not the server's", () => {
+    // 07:00 on the 14th in Kuching is 23:00 on the 13th in UTC. This line
+    // goes on the record a client signed, so the server's date being a day
+    // behind is a wrong statement of fact on a document, not a display quirk.
+    expect(
+      signOffLine({
+        status: "APPROVED",
+        decidedByName: "Sarawak Energy",
+        decidedAt: new Date("2026-08-13T23:00:00Z"),
+      }),
+    ).toBe("Approved by Sarawak Energy on 14 August 2026");
+  });
+
   it("says nothing when the row is half-filled, rather than inventing a signature", () => {
     // The CHECK constraint in the schema makes this state unreachable through
     // the database; this is the belt to that pair of braces.

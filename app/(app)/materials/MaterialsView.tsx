@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { statusBadgeClass, statusLabel, formatDate } from "@/lib/format";
+import { formatDate, formatDateTime, statusBadgeClass, statusLabel } from "@/lib/format";
 import Modal from "@/components/app/Modal";
 import SortableTh, { type SortState, toggleSort, sortRows } from "@/components/app/SortableTh";
 import { todayInOrgTimezone as todayISO, daysAheadInOrgTimezone as daysAhead } from "@/lib/today";
@@ -203,7 +203,7 @@ export default function MaterialsView({
                           {statusLabel(r.status)}
                         </span>
                       </td>
-                      <td className="small faint" data-label="Last update">{new Date(r.updatedAt).toLocaleString()}</td>
+                      <td className="small faint" data-label="Last update">{formatDateTime(r.updatedAt)}</td>
                     </tr>
                   );
                 })}
@@ -443,7 +443,7 @@ function RequestDetailModal({
             <div className="t-title">
               {statusLabel(t.state)} <span className="small mut" style={{ fontWeight: 400 }}>— {t.actorName}</span>
             </div>
-            <div className="t-meta">{new Date(t.createdAt).toLocaleString()}</div>
+            <div className="t-meta">{formatDateTime(t.createdAt)}</div>
             {t.comment && <div className="t-note">{t.comment}</div>}
           </li>
         ))}

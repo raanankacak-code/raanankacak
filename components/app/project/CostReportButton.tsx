@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import Modal from "@/components/app/Modal";
 
 type CostReport = {
@@ -39,7 +39,7 @@ export default function CostReportButton({ projectId }: { projectId: string }) {
 
   function exportCSV() {
     if (!report) return;
-    let csv = `BinaWorks Cost Report\nProject,${csvEscape(report.projectName)}\nGenerated,${new Date().toLocaleString()}\n\n`;
+    let csv = `BinaWorks Cost Report\nProject,${csvEscape(report.projectName)}\nGenerated,${formatDateTime(new Date())}\n\n`;
     csv += `Item,Amount (RM)\nContract value,${report.contractValue}\nEarned value,${report.earnedValue}\nLabour cost to date,${report.laborCost}\n\n`;
     csv += "Worker,Trade,Rate,Days,Wages (RM)\n";
     for (const w of report.workers) {
@@ -127,7 +127,7 @@ export default function CostReportButton({ projectId }: { projectId: string }) {
                 </tbody>
               </table>
               <div className="small faint" style={{ marginTop: 10 }}>
-                Generated {new Date().toLocaleString()} · figures from attendance and material request data.
+                Generated {formatDateTime(new Date())} · figures from attendance and material request data.
               </div>
             </>
           ) : null}

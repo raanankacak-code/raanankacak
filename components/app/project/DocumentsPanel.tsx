@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
+import { formatInstantDate } from "@/lib/format";
 
 const FOLDERS = ["Drawings", "Contracts", "Claims", "Permits", "Other"];
 
@@ -151,7 +152,7 @@ export default function DocumentsPanel({ projectId, canUpload }: { projectId: st
                   </td>
                   <td className="small mono">{fmtSize(d.sizeBytes)}</td>
                   <td className="small mut">
-                    {d.uploadedByName} · {new Date(d.createdAt).toLocaleDateString()}
+                    {d.uploadedByName} · {formatInstantDate(d.createdAt)}
                   </td>
                   <td style={{ textAlign: "right" }}>
                     {canUpload && (

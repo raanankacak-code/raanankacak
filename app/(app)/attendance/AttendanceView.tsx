@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { todayInOrgTimezone as todayISO, daysAheadInOrgTimezone as daysAhead } from "@/lib/today";
+import { formatDate } from "@/lib/format";
 
 type Project = { id: string; name: string };
 type Worker = {
@@ -268,10 +269,10 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                               expSoon ? (
                                 <span className="badge b-bad">
                                   <i className="dot" />
-                                  exp {new Date(r.cidbExpiry).toLocaleDateString("en-GB")}
+                                  exp {formatDate(r.cidbExpiry)}
                                 </span>
                               ) : (
-                                <span className="small faint">ok · {new Date(r.cidbExpiry).toLocaleDateString("en-GB")}</span>
+                                <span className="small faint">ok · {formatDate(r.cidbExpiry)}</span>
                               )
                             ) : (
                               <span className="small faint">—</span>
