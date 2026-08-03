@@ -40,6 +40,19 @@ export function shiftDays(isoDate: string, days: number): string {
 }
 
 /**
+ * The hour of the day where the workspace is, 0–23.
+ *
+ * `new Date().getHours()` reads the server's clock, which is UTC in
+ * production: at 02:00 in Kuching it returns 18, so a greeting keyed on it
+ * says "Good day" in the middle of the night.
+ */
+export function hourInOrgTimezone(now: Date = new Date(), timeZone: string = ORG_TIMEZONE): number {
+  return Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hour12: false }).format(now),
+  );
+}
+
+/**
  * The calendar date an instant falls on, as the workspace reckons it.
  *
  * For comparing a stored timestamp against today: slicing the first ten

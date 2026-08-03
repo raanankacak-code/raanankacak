@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-const { todayInOrgTimezone, shiftDays, daysAgoInOrgTimezone, daysAheadInOrgTimezone, orgDateOf } =
+const { todayInOrgTimezone, shiftDays, daysAgoInOrgTimezone, daysAheadInOrgTimezone, orgDateOf, hourInOrgTimezone } =
   await import("@/lib/today");
 
 /** What the deleted `todayISO()` helpers did: the server's UTC date. */
@@ -110,5 +110,25 @@ describe("orgDateOf", () => {
 
     expect(orgDateOf(midAfternoon)).toBe("2026-08-11");
     expect(midAfternoon.slice(0, 10)).toBe("2026-08-11");
+  });
+});
+
+describe("hourInOrgTimezone", () => {
+  it("reads the hour where the workspace is, not on the server", () => {
+    // 02:06 in Kuching is 18:06 UTC. Keyed on the server's hour, the
+    // dashboard greeted people with "Good day" in the middle of the night.
+    const at0206Kuching = new Date("2026-08-03T18:06:00Z");
+
+    expect(hourInOrgTimezone(at0206Kuching)).toBe(2);
+    expect(at0206Kuching.getUTCHours()).toBe(18);
+  });
+
+  it("returns midnight as 0 rather than 24", () => {
+    expect(hourInOrgTimezone(new Date("2026-08-03T16:00:00Z"))).toBe(0);
+  });
+
+  it("splits morning from afternoon at noon local", () => {
+    expect(hourInOrgTimezone(new Date("2026-08-03T03:59:00Z"))).toBe(11);
+    expect(hourInOrgTimezone(new Date("2026-08-03T04:00:00Z"))).toBe(12);
   });
 });

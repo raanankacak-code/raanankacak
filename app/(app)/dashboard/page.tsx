@@ -11,8 +11,8 @@ import { listNotificationsForOrgViaSession } from "@/lib/db/notifications";
 import { can } from "@/lib/permissions";
 import { countOutstandingDefectsForOrg, countOverdueDefectsForOrg } from "@/lib/db/defects";
 import { countEquipmentNeedingAttention } from "@/lib/db/equipment";
-import { todayInOrgTimezone, daysAgoInOrgTimezone, daysAheadInOrgTimezone } from "@/lib/today";
-import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
+import { todayInOrgTimezone, daysAgoInOrgTimezone, daysAheadInOrgTimezone, hourInOrgTimezone } from "@/lib/today";
+import { formatCurrency, formatDate, formatInstantDate, statusBadgeClass, statusLabel } from "@/lib/format";
 
 // One definition of "today", and it is the workspace's. The UTC date these
 // used to return is a different day from Kuching's between midnight and
@@ -163,8 +163,10 @@ export default async function DashboardPage() {
           </div>
         )}
         <div className="sub">
-          Good {new Date().getHours() < 12 ? "morning" : "day"}, {member.name.split(" ")[0]} — {org?.name} at a glance ·{" "}
-          {formatDate(new Date())}
+          {/* Both read the workspace's clock: the server is on UTC, so at 02:00
+              in Kuching getHours() gives 18 and formatDate gives yesterday. */}
+          Good {hourInOrgTimezone() < 12 ? "morning" : "day"}, {member.name.split(" ")[0]} — {org?.name} at a glance ·{" "}
+          {formatInstantDate(new Date())}
         </div>
       </div>
 
