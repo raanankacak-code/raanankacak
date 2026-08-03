@@ -20,6 +20,7 @@ const {
   getDaysWorkedByWorkerForProject,
   sumLaborCostForOrg,
   getDaysWorkedByWorker,
+  countAttendanceByStatusForOrgDate,
 } = await import("@/lib/db/attendance");
 
 beforeEach(() => {
@@ -224,5 +225,64 @@ describe("org-wide labour figures", () => {
     await expect(
       getDaysWorkedByWorker("org-1", { from: "a", to: "b" }),
     ).rejects.toThrow("rpc failed");
+  });
+});
+
+/**
+ * The dashboard's three attendance numbers. Fetching the day's records and
+ * taking the length of three filters over them stopped at 1000: on a day
+ * with 1250 workers marked, present read 700 against a true 950 and
+ * half-day read 0 against a true 250, the half-day rows having fallen past
+ * the cap entirely.
+ */
+describe("countAttendanceByStatusForOrgDate", () => {
+  const headCountMock = vi.fn();
+
+  beforeEach(() => {
+    headCountMock.mockReset();
+    const chain = {
+      select: () => chain,
+      eq: () => chain,
+      then: (resolve: (v: unknown) => void) => resolve(headCountMock()),
+    };
+    createAdminClientMock.mockReturnValue({ from: () => chain });
+  });
+
+  it("counts each status in the database rather than fetching the day's rows", async () => {
+    headCountMock
+      .mockReturnValueOnce({ count: 700, error: null })
+      .mockReturnValueOnce({ count: 300, error: null })
+      .mockReturnValueOnce({ count: 250, error: null });
+
+    expect(
+      await countAttendanceByStatusForOrgDate("org-1", "2025-03-04"),
+    ).toEqual({
+      PRESENT: 700,
+      ABSENT: 300,
+      HALF_DAY: 250,
+    });
+  });
+
+  it("reports zero for a status nobody was marked with", async () => {
+    headCountMock.mockReturnValue({ count: null, error: null });
+
+    expect(
+      await countAttendanceByStatusForOrgDate("org-1", "2025-03-04"),
+    ).toEqual({
+      PRESENT: 0,
+      ABSENT: 0,
+      HALF_DAY: 0,
+    });
+  });
+
+  it("propagates a count error instead of reporting an empty day", async () => {
+    headCountMock.mockReturnValue({
+      count: null,
+      error: new Error("count failed"),
+    });
+
+    await expect(
+      countAttendanceByStatusForOrgDate("org-1", "2025-03-04"),
+    ).rejects.toThrow("count failed");
   });
 });

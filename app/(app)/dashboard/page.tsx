@@ -3,7 +3,7 @@ import { getCurrentMember } from "@/lib/auth";
 import { getOrganizationById } from "@/lib/db/organizations";
 import { listProjectsForOrgViaSession, countProjectsByStatusForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
-import { listAttendanceForOrgDate, sumLaborCostForOrg } from "@/lib/db/attendance";
+import { countAttendanceByStatusForOrgDate, sumLaborCostForOrg } from "@/lib/db/attendance";
 import { listRecentReportsForOrg, countReportsForOrg } from "@/lib/db/reports";
 import { countRequestsByStatusForOrg, countUrgentRequestsForOrg } from "@/lib/db/materials";
 import { listEventsForOrgViaSession } from "@/lib/db/calendar";
@@ -42,7 +42,7 @@ export default async function DashboardPage() {
     org,
     projects,
     workerCount,
-    todaysAttendance,
+    attendanceCounts,
     recentReports,
     todayReportsCount,
     weekReportsCount,
@@ -60,7 +60,9 @@ export default async function DashboardPage() {
       getOrganizationById(member.orgId),
       listProjectsForOrgViaSession(member.orgId),
       countActiveWorkersForOrg(member.orgId),
-      listAttendanceForOrgDate(member.orgId, todayISO()),
+      // Counted in the database, like the numbers below it — taking the
+      // length of a filter over a fetched day's records went wrong at 1000.
+      countAttendanceByStatusForOrgDate(member.orgId, todayISO()),
       listRecentReportsForOrg(member.orgId, 6),
       // Counted rather than fetched-and-filtered. These two numbers used to
       // come from the length of a week's worth of full report rows, which
@@ -118,9 +120,11 @@ export default async function DashboardPage() {
   const totalProjectCount = Object.values(projectCounts).reduce((a, b) => a + b, 0);
   const activeProjectCount = projectCounts.ACTIVE;
   const completedProjectCount = projectCounts.COMPLETED;
-  const presentToday = todaysAttendance.filter((a) => a.status === "PRESENT" || a.status === "HALF_DAY").length;
-  const absentToday = todaysAttendance.filter((a) => a.status === "ABSENT").length;
-  const halfDayToday = todaysAttendance.filter((a) => a.status === "HALF_DAY").length;
+  // Present counts anyone who turned up, so a half day is both present and
+  // half — the same arithmetic the three filters did.
+  const presentToday = attendanceCounts.PRESENT + attendanceCounts.HALF_DAY;
+  const absentToday = attendanceCounts.ABSENT;
+  const halfDayToday = attendanceCounts.HALF_DAY;
   // Includes Planning/Active/On Hold so a brand-new (still-Planning) project's
   // contract value isn't invisible here — only fully Completed work drops off.
   const ongoingProjects = projects.filter((p) => p.status !== "COMPLETED");

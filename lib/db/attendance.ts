@@ -17,14 +17,37 @@ function mapAttendanceRecord(row: Record<string, unknown>): AttendanceRecord {
   };
 }
 
-export async function listAttendanceForOrgDate(orgId: string, date: string): Promise<AttendanceRecord[]> {
-  const { data, error } = await createAdminClient()
-    .from("attendance_records")
-    .select("*")
-    .eq("org_id", orgId)
-    .eq("date", date);
-  if (error) throw error;
-  return (data ?? []).map(mapAttendanceRecord);
+/**
+ * How many workers were marked each way on one date, counted in the
+ * database.
+ *
+ * The dashboard used to fetch the day's records and take the length of
+ * three filters over them. That is the pattern the counts either side of it
+ * were already moved away from: an unbounded select stops at 1000 rows, so
+ * a company marking more than that in a day would have seen the three
+ * numbers stop climbing. Fetching whole rows to count them was also work
+ * done on every dashboard load for nothing.
+ */
+export async function countAttendanceByStatusForOrgDate(
+  orgId: string,
+  date: string,
+): Promise<Record<AttendanceStatus, number>> {
+  const supabase = createAdminClient();
+  const statuses: AttendanceStatus[] = ["PRESENT", "ABSENT", "HALF_DAY"];
+
+  const results = await Promise.all(
+    statuses.map(async (status) => {
+      const { count, error } = await supabase
+        .from("attendance_records")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("date", date)
+        .eq("status", status);
+      if (error) throw error;
+      return [status, count ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(results) as Record<AttendanceStatus, number>;
 }
 
 export async function listAttendanceForProjectDate(projectId: string, date: string): Promise<AttendanceRecord[]> {
