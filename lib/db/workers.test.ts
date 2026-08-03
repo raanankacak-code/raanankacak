@@ -33,7 +33,13 @@ beforeEach(() => {
   };
   eqMock.mockReturnValue(chain);
   queryResult = { data: [], error: null };
-  orderMock.mockReturnValue({ range: () => Promise.resolve(queryResult) });
+  // order() is chainable — the paged reads add an id tiebreaker after the
+  // primary sort — and range() ends the chain.
+  const ordered: Record<string, unknown> = {
+    range: () => Promise.resolve(queryResult),
+  };
+  ordered.order = () => ordered;
+  orderMock.mockReturnValue(ordered);
   selectMock.mockReturnValue(chain);
   fromMock.mockReturnValue({ select: selectMock });
   createSessionClientMock.mockResolvedValue({ from: fromMock });

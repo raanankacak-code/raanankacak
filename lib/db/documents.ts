@@ -29,6 +29,7 @@ export async function listDocumentsForProject(
       .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map(mapDocument);
@@ -45,6 +46,7 @@ export async function listDocumentsForProjectViaSession(
       .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map(mapDocument);
@@ -59,6 +61,7 @@ export async function listDocumentsForOrg(
       .select("*")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map(mapDocument);

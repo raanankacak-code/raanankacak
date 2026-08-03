@@ -40,7 +40,10 @@ export async function listEventsForOrg(
     .eq("org_id", orgId);
   if (range) query = query.gte("date", range.from).lte("date", range.to);
   const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
-    query.order("date", { ascending: true }).range(from, to),
+    query
+      .order("date", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
   );
   return data.map(mapEvent);
 }
@@ -54,7 +57,10 @@ export async function listEventsForOrgViaSession(
   let query = supabase.from("calendar_events").select("*").eq("org_id", orgId);
   if (range) query = query.gte("date", range.from).lte("date", range.to);
   const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
-    query.order("date", { ascending: true }).range(from, to),
+    query
+      .order("date", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
   );
   return data.map(mapEvent);
 }

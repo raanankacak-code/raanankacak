@@ -34,6 +34,7 @@ export async function listActiveWorkersForProject(
       .eq("project_id", projectId)
       .eq("active", true)
       .order("name", { ascending: true })
+      .order("id", { ascending: true })
       .range(from, to),
   );
   return data.map(mapWorker);
@@ -67,7 +68,10 @@ export async function listActiveWorkersForOrg(
     .eq("active", true);
   if (projectId) query = query.eq("project_id", projectId);
   const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
-    query.order("name", { ascending: true }).range(from, to),
+    query
+      .order("name", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
   );
   return data.map(mapWorker);
 }
@@ -85,7 +89,10 @@ export async function listActiveWorkersForOrgViaSession(
     .eq("active", true);
   if (projectId) query = query.eq("project_id", projectId);
   const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
-    query.order("name", { ascending: true }).range(from, to),
+    query
+      .order("name", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
   );
   return data.map(mapWorker);
 }

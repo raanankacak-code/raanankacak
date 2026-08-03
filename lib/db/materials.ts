@@ -102,6 +102,7 @@ export async function listRequestsForOrg(
       .select("*, project:projects(id, name)")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map((row) => ({
@@ -235,6 +236,7 @@ export async function listRequestsForProject(
       .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map(mapRequest);

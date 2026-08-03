@@ -53,6 +53,7 @@ export async function listProjectsForOrg(
       .select("*, workers(count)")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map(mapProjectWithWorkerCount);
@@ -79,6 +80,7 @@ export async function listProjectsForOrgViaSession(
       .select("*, workers(count)")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map(mapProjectWithWorkerCount);
@@ -147,6 +149,7 @@ export async function listProjectsForClientViaSession(
       .select("*")
       .eq("org_id", orgId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map(mapProject);
@@ -191,6 +194,7 @@ export async function listProjectNamesByIds(
       .eq("org_id", orgId)
       .in("id", wanted)
       .order("name", { ascending: true })
+      .order("id", { ascending: true })
       .range(from, to),
   );
   return data.map((r) => r.name as string);

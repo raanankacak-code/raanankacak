@@ -325,6 +325,7 @@ export async function listInspectionsForOrg(
       .select("*")
       .eq("org_id", orgId)
       .order("date", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, to),
   );
   return data.map(mapInspection);
