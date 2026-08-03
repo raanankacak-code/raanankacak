@@ -49,46 +49,48 @@ export async function listAttendanceForProjectDateViaSession(projectId: string, 
   return (data ?? []).map(mapAttendanceRecord);
 }
 
-/** Per-worker days-worked in a date range, for the monthly attendance summary. */
+/**
+ * Per-worker days-worked in a date range, for the monthly attendance
+ * summary and the CSV exported from it.
+ *
+ * Aggregated in the database: a 40-worker crew books 1000 attendance
+ * records in a single month, which is exactly the window this reports on,
+ * so summing a fetched list undercounted the ordinary case. The number is
+ * read as a record of what someone worked.
+ */
 export async function getDaysWorkedByWorker(
   orgId: string,
   range: { from: string; to: string },
   projectId?: string,
 ): Promise<Record<string, number>> {
-  let query = createAdminClient()
-    .from("attendance_records")
-    .select("worker_id, status")
-    .eq("org_id", orgId)
-    .gte("date", range.from)
-    .lte("date", range.to)
-    .neq("status", "ABSENT");
-  if (projectId) query = query.eq("project_id", projectId);
-  const { data, error } = await query;
+  const { data, error } = await createAdminClient().rpc("days_worked_by_worker", {
+    p_org_id: orgId,
+    p_from: range.from,
+    p_to: range.to,
+    p_project_id: projectId ?? null,
+  });
   if (error) throw error;
 
   const days: Record<string, number> = {};
-  for (const row of data ?? []) {
-    const workerId = row.worker_id as string;
-    const fraction = row.status === "HALF_DAY" ? 0.5 : 1;
-    days[workerId] = (days[workerId] ?? 0) + fraction;
+  for (const row of (data ?? []) as { worker_id: string; days: number | string }[]) {
+    days[row.worker_id] = Number(row.days);
   }
   return days;
 }
 
-/** Total wages accrued to date across an org's records (present = full day, half-day = 0.5). */
+/**
+ * Total wages accrued to date across an org's records (present = full day,
+ * half-day = 0.5).
+ *
+ * Summed in the database. This one covers every project for all time, so of
+ * the four labour figures it was the most certain to have been sitting at
+ * the 1000-row cap — an established company's dashboard would have shown a
+ * wage total that stopped growing.
+ */
 export async function sumLaborCostForOrg(orgId: string): Promise<number> {
-  const { data, error } = await createAdminClient()
-    .from("attendance_records")
-    .select("status, workers(daily_rate)")
-    .eq("org_id", orgId)
-    .neq("status", "ABSENT");
+  const { data, error } = await createAdminClient().rpc("labor_cost_for_org", { p_org_id: orgId });
   if (error) throw error;
-  return (data ?? []).reduce((sum, row) => {
-    const worker = row.workers as unknown as { daily_rate: number | string | null } | null;
-    const rate = worker?.daily_rate ? Number(worker.daily_rate) : 0;
-    const fraction = row.status === "HALF_DAY" ? 0.5 : 1;
-    return sum + rate * fraction;
-  }, 0);
+  return Number(data ?? 0);
 }
 
 /**

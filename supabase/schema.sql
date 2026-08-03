@@ -260,6 +260,61 @@ revoke execute on function labor_cost_for_project(uuid) from public;
 revoke execute on function labor_cost_for_project(uuid) from anon;
 revoke execute on function labor_cost_for_project(uuid) from authenticated;
 
+-- The org-wide pair. days_worked_by_worker feeds the monthly attendance
+-- summary and its CSV; labor_cost_for_org covers every project for all
+-- time, so of the four it was the most certain to have been sitting at the
+-- cap — a dashboard wage total that had quietly stopped growing.
+
+create function days_worked_by_worker(
+  p_org_id uuid,
+  p_from date,
+  p_to date,
+  p_project_id uuid default null
+)
+returns table (worker_id uuid, days numeric)
+language sql
+security definer
+set search_path = ''
+as $$
+  select
+    a.worker_id,
+    sum(case when a.status = 'HALF_DAY' then 0.5 else 1 end)::numeric
+  from public.attendance_records a
+  where a.org_id = p_org_id
+    and a.date >= p_from
+    and a.date <= p_to
+    and a.status <> 'ABSENT'
+    and (p_project_id is null or a.project_id = p_project_id)
+  group by a.worker_id;
+$$;
+
+revoke execute on function days_worked_by_worker(uuid, date, date, uuid) from public;
+revoke execute on function days_worked_by_worker(uuid, date, date, uuid) from anon;
+revoke execute on function days_worked_by_worker(uuid, date, date, uuid) from authenticated;
+
+create function labor_cost_for_org(p_org_id uuid)
+returns numeric
+language sql
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    sum(
+      coalesce(w.daily_rate, 0)
+      * case when a.status = 'HALF_DAY' then 0.5 else 1 end
+    ),
+    0
+  )::numeric
+  from public.attendance_records a
+  left join public.workers w on w.id = a.worker_id
+  where a.org_id = p_org_id
+    and a.status <> 'ABSENT';
+$$;
+
+revoke execute on function labor_cost_for_org(uuid) from public;
+revoke execute on function labor_cost_for_org(uuid) from anon;
+revoke execute on function labor_cost_for_org(uuid) from authenticated;
+
 create trigger attendance_records_set_updated_at
   before update on attendance_records
   for each row execute function set_updated_at();

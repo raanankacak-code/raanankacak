@@ -14,8 +14,13 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: createAdminClientMock,
 }));
 
-const { listAttendanceForProjectDateViaSession, sumLaborCostForProject, getDaysWorkedByWorkerForProject } =
-  await import("@/lib/db/attendance");
+const {
+  listAttendanceForProjectDateViaSession,
+  sumLaborCostForProject,
+  getDaysWorkedByWorkerForProject,
+  sumLaborCostForOrg,
+  getDaysWorkedByWorker,
+} = await import("@/lib/db/attendance");
 
 beforeEach(() => {
   eqMock.mockReset();
@@ -25,7 +30,10 @@ beforeEach(() => {
 
   // The real chain terminates on the second .eq() call, which supabase-js
   // makes directly awaitable (thenable) — no trailing .order()/.limit().
-  const chain = { eq: eqMock, then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }) };
+  const chain = {
+    eq: eqMock,
+    then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }),
+  };
   eqMock.mockReturnValue(chain);
   selectMock.mockReturnValue(chain);
   fromMock.mockReturnValue({ select: selectMock });
@@ -49,10 +57,15 @@ describe("listAttendanceForProjectDateViaSession", () => {
 
   it("propagates a query error instead of swallowing it", async () => {
     eqMock.mockReturnValueOnce({
-      eq: vi.fn(() => ({ then: (resolve: (v: unknown) => void) => resolve({ data: null, error: new Error("query failed") }) })),
+      eq: vi.fn(() => ({
+        then: (resolve: (v: unknown) => void) =>
+          resolve({ data: null, error: new Error("query failed") }),
+      })),
     });
 
-    await expect(listAttendanceForProjectDateViaSession("project-1", "2026-07-19")).rejects.toThrow("query failed");
+    await expect(
+      listAttendanceForProjectDateViaSession("project-1", "2026-07-19"),
+    ).rejects.toThrow("query failed");
   });
 });
 
@@ -76,7 +89,9 @@ describe("cost report figures", () => {
     rpcMock.mockResolvedValue({ data: 270000, error: null });
 
     expect(await sumLaborCostForProject("project-1")).toBe(270000);
-    expect(rpcMock).toHaveBeenCalledWith("labor_cost_for_project", { p_project_id: "project-1" });
+    expect(rpcMock).toHaveBeenCalledWith("labor_cost_for_project", {
+      p_project_id: "project-1",
+    });
     expect(fromMock).not.toHaveBeenCalled();
   });
 
@@ -102,8 +117,13 @@ describe("cost report figures", () => {
       error: null,
     });
 
-    expect(await getDaysWorkedByWorkerForProject("project-1")).toEqual({ "w-1": 45, "w-2": 12.5 });
-    expect(rpcMock).toHaveBeenCalledWith("days_worked_by_worker_for_project", { p_project_id: "project-1" });
+    expect(await getDaysWorkedByWorkerForProject("project-1")).toEqual({
+      "w-1": 45,
+      "w-2": 12.5,
+    });
+    expect(rpcMock).toHaveBeenCalledWith("days_worked_by_worker_for_project", {
+      p_project_id: "project-1",
+    });
     expect(fromMock).not.toHaveBeenCalled();
   });
 
@@ -111,7 +131,98 @@ describe("cost report figures", () => {
     // Returning 0 here would put a confident, wrong number on a cost report.
     rpcMock.mockResolvedValue({ data: null, error: new Error("rpc failed") });
 
-    await expect(sumLaborCostForProject("project-1")).rejects.toThrow("rpc failed");
-    await expect(getDaysWorkedByWorkerForProject("project-1")).rejects.toThrow("rpc failed");
+    await expect(sumLaborCostForProject("project-1")).rejects.toThrow(
+      "rpc failed",
+    );
+    await expect(getDaysWorkedByWorkerForProject("project-1")).rejects.toThrow(
+      "rpc failed",
+    );
+  });
+});
+
+/**
+ * The org-wide pair, behind the dashboard wage total and the monthly
+ * attendance summary. Measured on a 2400-record org, the old capped select
+ * returned 30 of 60 workers — half the crew missing from the summary
+ * outright — at 25.5 days each instead of 30.
+ */
+describe("org-wide labour figures", () => {
+  const rpcMock = vi.fn();
+
+  beforeEach(() => {
+    rpcMock.mockReset();
+    rpcMock.mockResolvedValue({ data: null, error: null });
+    createAdminClientMock.mockReturnValue({ rpc: rpcMock, from: fromMock });
+  });
+
+  it("totals org wages in the database", async () => {
+    rpcMock.mockResolvedValue({ data: "180000", error: null });
+
+    expect(await sumLaborCostForOrg("org-1")).toBe(180000);
+    expect(rpcMock).toHaveBeenCalledWith("labor_cost_for_org", {
+      p_org_id: "org-1",
+    });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("passes the summary's date window through to the aggregate", async () => {
+    rpcMock.mockResolvedValue({
+      data: [{ worker_id: "w-1", days: 7.5 }],
+      error: null,
+    });
+
+    await getDaysWorkedByWorker("org-1", {
+      from: "2025-01-01",
+      to: "2025-01-31",
+    });
+
+    expect(rpcMock).toHaveBeenCalledWith("days_worked_by_worker", {
+      p_org_id: "org-1",
+      p_from: "2025-01-01",
+      p_to: "2025-01-31",
+      p_project_id: null,
+    });
+  });
+
+  it("narrows to one project when the summary is filtered", async () => {
+    rpcMock.mockResolvedValue({ data: [], error: null });
+
+    await getDaysWorkedByWorker(
+      "org-1",
+      { from: "2025-01-01", to: "2025-01-31" },
+      "project-9",
+    );
+
+    expect(rpcMock).toHaveBeenCalledWith(
+      "days_worked_by_worker",
+      expect.objectContaining({ p_project_id: "project-9" }),
+    );
+  });
+
+  it("keeps every worker the aggregate returns", async () => {
+    // The capped version silently dropped whole workers, not just days.
+    rpcMock.mockResolvedValue({
+      data: Array.from({ length: 60 }, (_, i) => ({
+        worker_id: `w-${i}`,
+        days: 30,
+      })),
+      error: null,
+    });
+
+    const days = await getDaysWorkedByWorker("org-1", {
+      from: "2025-01-01",
+      to: "2025-12-31",
+    });
+
+    expect(Object.keys(days)).toHaveLength(60);
+  });
+
+  it("propagates an aggregation error rather than showing zero wages", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: new Error("rpc failed") });
+
+    await expect(sumLaborCostForOrg("org-1")).rejects.toThrow("rpc failed");
+    await expect(
+      getDaysWorkedByWorker("org-1", { from: "a", to: "b" }),
+    ).rejects.toThrow("rpc failed");
   });
 });
