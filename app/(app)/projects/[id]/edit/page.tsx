@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { getProjectById } from "@/lib/db/projects";
 import EditProjectForm from "./EditProjectForm";
 
@@ -10,6 +11,8 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const project = await getProjectById(member.orgId, id);
   if (!project) notFound();
+  // The Edit button on the project page is gated on this; the page was not.
+  if (!can(member.role, "manageProjects")) redirect(`/projects/${id}`);
 
   return (
     <>

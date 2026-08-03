@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { getProjectById } from "@/lib/db/projects";
 import { getWorkerById } from "@/lib/db/workers";
 import EditWorkerForm from "./EditWorkerForm";
@@ -18,6 +19,8 @@ export default async function EditWorkerPage({
     getWorkerById(member.orgId, workerId),
   ]);
   if (!project || !worker || worker.projectId !== projectId) notFound();
+  // The Edit link on the roster is gated on this; the page was not.
+  if (!can(member.role, "manageWorkers")) redirect(`/projects/${projectId}?tab=workers`);
 
   return (
     <>

@@ -119,3 +119,99 @@ test.describe("permissions: Site Supervisor can do its job", () => {
     await ctx.dispose();
   });
 });
+
+/**
+ * The other half of the matrix: the pages, not the routes behind them.
+ *
+ * The API has refused these roles all along. What it could not do was stop
+ * the app showing someone a button they could not use, then a form they
+ * could not submit — which is worse than a plain "no", because they fill it
+ * in first.
+ */
+test.describe("permissions: the form pages, not just the API behind them", () => {
+  let projectId: string;
+  let workerId: string;
+
+  test.beforeAll(async ({ playwright }) => {
+    const owner = await playwright.request.newContext(contextFor("OWNER"));
+    projectId = (
+      await (await owner.post("/api/projects", { data: { name: `Guarded Pages ${Date.now()}` } })).json()
+    ).project.id;
+    workerId = (
+      await (
+        await owner.post(`/api/projects/${projectId}/workers`, {
+          data: { name: "Azlan bin Osman", trade: "Concretor", dailyRate: 120 },
+        })
+      ).json()
+    ).worker.id;
+    await owner.dispose();
+  });
+
+  test.afterAll(async ({ playwright }) => {
+    const owner = await playwright.request.newContext(contextFor("OWNER"));
+    await owner.delete(`/api/projects/${projectId}`);
+    await owner.dispose();
+  });
+
+  /** The five URLs, and where each should send someone who cannot use it. */
+  function formPages() {
+    return [
+      { path: "/projects/new", back: /\/projects$/ },
+      { path: `/projects/${projectId}/edit`, back: new RegExp(`/projects/${projectId}$`) },
+      { path: `/projects/${projectId}/workers/new`, back: /tab=workers/ },
+      { path: `/projects/${projectId}/workers/${workerId}/edit`, back: /tab=workers/ },
+      { path: "/reports/new", back: /\/reports$/ },
+    ];
+  }
+
+  for (const role of ["VIEWER", "SITE_SUPERVISOR"] as const) {
+    test(`a ${role} is turned away from the forms it cannot submit`, async ({ browser }) => {
+      const page = await (await browser.newContext(contextFor(role))).newPage();
+
+      for (const { path, back } of formPages()) {
+        // A Site Supervisor may file reports, so that one page is theirs.
+        const allowed = role === "SITE_SUPERVISOR" && path === "/reports/new";
+        await page.goto(path);
+        if (allowed) {
+          await expect(page, `${role} should be able to open ${path}`).toHaveURL(new RegExp(path));
+        } else {
+          await expect(page, `${role} was left sitting on ${path}`).toHaveURL(back);
+          // Not merely redirected — the form must not be on the screen.
+          await expect(page.locator("form")).toHaveCount(0);
+        }
+      }
+
+      await page.context().close();
+    });
+  }
+
+  test("an Owner still gets every one of them", async ({ browser }) => {
+    // Shutting a door on the wrong people is only half of it.
+    const page = await (await browser.newContext(contextFor("OWNER"))).newPage();
+
+    for (const { path } of formPages()) {
+      await page.goto(path);
+      await expect(page, `the Owner was turned away from ${path}`).toHaveURL(new RegExp(path.split("?")[0]));
+      await expect(page.locator("form")).toHaveCount(1);
+    }
+
+    await page.context().close();
+  });
+
+  test("the dashboard offers New project once, and only to those who can", async ({ browser }) => {
+    const owner = await (await browser.newContext(contextFor("OWNER"))).newPage();
+    await owner.goto("/dashboard");
+    // It used to appear twice: once in the topbar, once in the quick actions
+    // below it, differently capitalised each time.
+    await expect(owner.locator('a[href="/projects/new"]')).toHaveCount(1);
+    await owner.context().close();
+
+    for (const role of ["VIEWER", "SITE_SUPERVISOR"] as const) {
+      const page = await (await browser.newContext(contextFor(role))).newPage();
+      await page.goto("/dashboard");
+      await page.locator("h2").first().waitFor();
+      await expect(page.locator('a[href="/projects/new"]'), `${role} is offered New project`).toHaveCount(0);
+      await page.context().close();
+    }
+  });
+});

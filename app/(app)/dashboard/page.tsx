@@ -137,8 +137,10 @@ export default async function DashboardPage() {
     .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))
     .slice(0, 5);
 
+  // No "New Project" here: it is the page's primary action and already sits
+  // in the topbar. Listing it twice, three centimetres apart and capitalised
+  // differently each time, reads as two different things.
   const quickActions = [
-    can(member.role, "manageProjects") && { href: "/projects/new", label: "＋ New Project" },
     can(member.role, "submitReports") && { href: "/reports/new", label: "＋ Daily Report" },
     (can(member.role, "takeAttendance") || can(member.role, "manageWorkers")) && { href: "/attendance", label: "＋ Attendance" },
     can(member.role, "submitRequests") && { href: "/materials", label: "＋ Material Request" },
@@ -148,11 +150,16 @@ export default async function DashboardPage() {
     <>
       <div className="topbar">
         <h2>Dashboard</h2>
-        <div className="top-actions">
-          <Link href="/projects/new" className="btn btn-amber">
-            + New project
-          </Link>
-        </div>
+        {/* Gated like every other create button in the app. Without this a
+            Viewer was shown it, given the whole form, and only told no when
+            they pressed Create. */}
+        {can(member.role, "manageProjects") && (
+          <div className="top-actions">
+            <Link href="/projects/new" className="btn btn-amber">
+              + New project
+            </Link>
+          </div>
+        )}
         <div className="sub">
           Good {new Date().getHours() < 12 ? "morning" : "day"}, {member.name.split(" ")[0]} — {org?.name} at a glance ·{" "}
           {formatDate(new Date())}
