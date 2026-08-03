@@ -772,6 +772,56 @@ Three consequences worth knowing:
   features, and adding a screen would mean deciding who is entitled to read a
   record about a company that no longer exists.
 
+### One clock, and it is Kuching's
+
+Every organisation here runs on `Asia/Kuching` (the `timezone` column's
+default). The server runs on UTC, eight hours behind. Everything below came
+from those two facts meeting.
+
+`lib/today.ts` existed to handle exactly this and said so in its comment.
+Five files then defined their own `todayISO()` as
+`new Date().toISOString().slice(0, 10)` — the server's UTC date — and the
+dashboard called both kinds in a single `Promise.all`.
+
+The two disagree for eight hours in twenty-four, local midnight to 08:00:
+
+| What | Was |
+|---|---|
+| Dashboard attendance, report count, calendar | yesterday's, every morning before 08:00 |
+| A daily report or safety inspection filed before 08:00 | dated to the previous day — written, not merely displayed |
+| Every audit entry, inspection and client sign-off time | eight hours early; 22:05 read as 14:05 |
+| Seven timestamps rendered as dates | a whole day early; 07:00 on the 11th showed as the 10th |
+| The sign-off line on a client's approval record | the day before, on a document someone signed |
+
+Three formatters, and the distinction between them is the whole point:
+
+- **`formatDate`** — a Postgres `DATE`, which carries no time. Rendered in
+  **UTC on purpose**: `new Date("2026-08-11")` is midnight UTC, so UTC is the
+  only zone that reads it back as the day it says.
+- **`formatInstantDate`** — the date part of a `timestamptz`. Rendered in the
+  org's zone, because which day an instant falls on depends on where you
+  stand.
+- **`formatDateTime`** — a `timestamptz` with its time, in the org's zone.
+
+And for comparisons, **both sides must be on the same clock**. `orgDateOf`
+gives the calendar date an instant falls on in the workspace's zone; slicing
+ten characters off an ISO string gives the UTC one. Moving `todayISO` to the
+org zone while leaving the other side sliced was a real regression here — for
+those eight hours a notification was grouped under *Yesterday* half an hour
+after it arrived, which was worse than the bug it replaced.
+
+Two things are deliberately **not** in the org's zone:
+
+- Writing `new Date().toISOString()` into a `timestamptz` column. That stores
+  an instant, which has no timezone to get wrong.
+- `CalendarView` parses `date + "T00:00:00"` as *local* midnight and formats
+  in local. That is self-consistent; forcing the org zone would introduce a
+  mismatch rather than remove one.
+
+A test that pins a timestamp where UTC and Kuching agree proves nothing —
+`lib/approvals.test.ts` used 02:15Z and passed both before and after the bug
+was fixed. Pick an hour inside the window.
+
 ### The thousand-row cap
 
 PostgREST returns **at most 1000 rows** for a request that does not ask for a
