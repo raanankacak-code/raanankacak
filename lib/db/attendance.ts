@@ -91,38 +91,41 @@ export async function sumLaborCostForOrg(orgId: string): Promise<number> {
   }, 0);
 }
 
-/** Per-worker days-worked, all time, for a single project (used by the cost report). */
+/**
+ * Per-worker days-worked, all time, for a single project (used by the cost
+ * report).
+ *
+ * Aggregated in the database. Summing a fetched list here would stop at
+ * PostgREST's 1000-row cap, and one project-month of a 40-worker crew is
+ * already 1000 attendance records — so the figure would quietly come out
+ * low, with nothing to show it had.
+ */
 export async function getDaysWorkedByWorkerForProject(projectId: string): Promise<Record<string, number>> {
-  const { data, error } = await createAdminClient()
-    .from("attendance_records")
-    .select("worker_id, status")
-    .eq("project_id", projectId)
-    .neq("status", "ABSENT");
+  const { data, error } = await createAdminClient().rpc("days_worked_by_worker_for_project", {
+    p_project_id: projectId,
+  });
   if (error) throw error;
 
   const days: Record<string, number> = {};
-  for (const row of data ?? []) {
-    const workerId = row.worker_id as string;
-    const fraction = row.status === "HALF_DAY" ? 0.5 : 1;
-    days[workerId] = (days[workerId] ?? 0) + fraction;
+  for (const row of (data ?? []) as { worker_id: string; days: number | string }[]) {
+    days[row.worker_id] = Number(row.days);
   }
   return days;
 }
 
-/** Total wages accrued to date for a single project. */
+/**
+ * Total wages accrued to date for a single project.
+ *
+ * Summed in the database, for the same reason as above — this one is a
+ * money figure on a cost report, and understating cost is the wrong way to
+ * be wrong.
+ */
 export async function sumLaborCostForProject(projectId: string): Promise<number> {
-  const { data, error } = await createAdminClient()
-    .from("attendance_records")
-    .select("status, workers(daily_rate)")
-    .eq("project_id", projectId)
-    .neq("status", "ABSENT");
+  const { data, error } = await createAdminClient().rpc("labor_cost_for_project", {
+    p_project_id: projectId,
+  });
   if (error) throw error;
-  return (data ?? []).reduce((sum, row) => {
-    const worker = row.workers as unknown as { daily_rate: number | string | null } | null;
-    const rate = worker?.daily_rate ? Number(worker.daily_rate) : 0;
-    const fraction = row.status === "HALF_DAY" ? 0.5 : 1;
-    return sum + rate * fraction;
-  }, 0);
+  return Number(data ?? 0);
 }
 
 export async function upsertAttendanceRecords(

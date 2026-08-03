@@ -4,16 +4,18 @@ const eqMock = vi.fn();
 const selectMock = vi.fn();
 const fromMock = vi.fn();
 const createSessionClientMock = vi.fn();
+const createAdminClientMock = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: createSessionClientMock,
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: vi.fn(),
+  createAdminClient: createAdminClientMock,
 }));
 
-const { listAttendanceForProjectDateViaSession } = await import("@/lib/db/attendance");
+const { listAttendanceForProjectDateViaSession, sumLaborCostForProject, getDaysWorkedByWorkerForProject } =
+  await import("@/lib/db/attendance");
 
 beforeEach(() => {
   eqMock.mockReset();
@@ -51,5 +53,65 @@ describe("listAttendanceForProjectDateViaSession", () => {
     });
 
     await expect(listAttendanceForProjectDateViaSession("project-1", "2026-07-19")).rejects.toThrow("query failed");
+  });
+});
+
+/**
+ * The cost report's two figures. Both used to sum a fetched list, which
+ * PostgREST caps at 1000 rows — measured against a real project of 40
+ * workers over 60 days, that reported RM 114,000 of labour against a true
+ * RM 270,000. Aggregating in the database is the fix, so what these tests
+ * hold is that the aggregation is where the number comes from.
+ */
+describe("cost report figures", () => {
+  const rpcMock = vi.fn();
+
+  beforeEach(() => {
+    rpcMock.mockReset();
+    rpcMock.mockResolvedValue({ data: null, error: null });
+    createAdminClientMock.mockReturnValue({ rpc: rpcMock, from: fromMock });
+  });
+
+  it("sums wages in the database rather than over a capped row list", async () => {
+    rpcMock.mockResolvedValue({ data: 270000, error: null });
+
+    expect(await sumLaborCostForProject("project-1")).toBe(270000);
+    expect(rpcMock).toHaveBeenCalledWith("labor_cost_for_project", { p_project_id: "project-1" });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("reads a numeric wage total returned as a string", async () => {
+    // numeric comes back from PostgREST as a string once it is large enough.
+    rpcMock.mockResolvedValue({ data: "270000.5", error: null });
+
+    expect(await sumLaborCostForProject("project-1")).toBe(270000.5);
+  });
+
+  it("reports zero wages for a project with no attendance", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: null });
+
+    expect(await sumLaborCostForProject("project-1")).toBe(0);
+  });
+
+  it("groups days worked per worker in the database", async () => {
+    rpcMock.mockResolvedValue({
+      data: [
+        { worker_id: "w-1", days: 45 },
+        { worker_id: "w-2", days: "12.5" },
+      ],
+      error: null,
+    });
+
+    expect(await getDaysWorkedByWorkerForProject("project-1")).toEqual({ "w-1": 45, "w-2": 12.5 });
+    expect(rpcMock).toHaveBeenCalledWith("days_worked_by_worker_for_project", { p_project_id: "project-1" });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it("propagates an aggregation error instead of reporting no cost", async () => {
+    // Returning 0 here would put a confident, wrong number on a cost report.
+    rpcMock.mockResolvedValue({ data: null, error: new Error("rpc failed") });
+
+    await expect(sumLaborCostForProject("project-1")).rejects.toThrow("rpc failed");
+    await expect(getDaysWorkedByWorkerForProject("project-1")).rejects.toThrow("rpc failed");
   });
 });

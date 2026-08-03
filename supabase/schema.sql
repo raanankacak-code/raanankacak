@@ -208,6 +208,58 @@ create table attendance_records (
 create index attendance_records_project_date_idx on attendance_records (project_id, date);
 create index attendance_records_org_id_idx on attendance_records (org_id);
 
+-- Labour figures for the cost report, aggregated here rather than in the
+-- application. A plain select is capped at 1000 rows by PostgREST, and one
+-- month of a 40-worker crew already reaches that — so summing a fetched
+-- list reported wages and days worked that were too low, with nothing to
+-- show for it. A cost report that understates cost is worse than one that
+-- fails outright.
+--
+-- Scoped to a single project; the caller establishes that the project
+-- belongs to the requesting org before calling.
+
+create function days_worked_by_worker_for_project(p_project_id uuid)
+returns table (worker_id uuid, days numeric)
+language sql
+security definer
+set search_path = ''
+as $$
+  select
+    a.worker_id,
+    sum(case when a.status = 'HALF_DAY' then 0.5 else 1 end)::numeric
+  from public.attendance_records a
+  where a.project_id = p_project_id
+    and a.status <> 'ABSENT'
+  group by a.worker_id;
+$$;
+
+revoke execute on function days_worked_by_worker_for_project(uuid) from public;
+revoke execute on function days_worked_by_worker_for_project(uuid) from anon;
+revoke execute on function days_worked_by_worker_for_project(uuid) from authenticated;
+
+create function labor_cost_for_project(p_project_id uuid)
+returns numeric
+language sql
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    sum(
+      coalesce(w.daily_rate, 0)
+      * case when a.status = 'HALF_DAY' then 0.5 else 1 end
+    ),
+    0
+  )::numeric
+  from public.attendance_records a
+  left join public.workers w on w.id = a.worker_id
+  where a.project_id = p_project_id
+    and a.status <> 'ABSENT';
+$$;
+
+revoke execute on function labor_cost_for_project(uuid) from public;
+revoke execute on function labor_cost_for_project(uuid) from anon;
+revoke execute on function labor_cost_for_project(uuid) from authenticated;
+
 create trigger attendance_records_set_updated_at
   before update on attendance_records
   for each row execute function set_updated_at();
