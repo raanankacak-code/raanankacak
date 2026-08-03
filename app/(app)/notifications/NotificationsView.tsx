@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { todayInOrgTimezone as todayISO, daysAgoInOrgTimezone as daysAgo } from "@/lib/today";
+import { todayInOrgTimezone as todayISO, daysAgoInOrgTimezone as daysAgo, orgDateOf, ORG_TIMEZONE } from "@/lib/today";
 
 type Notification = {
   id: string;
@@ -26,11 +26,19 @@ const NTF_ICON: Record<string, string> = {
 
 
 function timeLabel(iso: string) {
-  const d = iso.slice(0, 10);
-  const t = new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // Both sides of these comparisons have to be on the same clock. The date
+  // sliced off an ISO string is UTC, which is a different day from the
+  // workspace's between local midnight and 08:00 — long enough for a
+  // notification to arrive and be labelled Yesterday.
+  const d = orgDateOf(iso);
+  const t = new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: ORG_TIMEZONE,
+  });
   if (d === todayISO()) return `Today · ${t}`;
   if (d === daysAgo(1)) return `Yesterday · ${t}`;
-  return `${new Date(iso).toLocaleDateString()} · ${t}`;
+  return `${new Date(iso).toLocaleDateString("en-GB", { timeZone: ORG_TIMEZONE })} · ${t}`;
 }
 
 function Row({ n, onRead, onDelete }: { n: Notification; onRead: () => void; onDelete: () => void }) {
@@ -98,10 +106,10 @@ export default function NotificationsView() {
   const unread = items.filter((n) => !n.read).length;
   const groups: [string, Notification[]][] = (
     [
-      ["Today", items.filter((n) => n.createdAt.slice(0, 10) === todayISO())],
-      ["Yesterday", items.filter((n) => n.createdAt.slice(0, 10) === daysAgo(1))],
-      ["This Week", items.filter((n) => { const d = n.createdAt.slice(0, 10); return d !== todayISO() && d !== daysAgo(1) && d >= daysAgo(6); })],
-      ["Older", items.filter((n) => n.createdAt.slice(0, 10) < daysAgo(6))],
+      ["Today", items.filter((n) => orgDateOf(n.createdAt) === todayISO())],
+      ["Yesterday", items.filter((n) => orgDateOf(n.createdAt) === daysAgo(1))],
+      ["This Week", items.filter((n) => { const d = orgDateOf(n.createdAt); return d !== todayISO() && d !== daysAgo(1) && d >= daysAgo(6); })],
+      ["Older", items.filter((n) => orgDateOf(n.createdAt) < daysAgo(6))],
     ] as [string, Notification[]][]
   ).filter(([, arr]) => arr.length > 0);
 

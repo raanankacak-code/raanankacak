@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-const { todayInOrgTimezone, shiftDays, daysAgoInOrgTimezone, daysAheadInOrgTimezone } =
+const { todayInOrgTimezone, shiftDays, daysAgoInOrgTimezone, daysAheadInOrgTimezone, orgDateOf } =
   await import("@/lib/today");
 
 /** What the deleted `todayISO()` helpers did: the server's UTC date. */
@@ -84,5 +84,31 @@ describe("daysAgo / daysAhead in the org timezone", () => {
 
     expect(daysAgoInOrgTimezone(0, now)).toBe(todayInOrgTimezone(now));
     expect(daysAheadInOrgTimezone(0, now)).toBe(todayInOrgTimezone(now));
+  });
+});
+
+describe("orgDateOf", () => {
+  it("dates an instant by the workspace's clock, not by slicing the ISO string", () => {
+    // 00:30 on the 11th in Kuching. Slicing the ISO string gives the 10th,
+    // which is how a notification that had just arrived came to be grouped
+    // under Yesterday once "today" moved to the org timezone.
+    const justNow = "2026-08-10T16:30:00.000Z";
+
+    expect(orgDateOf(justNow)).toBe("2026-08-11");
+    expect(justNow.slice(0, 10)).toBe("2026-08-10");
+    expect(orgDateOf(justNow)).toBe(todayInOrgTimezone(new Date(justNow)));
+  });
+
+  it("accepts a Date as readily as a string", () => {
+    const d = new Date("2026-08-10T16:30:00.000Z");
+
+    expect(orgDateOf(d)).toBe(orgDateOf(d.toISOString()));
+  });
+
+  it("agrees with the sliced string outside the early-morning window", () => {
+    const midAfternoon = "2026-08-11T06:00:00.000Z";
+
+    expect(orgDateOf(midAfternoon)).toBe("2026-08-11");
+    expect(midAfternoon.slice(0, 10)).toBe("2026-08-11");
   });
 });

@@ -39,6 +39,18 @@ export function shiftDays(isoDate: string, days: number): string {
   return at.toISOString().slice(0, 10);
 }
 
+/**
+ * The calendar date an instant falls on, as the workspace reckons it.
+ *
+ * For comparing a stored timestamp against today: slicing the first ten
+ * characters off an ISO string gives the UTC date, which is a different day
+ * from Kuching's between local midnight and 08:00 — so a notification that
+ * arrived half an hour ago would be filed under Yesterday.
+ */
+export function orgDateOf(instant: Date | string, timeZone: string = ORG_TIMEZONE): string {
+  return todayInOrgTimezone(typeof instant === "string" ? new Date(instant) : instant, timeZone);
+}
+
 /** `n` days before today, as the workspace reckons it. */
 export function daysAgoInOrgTimezone(n: number, now: Date = new Date(), timeZone: string = ORG_TIMEZONE): string {
   return shiftDays(todayInOrgTimezone(now, timeZone), -n);
