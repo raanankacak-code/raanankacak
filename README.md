@@ -787,6 +787,7 @@ codebase so far has been that one cap, in six places:
 | `sumLaborCostForOrg` | Dashboard wage total, all projects all time — the most certain of the four to have been sitting at the cap |
 | `getDaysWorkedByWorker` | Monthly summary and its CSV returned 30 of 60 workers; half the crew absent, at 25.5 days against a true 30 |
 | dashboard attendance | 1250 marked in a day showed 700 present against 950, and **0** half-days against 250 |
+| `listReports` | Project deletion reads this to collect photos before the cascade; a project with 1300 reports stranded 300 photos in the bucket, and the audit log recorded 1000 |
 
 Two rules come out of it, and both are load-bearing:
 

@@ -6,6 +6,7 @@ import type {
   ReportStatus,
 } from "@/lib/db/types";
 import { isUuid } from "@/lib/uuid";
+import { fetchAllRows } from "@/lib/db/paging";
 
 /**
  * How many rows a list screen asks for. Comfortably more than anyone scrolls
@@ -84,22 +85,33 @@ function mapDailyReportListItem(
   };
 }
 
+/**
+ * Every report matching the filters.
+ *
+ * Paged, and not only so a long project's list is complete: deleting a
+ * project reads this to collect the photos to remove from the bucket
+ * before the rows cascade away. Stopping at 1000 would strand every photo
+ * past that in storage, unreferenced and with nothing left to say whose it
+ * was — and would understate the count written to the audit log.
+ */
 export async function listReports(
   orgId: string,
   filters: { projectId?: string; from?: string; to?: string } = {},
 ): Promise<DailyReportWithProject[]> {
-  let query = createAdminClient()
-    .from("daily_reports")
-    .select("*, project:projects(id, name)")
-    .eq("org_id", orgId)
-    .order("date", { ascending: false });
-  if (filters.projectId) query = query.eq("project_id", filters.projectId);
-  if (filters.from) query = query.gte("date", filters.from);
-  if (filters.to) query = query.lte("date", filters.to);
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []).map(mapDailyReportWithProject);
+  const data = await fetchAllRows<Record<string, unknown>>((from, to) => {
+    let query = createAdminClient()
+      .from("daily_reports")
+      .select("*, project:projects(id, name)")
+      .eq("org_id", orgId);
+    if (filters.projectId) query = query.eq("project_id", filters.projectId);
+    if (filters.from) query = query.gte("date", filters.from);
+    if (filters.to) query = query.lte("date", filters.to);
+    return query
+      .order("date", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+  });
+  return data.map(mapDailyReportWithProject);
 }
 
 /** Tenant-isolation pilot rollout (see listProjectsForOrgViaSession in projects.ts). */
