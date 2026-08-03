@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { todayInOrgTimezone as todayISO, daysAheadInOrgTimezone as daysAhead } from "@/lib/today";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatWages } from "@/lib/format";
 
 type Project = { id: string; name: string };
 type Worker = {
@@ -38,9 +38,6 @@ type MonthlyRow = {
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
-}
-function formatRM(n: number) {
-  return new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR", maximumFractionDigits: 0 }).format(n);
 }
 function csvEscape(v: string) {
   return `"${v.replace(/"/g, '""')}"`;
@@ -221,7 +218,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
               ⬇ Export CSV
             </button>
             <span className="small mut" style={{ alignSelf: "center" }}>
-              Payroll this month: <b className="num" style={{ color: "var(--amber-text)" }}>{formatRM(monthlyTotal)}</b>
+              Payroll this month: <b className="num" style={{ color: "var(--amber-text)" }}>{formatWages(monthlyTotal)}</b>
             </span>
           </div>
           <div className="card">
@@ -259,10 +256,10 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                             <div className="small faint num">{r.icNumber || "—"}</div>
                           </td>
                           <td className="small" data-label="Trade">{r.trade || "—"}</td>
-                          <td className="num" data-label="Rate/day">{formatRM(r.dailyRate ?? 0)}</td>
+                          <td className="num" data-label="Rate/day">{formatWages(r.dailyRate ?? 0)}</td>
                           <td className="num" data-label="Days worked">{r.daysWorked}</td>
                           <td className="num" data-label="Wages">
-                            <b>{formatRM(r.wages)}</b>
+                            <b>{formatWages(r.wages)}</b>
                           </td>
                           <td data-label="Green card">
                             {r.cidbExpiry ? (

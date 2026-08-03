@@ -2,12 +2,38 @@ import { ORG_TIMEZONE } from "@/lib/today";
 
 type Numeric = number | string | { toString(): string } | null | undefined;
 
+/**
+ * A headline figure, to the ringgit — a contract value, earned value, a
+ * plan price. These are whole numbers or near enough that sen would be
+ * noise.
+ *
+ * Not for anything derived from a daily rate: see `formatWages`.
+ */
 export function formatCurrency(value: Numeric, currency = "MYR") {
   const n = value == null ? 0 : typeof value === "number" ? value : parseFloat(value.toString());
   return new Intl.NumberFormat("en-MY", {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
+  }).format(n);
+}
+
+/**
+ * Money that can carry sen, shown to the sen.
+ *
+ * A half day is worth half a daily rate, so any odd rate puts wages on .50.
+ * Rounded to the ringgit, each cell rounds on its own and the column stops
+ * adding up to its own total: four workers at RM 155 for 12.5 days showed
+ * four rows of RM 1,938 above a header of RM 7,750, which is a figure
+ * someone reconciles against a bank transfer.
+ */
+export function formatWages(value: Numeric, currency = "MYR") {
+  const n = value == null ? 0 : typeof value === "number" ? value : parseFloat(value.toString());
+  return new Intl.NumberFormat("en-MY", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(n);
 }
 

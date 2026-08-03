@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatWages } from "@/lib/format";
 import Modal from "@/components/app/Modal";
 
 type CostReport = {
@@ -109,7 +109,7 @@ export default function CostReportButton({ projectId }: { projectId: string }) {
                   <tr>
                     <td>Labour cost to date (attendance × daily rates)</td>
                     <td className="num" style={{ textAlign: "right" }}>
-                      {formatCurrency(report.laborCost)}
+                      {formatWages(report.laborCost)}
                     </td>
                   </tr>
                   <tr>

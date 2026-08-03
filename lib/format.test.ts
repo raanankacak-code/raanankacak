@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatCurrency,
+  formatWages,
   formatDate,
   formatDateTime,
   formatInstantDate,
@@ -105,5 +106,46 @@ describe("statusLabel", () => {
   it("replaces underscores with spaces", () => {
     expect(statusLabel("ON_HOLD")).toBe("ON HOLD");
     expect(statusLabel("ACTIVE")).toBe("ACTIVE");
+  });
+});
+
+describe("formatWages", () => {
+  it("keeps the sen a half day puts on the figure", () => {
+    // 12.5 days at RM 155. Rounded to the ringgit this became 1,938.
+    expect(formatWages(1937.5)).toBe(rm("1,937.50"));
+  });
+
+  it("lets a column add up to its own total", () => {
+    // Four workers at that rate: the wages column and the payroll header
+    // used to disagree by RM 2, because each cell rounded on its own.
+    const wages = [1937.5, 1937.5, 1937.5, 1937.5];
+    const total = wages.reduce((a, b) => a + b, 0);
+
+    // Not `wages.map(formatWages)` — map passes the index as the second
+    // argument, which formatWages reads as a currency code.
+    expect(wages.map((w) => formatWages(w))).toEqual([
+      rm("1,937.50"),
+      rm("1,937.50"),
+      rm("1,937.50"),
+      rm("1,937.50"),
+    ]);
+    expect(formatWages(total)).toBe(rm("7,750.00"));
+  });
+
+  it("still shows sen on a whole amount, so a column lines up", () => {
+    expect(formatWages(1500)).toBe(rm("1,500.00"));
+  });
+
+  it("treats null and undefined as zero rather than throwing", () => {
+    expect(formatWages(null)).toBe(rm("0.00"));
+    expect(formatWages(undefined)).toBe(rm("0.00"));
+  });
+
+  it("accepts the numeric strings PostgREST returns", () => {
+    expect(formatWages("1937.50")).toBe(rm("1,937.50"));
+  });
+
+  it("leaves headline figures to formatCurrency, which stays whole", () => {
+    expect(formatCurrency(2500000)).toBe(rm("2,500,000"));
   });
 });
