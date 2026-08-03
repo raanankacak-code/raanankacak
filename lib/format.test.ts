@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatCurrency, formatDate, formatDateTime, statusBadgeClass, statusLabel } from "@/lib/format";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatInstantDate,
+  statusBadgeClass,
+  statusLabel,
+} from "@/lib/format";
 
 // Intl.NumberFormat renders MYR as "RM" + U+00A0 (non-breaking space) + amount.
 const rm = (amount: string) => "RM\u00A0" + amount;
@@ -25,7 +32,9 @@ describe("formatCurrency", () => {
 });
 
 describe("formatDate", () => {
-  it("formats a Date as DD/MM/YYYY in UTC", () => {
+  // UTC on purpose: a Postgres DATE parses to midnight UTC, so UTC is the
+  // only zone that reads it back as the day it says.
+  it("formats a date-only value as DD/MM/YYYY in UTC", () => {
     expect(formatDate(new Date("2026-07-19T00:00:00.000Z"))).toBe("19/07/2026");
   });
 
@@ -39,9 +48,39 @@ describe("formatDate", () => {
   });
 });
 
+describe("formatInstantDate", () => {
+  it("gives a timestamp the day it fell on in Kuching, not in UTC", () => {
+    // 07:00 on the 11th in Kuching is 23:00 on the 10th in UTC. Rendered in
+    // UTC, a defect raised first thing was dated to the day before.
+    const at0700Kuching = new Date("2026-08-10T23:00:00.000Z");
+
+    expect(formatInstantDate(at0700Kuching)).toBe("11/08/2026");
+    expect(formatDate(at0700Kuching)).toBe("10/08/2026");
+  });
+
+  it("agrees with the UTC date once the day has caught up", () => {
+    const midMorning = new Date("2026-08-11T04:00:00.000Z");
+
+    expect(formatInstantDate(midMorning)).toBe("11/08/2026");
+    expect(formatDate(midMorning)).toBe("11/08/2026");
+  });
+
+  it("returns an em dash for null/undefined instead of throwing", () => {
+    expect(formatInstantDate(null)).toBe("\u2014");
+    expect(formatInstantDate(undefined)).toBe("\u2014");
+  });
+});
+
 describe("formatDateTime", () => {
-  it("formats a Date as DD/MM/YYYY, HH:MM in UTC", () => {
-    expect(formatDateTime(new Date("2026-07-19T14:05:00.000Z"))).toBe("19/07/2026, 14:05");
+  it("shows the time the workspace saw, not the server's", () => {
+    // A client sign-off at 22:05 in Kuching. Rendered in UTC this read
+    // 14:05 — a statement about when someone did something, eight hours out.
+    expect(formatDateTime(new Date("2026-07-19T14:05:00.000Z"))).toBe("19/07/2026, 22:05");
+  });
+
+  it("carries the date across midnight with the time", () => {
+    // 00:30 on the 11th locally, still the 10th in UTC.
+    expect(formatDateTime(new Date("2026-08-10T16:30:00.000Z"))).toBe("11/08/2026, 00:30");
   });
 
   it("returns an em dash for null/undefined instead of throwing", () => {

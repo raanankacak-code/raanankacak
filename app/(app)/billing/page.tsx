@@ -8,7 +8,7 @@ import { countActiveProjectsForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
 import { countActiveMembersForOrg, countPendingInvitesForOrg } from "@/lib/db/team";
 import { sumStorageBytesForOrg } from "@/lib/uploads";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatInstantDate } from "@/lib/format";
 import { UpgradeButton, ManageSubscriptionButton } from "@/components/app/billing/BillingActions";
 
 function limitLabel(limit: number | null): string {
@@ -182,7 +182,7 @@ export default async function BillingPage({
             {sub.status === "TRIALING" && writable && (
               <p className="small mut" style={{ margin: 0 }}>
                 <b className="num">{daysLeft}</b> day{daysLeft === 1 ? "" : "s"} left in your free trial · ends{" "}
-                {formatDate(sub.trialEndsAt)}
+                {formatInstantDate(sub.trialEndsAt)}
               </p>
             )}
             {sub.stripeCustomerId && <ManageSubscriptionButton />}

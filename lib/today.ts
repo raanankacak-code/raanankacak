@@ -10,7 +10,7 @@
  * Returned as YYYY-MM-DD so it compares directly against a Postgres DATE,
  * which is how the overdue queries are written.
  */
-const ORG_TIMEZONE = "Asia/Kuching";
+export const ORG_TIMEZONE = "Asia/Kuching";
 
 export function todayInOrgTimezone(now: Date = new Date(), timeZone: string = ORG_TIMEZONE): string {
   // en-CA gives YYYY-MM-DD, which is the one locale format that is already

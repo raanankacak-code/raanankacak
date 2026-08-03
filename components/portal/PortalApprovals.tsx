@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDateTime, formatInstantDate } from "@/lib/format";
 import { APPROVAL_STATUS_BADGE, APPROVAL_STATUS_LABELS, isAwaitingClient, isDecided } from "@/lib/approvals";
 import type { ApprovalStatus } from "@/lib/db/types";
 
@@ -87,7 +87,7 @@ export default function PortalApprovals({ approvals }: { approvals: PortalApprov
                   </div>
                 )}
                 <div className="small faint">
-                  Sent by {a.requestedByName} · {formatDate(a.requestedAt)}
+                  Sent by {a.requestedByName} · {formatInstantDate(a.requestedAt)}
                 </div>
 
                 {rejecting === a.id ? (

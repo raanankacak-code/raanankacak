@@ -5,7 +5,7 @@ import { can } from "@/lib/permissions";
 import { getInspectionById } from "@/lib/db/safety";
 import { getProjectById } from "@/lib/db/projects";
 import { getOrganizationById } from "@/lib/db/organizations";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
 import type { SafetyInspectionItem } from "@/lib/db/types";
 import PrintButton from "@/components/app/PrintButton";
 import PrintLetterhead from "@/components/app/PrintLetterhead";
@@ -97,7 +97,7 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
             <div>
               {inspection.status === "CLOSED"
                 ? `Closed${inspection.closedByName ? ` by ${inspection.closedByName}` : ""}${
-                    inspection.closedAt ? ` on ${formatDate(inspection.closedAt)}` : ""
+                    inspection.closedAt ? ` on ${formatInstantDate(inspection.closedAt)}` : ""
                   }`
                 : "Open — findings outstanding"}
             </div>

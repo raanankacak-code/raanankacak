@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import Modal from "@/components/app/Modal";
 import PhotoStrip from "@/components/app/PhotoStrip";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDateTime, formatInstantDate } from "@/lib/format";
 import { APPROVAL_STATUS_BADGE, APPROVAL_STATUS_LABELS, canWithdraw, isDecided } from "@/lib/approvals";
 import type { ApprovalStatus } from "@/lib/db/types";
 
@@ -192,7 +192,7 @@ export default function ClientPanel({
                         <div className="small faint num">{c.email}</div>
                       </td>
                       <td className="small" data-label="Given access">
-                        {formatDate(c.grantedAt)}
+                        {formatInstantDate(c.grantedAt)}
                         {c.grantedByName ? ` · by ${c.grantedByName}` : ""}
                       </td>
                       <td className="card-a" style={{ textAlign: "right" }}>
@@ -265,7 +265,7 @@ export default function ClientPanel({
                   </div>
                 )}
                 <div className="small faint">
-                  Sent by {a.requestedByName} · {formatDate(a.requestedAt)}
+                  Sent by {a.requestedByName} · {formatInstantDate(a.requestedAt)}
                 </div>
                 {isDecided(a.status) && a.decidedByName && a.decidedAt && (
                   // The record itself: name, email and the exact time, as

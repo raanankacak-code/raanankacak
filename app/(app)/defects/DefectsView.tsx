@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatInstantDate } from "@/lib/format";
 import Modal from "@/components/app/Modal";
 import PhotoStrip from "@/components/app/PhotoStrip";
 import ProjectFilterSelect from "@/components/app/ProjectFilterSelect";
@@ -546,7 +546,7 @@ function DefectDetailModal({
         <div>
           <div className="field-label">Raised by</div>
           <div>
-            {defect.raisedByName} · {formatDate(defect.createdAt)}
+            {defect.raisedByName} · {formatInstantDate(defect.createdAt)}
           </div>
         </div>
         <div>
