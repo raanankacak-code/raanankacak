@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import type { Role } from "@/lib/db/types";
+import { todayInOrgTimezone } from "@/lib/today";
 
 const MY_STATES = [
   "Sarawak",
@@ -120,7 +121,7 @@ export default function SettingsView({ org, role }: { org: Org; role: Role }) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `binaworks-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `binaworks-export-${todayInOrgTimezone()}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();

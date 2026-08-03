@@ -12,6 +12,7 @@ import SortableTh, { type SortState, toggleSort, sortRows } from "@/components/a
 import { SAFETY_CHECKLIST } from "@/lib/safetyChecklist";
 import type { SafetyInspection, SafetyItemResult } from "@/lib/db/types";
 import type { SafetyInspectionListItem } from "@/lib/db/safety";
+import { todayInOrgTimezone } from "@/lib/today";
 
 const OUTCOME_LABEL: Record<string, string> = {
   PASS: "Pass",
@@ -234,7 +235,7 @@ function NewInspectionModal({
   onSaved: () => void;
 }) {
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayInOrgTimezone());
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");

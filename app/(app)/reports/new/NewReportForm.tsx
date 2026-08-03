@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import PhotoStrip from "@/components/app/PhotoStrip";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
+import { todayInOrgTimezone } from "@/lib/today";
 
 type Project = { id: string; name: string };
 
@@ -17,7 +18,7 @@ export default function NewReportForm() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState(presetProjectId);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayInOrgTimezone());
   const [weather, setWeather] = useState("Sunny");
   const [workCompleted, setWorkCompleted] = useState("");
   const [delays, setDelays] = useState("");

@@ -6,6 +6,7 @@ import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { statusBadgeClass, statusLabel, formatDate } from "@/lib/format";
 import Modal from "@/components/app/Modal";
 import SortableTh, { type SortState, toggleSort, sortRows } from "@/components/app/SortableTh";
+import { todayInOrgTimezone as todayISO, daysAheadInOrgTimezone as daysAhead } from "@/lib/today";
 
 const UNITS = ["bags", "m³", "tonnes", "pcs", "m", "litres", "rolls", "sets"];
 const STATES = ["all", "DRAFT", "SUBMITTED", "APPROVED", "REJECTED", "ORDERED", "DELIVERED"] as const;
@@ -38,12 +39,6 @@ type Request = {
 type TimelineEntry = { id: string; state: string; comment: string | null; actorName: string; createdAt: string };
 type RequestDetail = Request & { timeline: TimelineEntry[]; justification: string | null };
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-function daysAhead(n: number) {
-  return new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
-}
 
 export default function MaterialsView({
   canSubmit,

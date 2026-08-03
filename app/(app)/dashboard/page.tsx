@@ -11,18 +11,16 @@ import { listNotificationsForOrgViaSession } from "@/lib/db/notifications";
 import { can } from "@/lib/permissions";
 import { countOutstandingDefectsForOrg, countOverdueDefectsForOrg } from "@/lib/db/defects";
 import { countEquipmentNeedingAttention } from "@/lib/db/equipment";
-import { todayInOrgTimezone } from "@/lib/today";
+import { todayInOrgTimezone, daysAgoInOrgTimezone, daysAheadInOrgTimezone } from "@/lib/today";
 import { formatCurrency, formatDate, statusBadgeClass, statusLabel } from "@/lib/format";
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-function daysAgo(n: number) {
-  return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
-}
-function daysAhead(n: number) {
-  return new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
-}
+// One definition of "today", and it is the workspace's. The UTC date these
+// used to return is a different day from Kuching's between midnight and
+// 08:00 local, so the dashboard spent every early morning showing
+// yesterday's attendance, report count and calendar under today's heading.
+const todayISO = todayInOrgTimezone;
+const daysAgo = (n: number) => daysAgoInOrgTimezone(n);
+const daysAhead = (n: number) => daysAheadInOrgTimezone(n);
 
 const NTF_ICON: Record<string, string> = {
   report: "🗒️",

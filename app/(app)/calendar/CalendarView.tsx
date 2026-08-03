@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
 import Modal from "@/components/app/Modal";
+import { todayInOrgTimezone as todayISO } from "@/lib/today";
 
 type EventType = "DEADLINE" | "DELIVERY" | "INSPECTION" | "MEETING" | "LEAVE" | "HOLIDAY";
 type Priority = "LOW" | "MEDIUM" | "HIGH";
@@ -34,9 +35,6 @@ const EV_TYPES: Record<EventType, { label: string; c: string; ic: string }> = {
   HOLIDAY: { label: "Public Holiday", c: "#3ECF8E", ic: "🎉" },
 };
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 function iso(d: Date) {
   return d.toISOString().slice(0, 10);
 }

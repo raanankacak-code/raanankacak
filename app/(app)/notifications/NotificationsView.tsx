@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
+import { todayInOrgTimezone as todayISO, daysAgoInOrgTimezone as daysAgo } from "@/lib/today";
 
 type Notification = {
   id: string;
@@ -23,12 +24,6 @@ const NTF_ICON: Record<string, string> = {
   deadline: "⏰",
 };
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-function daysAgo(n: number) {
-  return new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
-}
 
 function timeLabel(iso: string) {
   const d = iso.slice(0, 10);

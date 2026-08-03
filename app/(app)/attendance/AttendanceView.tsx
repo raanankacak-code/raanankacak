@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
+import { todayInOrgTimezone as todayISO, daysAheadInOrgTimezone as daysAhead } from "@/lib/today";
 
 type Project = { id: string; name: string };
 type Worker = {
@@ -34,9 +35,6 @@ type MonthlyRow = {
   wages: number;
 };
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
@@ -252,7 +250,7 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                   </thead>
                   <tbody>
                     {monthlyRows.map((r) => {
-                      const expSoon = r.cidbExpiry && r.cidbExpiry <= new Date(now + 30 * 86400000).toISOString().slice(0, 10);
+                      const expSoon = r.cidbExpiry && r.cidbExpiry <= daysAhead(30);
                       return (
                         <tr key={r.id}>
                           <td className="card-t">

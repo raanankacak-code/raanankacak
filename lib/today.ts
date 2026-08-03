@@ -23,3 +23,28 @@ export function todayInOrgTimezone(now: Date = new Date(), timeZone: string = OR
     day: "2-digit",
   }).format(now);
 }
+
+/**
+ * Moves a YYYY-MM-DD date by whole calendar days.
+ *
+ * Done on the date itself rather than by adding 86400000ms to a timestamp:
+ * milliseconds are only equivalent to days in a zone with no DST, and
+ * writing it that way invites the next timezone to break it quietly. Noon
+ * UTC is the anchor so the arithmetic cannot fall off either end of a day.
+ */
+export function shiftDays(isoDate: string, days: number): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const at = new Date(Date.UTC(y, m - 1, d, 12));
+  at.setUTCDate(at.getUTCDate() + days);
+  return at.toISOString().slice(0, 10);
+}
+
+/** `n` days before today, as the workspace reckons it. */
+export function daysAgoInOrgTimezone(n: number, now: Date = new Date(), timeZone: string = ORG_TIMEZONE): string {
+  return shiftDays(todayInOrgTimezone(now, timeZone), -n);
+}
+
+/** `n` days after today, as the workspace reckons it. */
+export function daysAheadInOrgTimezone(n: number, now: Date = new Date(), timeZone: string = ORG_TIMEZONE): string {
+  return shiftDays(todayInOrgTimezone(now, timeZone), n);
+}

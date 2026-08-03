@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireMember, apiErrorResponse, ApiError } from "@/lib/auth";
 import { buildOrgExport } from "@/lib/db/orgExport";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { todayInOrgTimezone } from "@/lib/today";
 
 /**
  * Downloads the whole workspace as JSON.
@@ -23,7 +24,7 @@ export async function GET() {
     }
 
     const data = await buildOrgExport(member.orgId);
-    const filename = `binaworks-export-${new Date().toISOString().slice(0, 10)}.json`;
+    const filename = `binaworks-export-${todayInOrgTimezone()}.json`;
 
     return new NextResponse(JSON.stringify(data, null, 2), {
       headers: {
