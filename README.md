@@ -772,6 +772,43 @@ Three consequences worth knowing:
   features, and adding a screen would mean deciding who is entitled to read a
   record about a company that no longer exists.
 
+### The thousand-row cap
+
+PostgREST returns **at most 1000 rows** for a request that does not ask for a
+range, and says nothing about the ones it left behind. There is no error, no
+truncation flag — just a short array. Every silent-data bug found in this
+codebase so far has been that one cap, in six places:
+
+| Where | What it did |
+|---|---|
+| `buildOrgExport` | Exported 1000 rows per table, in a file describing itself as a complete copy of the workspace |
+| `sumLaborCostForProject` | Cost report showed RM 114,000 of labour against a true RM 270,000 (40 workers, 60 days) |
+| `getDaysWorkedByWorkerForProject` | Days worked per worker, undercounted the same way |
+| `sumLaborCostForOrg` | Dashboard wage total, all projects all time — the most certain of the four to have been sitting at the cap |
+| `getDaysWorkedByWorker` | Monthly summary and its CSV returned 30 of 60 workers; half the crew absent, at 25.5 days against a true 30 |
+| dashboard attendance | 1250 marked in a day showed 700 present against 950, and **0** half-days against 250 |
+
+Two rules come out of it, and both are load-bearing:
+
+- **Count and aggregate in the database.** Never `.length` or `.reduce()` over a
+  fetched list to produce a number. `countAttendanceByStatusForOrgDate`,
+  `labor_cost_for_org` and friends exist for this. A wrong total is worse than a
+  short list, because nothing on the screen suggests it is wrong.
+- **Page anything that lists.** `fetchAllRows` in `lib/db/paging.ts` reads a
+  query to exhaustion. It costs exactly one request below the cap — the normal
+  case — and only loops for a workspace that would otherwise have lost rows.
+  A seeded project read back 1000 of its 1400 documents before this.
+
+**Paging requires a total order.** `range` over a query whose sort key has ties
+is not stable: rows can shift between pages, so some come back twice and others
+never, and the result still looks like a complete list — worse than truncation.
+Every paged read here ends its `order()` chain with `id`. `materials.ts` and
+`safety.ts` did this first; the rest followed.
+
+The cap is a server setting, not a client option, so **a mock that returns
+everything in one call cannot catch any of this**. `orgExport.test.ts` and
+`paging.test.ts` fake the cap deliberately.
+
 ### Dependency advisories
 
 `npm audit --omit=dev` reports **0 vulnerabilities**, and CI fails if that
