@@ -329,6 +329,10 @@ test.describe("the project tab strip", () => {
 
   test("no label breaks across two lines", async ({ page }) => {
     await page.goto(`/projects/${projectId}`);
+    // Geometry is only meaningful once the strip has been laid out. Without
+    // this the measurement can race the paint and read every tab as 0px —
+    // which this test would then pass, every tab being equally nothing.
+    await expect(page.locator(".tabbar a").first()).toBeVisible();
 
     // The flex row itself never wraps — what wrapped was the text inside a
     // tab. "Daily Reports" was squeezed until it came out as "Daily" with
@@ -347,6 +351,7 @@ test.describe("the project tab strip", () => {
     const uneven = strip.tabs.filter((t) => t.height < tallest).map((t) => `${t.label} ${t.height}px`);
 
     expect(strip.tabs.length).toBeGreaterThan(4);
+    expect(tallest, "the strip has no height — nothing was measured").toBeGreaterThan(0);
     expect(uneven, `tabs of differing heights (tallest ${tallest}px) — a label has wrapped`).toEqual([]);
     // +2 for the strip's own bottom border.
     expect(strip.height, "the strip is deeper than a single row of tabs").toBeLessThanOrEqual(tallest + 2);
@@ -354,6 +359,9 @@ test.describe("the project tab strip", () => {
 
   test("every tab is a thumb-sized target", async ({ page }) => {
     await page.goto(`/projects/${projectId}`);
+    // Same reason as above: without waiting for layout this reads 0px for
+    // every tab and reports the fix as broken when it is not.
+    await expect(page.locator(".tabbar a").first()).toBeVisible();
 
     // Measured in the page rather than through boundingBox(): the strip
     // scrolls sideways, and a tab past the right edge has no box to report.
