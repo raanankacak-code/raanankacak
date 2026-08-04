@@ -111,6 +111,10 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
     queueMicrotask(load);
   }, [load]);
 
+  // Workers who put in days this month but have no daily rate: their wages
+  // cannot be computed, so they sit outside the payroll total.
+  const ratelessCount = monthlyRows.filter((r) => r.dailyRate == null && r.daysWorked > 0).length;
+
   const loadMonthly = useCallback(async () => {
     setMonthlyLoading(true);
     setError("");
@@ -219,6 +223,11 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
             </button>
             <span className="small mut" style={{ alignSelf: "center" }}>
               Payroll this month: <b className="num" style={{ color: "var(--amber-text)" }}>{formatWages(monthlyTotal)}</b>
+              {ratelessCount > 0 && (
+                // The total cannot include someone whose rate nobody has set,
+                // so it says so rather than presenting a short number as whole.
+                <span className="mut"> · {ratelessCount} worked without a rate set, not counted</span>
+              )}
             </span>
           </div>
           <div className="card">
@@ -256,10 +265,20 @@ export default function AttendanceView({ canEdit, canManageWorkers }: { canEdit:
                             <div className="small faint num">{r.icNumber || "—"}</div>
                           </td>
                           <td className="small" data-label="Trade">{r.trade || "—"}</td>
-                          <td className="num" data-label="Rate/day">{formatWages(r.dailyRate ?? 0)}</td>
+                          {/* A missing rate is not a rate of zero. RM 0.00 in these
+                              cells asserts this worker earned nothing; an em dash
+                              says nobody has told us what they earn, which is the
+                              true statement and the one someone can act on. */}
+                          <td className="num" data-label="Rate/day">
+                            {r.dailyRate == null ? <span className="mut">—</span> : formatWages(r.dailyRate)}
+                          </td>
                           <td className="num" data-label="Days worked">{r.daysWorked}</td>
                           <td className="num" data-label="Wages">
-                            <b>{formatWages(r.wages)}</b>
+                            {r.dailyRate == null ? (
+                              <span className="mut" title="No daily rate set for this worker">—</span>
+                            ) : (
+                              <b>{formatWages(r.wages)}</b>
+                            )}
                           </td>
                           <td data-label="Green card">
                             {r.cidbExpiry ? (

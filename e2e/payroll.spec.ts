@@ -56,6 +56,23 @@ test.beforeAll(async () => {
     .select("id");
   if (workerError) throw workerError;
 
+  // Someone added to the roster before anyone set what they are paid. Their
+  // wages cannot be computed, and the screen must not imply they earned zero.
+  const { data: rateless, error: ratelessError } = await admin
+    .from("workers")
+    .insert({
+      org_id: orgId,
+      project_id: projectId,
+      name: `Payroll NoRate ${Date.now()}`,
+      trade: "General",
+      daily_rate: null,
+      active: true,
+    })
+    .select("id")
+    .single();
+  if (ratelessError) throw ratelessError;
+  workers.push(rateless);
+
   // An odd number of half days, so each worker's wages land on .50 and the
   // column cannot agree with its total by accident.
   const monthStart = new Date();
@@ -103,7 +120,9 @@ test.describe("monthly payroll", () => {
     const cells = page.locator('td[data-label="Wages"]');
     await expect(cells.first()).toBeVisible({ timeout: 15000 });
 
-    const wages = (await cells.allTextContents()).map(parseMoney);
+    // An em dash is a deliberate "no rate set", not a number to add in.
+    const texts = await cells.allTextContents();
+    const wages = texts.filter((t) => /\d/.test(t)).map(parseMoney);
     expect(wages.length).toBeGreaterThan(0);
     for (const w of wages) expect(Number.isFinite(w)).toBe(true);
 
@@ -130,5 +149,32 @@ test.describe("monthly payroll", () => {
     // rounded to the ringgit this cell read 853 and stopped matching.
     expect(days).toBe(5.5);
     expect(wages).toBeCloseTo(5.5 * DAILY_RATE, 2);
+  });
+});
+
+test.describe("a worker with no daily rate", () => {
+  test("shows an em dash rather than RM 0.00", async ({ page }) => {
+    // RM 0.00 asserts this person earned nothing for the days they worked.
+    // Nobody has said what they earn, which is a different claim entirely —
+    // and the one a payroll clerk can act on.
+    await page.goto("/attendance");
+    await page.click('button:has-text("Monthly summary")');
+    await expect(page.getByText("Loading…")).toHaveCount(0, { timeout: 15000 });
+
+    const row = page.locator("tr", { hasText: "Payroll NoRate" }).first();
+    await expect(row).toBeVisible({ timeout: 15000 });
+
+    await expect(row.locator('td[data-label="Rate/day"]')).toHaveText("—");
+    await expect(row.locator('td[data-label="Wages"]')).toHaveText("—");
+  });
+
+  test("the payroll total says it is missing someone", async ({ page }) => {
+    // A total that quietly omits a worker is the same failure as one that
+    // truncates: short, and presented as whole.
+    await page.goto("/attendance");
+    await page.click('button:has-text("Monthly summary")');
+    await expect(page.getByText("Loading…")).toHaveCount(0, { timeout: 15000 });
+
+    await expect(page.getByText(/worked without a rate set, not counted/)).toBeVisible();
   });
 });
