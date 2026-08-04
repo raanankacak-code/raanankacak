@@ -5,6 +5,7 @@ import { countActiveProjectsForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
 import { countActiveMembersForOrg, countPendingInvitesForOrg } from "@/lib/db/team";
 import { sumStorageBytesForOrg } from "@/lib/uploads";
+import { formatStorageSize } from "@/lib/format";
 
 /**
  * Plan-limit guards for creation endpoints. Each throws a 402 with an
@@ -63,14 +64,9 @@ export async function assertCanStoreFile(orgId: string, incomingBytes: number): 
   if (used + incomingBytes > plan.maxStorageBytes) {
     throw new ApiError(
       402,
-      `The ${plan.name} plan includes ${formatGb(plan.maxStorageBytes)} of file storage, and this upload would exceed it (${formatGb(used)} used). Delete some files, or upgrade on the Billing page.`,
+      `The ${plan.name} plan includes ${formatStorageSize(plan.maxStorageBytes)} of file storage, and this upload would exceed it (${formatStorageSize(used)} used). Delete some files, or upgrade on the Billing page.`,
     );
   }
-}
-
-function formatGb(bytes: number): string {
-  const gb = bytes / (1024 * 1024 * 1024);
-  return gb >= 1 ? `${Math.round(gb * 10) / 10}GB` : `${Math.round(bytes / (1024 * 1024))}MB`;
 }
 
 export async function assertCostReportsIncluded(orgId: string): Promise<void> {

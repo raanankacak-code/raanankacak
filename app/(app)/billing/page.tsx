@@ -8,18 +8,11 @@ import { countActiveProjectsForOrg } from "@/lib/db/projects";
 import { countActiveWorkersForOrg } from "@/lib/db/workers";
 import { countActiveMembersForOrg, countPendingInvitesForOrg } from "@/lib/db/team";
 import { sumStorageBytesForOrg } from "@/lib/uploads";
-import { formatCurrency, formatInstantDate } from "@/lib/format";
+import { formatCurrency, formatInstantDate, formatStorageSize } from "@/lib/format";
 import { UpgradeButton, ManageSubscriptionButton } from "@/components/app/billing/BillingActions";
 
 function limitLabel(limit: number | null): string {
   return limit === null ? "Unlimited" : String(limit);
-}
-
-/** Bytes as a human-readable size, e.g. 1.4GB / 320MB / 0MB. */
-function formatBytes(bytes: number): string {
-  const gb = bytes / (1024 * 1024 * 1024);
-  if (gb >= 1) return `${Math.round(gb * 10) / 10}GB`;
-  return `${Math.round(bytes / (1024 * 1024))}MB`;
 }
 
 function UsageRow({
@@ -31,7 +24,7 @@ function UsageRow({
   label: string;
   used: number;
   limit: number | null;
-  /** Renders counts as plain numbers by default; storage passes formatBytes. */
+  /** Renders counts as plain numbers by default; storage passes formatStorageSize. */
   format?: (value: number) => string;
 }) {
   const pct = limit === null ? 0 : Math.min(100, Math.round((used / limit) * 100));
@@ -87,7 +80,7 @@ function PlanCard({
           <li>{limitLabel(plan.maxActiveProjects)} active projects</li>
           <li>{limitLabel(plan.maxWorkers)} workers on the roster</li>
           <li>{limitLabel(plan.maxTeamAccounts)} team accounts</li>
-          <li>{plan.maxStorageBytes === null ? "Unlimited" : formatBytes(plan.maxStorageBytes)} file storage</li>
+          <li>{plan.maxStorageBytes === null ? "Unlimited" : formatStorageSize(plan.maxStorageBytes)} file storage</li>
           <li>{plan.costReports ? "Cost reports included" : "No cost reports"}</li>
           <li>{plan.customBranding ? "Custom branding" : "Standard branding"}</li>
         </ul>
@@ -197,7 +190,7 @@ export default async function BillingPage({
             <UsageRow label="Active projects" used={projects} limit={plan.maxActiveProjects} />
             <UsageRow label="Workers on roster" used={workers} limit={plan.maxWorkers} />
             <UsageRow label="Team accounts (incl. pending invites)" used={members + pendingInvites} limit={plan.maxTeamAccounts} />
-            <UsageRow label="File storage" used={storageBytes} limit={plan.maxStorageBytes} format={formatBytes} />
+            <UsageRow label="File storage" used={storageBytes} limit={plan.maxStorageBytes} format={formatStorageSize} />
           </div>
         </div>
       </div>

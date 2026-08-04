@@ -38,6 +38,20 @@ export function formatWages(value: Numeric, currency = "MYR") {
 }
 
 /**
+ * Bytes as a human-readable size, e.g. 1.4GB / 320MB / 0MB.
+ *
+ * Shared by the billing page and the storage-cap error, which quote the
+ * same two numbers at people — the plan's limit and what they have used.
+ * Two copies of this drifting apart would have the error message and the
+ * usage bar disagreeing about the same workspace.
+ */
+export function formatStorageSize(bytes: number): string {
+  const gb = bytes / (1024 * 1024 * 1024);
+  if (gb >= 1) return `${Math.round(gb * 10) / 10}GB`;
+  return `${Math.round(bytes / (1024 * 1024))}MB`;
+}
+
+/**
  * A calendar date that carries no time — a Postgres DATE, such as a report's
  * date or a project's start.
  *

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatCurrency,
   formatWages,
+  formatStorageSize,
   formatDate,
   formatDateTime,
   formatInstantDate,
@@ -147,5 +148,30 @@ describe("formatWages", () => {
 
   it("leaves headline figures to formatCurrency, which stays whole", () => {
     expect(formatCurrency(2500000)).toBe(rm("2,500,000"));
+  });
+});
+
+describe("formatStorageSize", () => {
+  it("switches to GB at a gigabyte, with one decimal", () => {
+    expect(formatStorageSize(1.4 * 1024 ** 3)).toBe("1.4GB");
+    expect(formatStorageSize(25 * 1024 ** 3)).toBe("25GB");
+  });
+
+  it("stays in MB below a gigabyte", () => {
+    expect(formatStorageSize(320 * 1024 ** 2)).toBe("320MB");
+  });
+
+  it("rounds a few hundred kilobytes to 0MB, which the billing page expects", () => {
+    // Documented behaviour, not an oversight: the usage row reads
+    // "0MB / 25GB" for a workspace that has barely uploaded anything.
+    expect(formatStorageSize(400 * 1024)).toBe("0MB");
+  });
+
+  it("gives the storage-cap error and the usage bar the same string", () => {
+    // The point of sharing one implementation: both quote a plan limit and
+    // a used figure at the same person.
+    const limit = 25 * 1024 ** 3;
+    expect(formatStorageSize(limit)).toBe("25GB");
+    expect(formatStorageSize(0)).toBe("0MB");
   });
 });
