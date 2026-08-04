@@ -772,6 +772,42 @@ Three consequences worth knowing:
   features, and adding a screen would mean deciding who is entitled to read a
   record about a company that no longer exists.
 
+### Money that adds up
+
+A half day is worth half a daily rate, so any odd rate puts wages on `.50`.
+Rendered to the ringgit, every cell rounded on its own and a column stopped
+agreeing with its own total:
+
+| | |
+|---|---|
+| four workers at RM 155 for 12.5 days | four rows of **RM 1,938** |
+| "Payroll this month" above them | **RM 7,750** |
+
+Two ringgit out on four workers, and it grows with the crew. That figure is
+reconciled against a bank transfer, so being close is not the same as being
+right.
+
+Two formatters, and which one to use is decided by the value, not the
+screen:
+
+- **`formatWages`** — anything derived from a daily rate: per-worker wages,
+  the payroll total, labour cost to date. Always two decimals, so a column
+  lines up and sums to its header.
+- **`formatCurrency`** — headline figures that are whole by nature: contract
+  value, earned value, a plan price. Whole ringgit; sen would be noise.
+
+Mixing 2dp and 0dp in one table is fine and normal in finance UIs. Rounding
+a fractional value to make the column look tidy is not.
+
+**Percentages of a large denominator round to nothing.** RM 12,675 of a
+RM 4.5m contract is 0.28%, and a card headed "Labour Cost" reading `0%`
+claims nothing has been spent. It shows `<1%` instead — a small number, not
+an absent one.
+
+**CSV exports carry raw values, not formatted ones** (`r.wages`, not
+`formatWages(r.wages)`). The file is going into a spreadsheet that will do
+its own arithmetic; handing it "RM 1,937.50" would make every column text.
+
 ### One clock, and it is Kuching's
 
 Every organisation here runs on `Asia/Kuching` (the `timezone` column's

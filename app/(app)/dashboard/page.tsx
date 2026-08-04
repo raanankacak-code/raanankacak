@@ -128,6 +128,10 @@ export default async function DashboardPage() {
   const ongoingProjects = projects.filter((p) => p.status !== "COMPLETED");
   const totalContractValue = ongoingProjects.reduce((sum, p) => sum + (p.contractValue ? Number(p.contractValue) : 0), 0);
   const budgetUsage = totalContractValue ? Math.min(100, Math.round((laborCost / totalContractValue) * 100)) : 0;
+  // Rounded to a whole percent, early spend on a large contract lands on
+  // zero: RM 12,675 against RM 4.5m is 0.28%. A card headed "Labour Cost"
+  // reading 0% says nothing has been spent, which is a different claim.
+  const budgetUsageLabel = budgetUsage === 0 && laborCost > 0 ? "<1%" : `${budgetUsage}%`;
 
   const pendingRequestCount = requestCounts?.SUBMITTED ?? 0;
   const approvedRequestCount = requestCounts?.APPROVED ?? 0;
@@ -242,7 +246,7 @@ export default async function DashboardPage() {
         </div>
         <div className="kpi" style={{ ["--kpi-c" as string]: budgetUsage > 85 ? "var(--bad)" : "var(--amber)" }}>
           <div className="k-lbl">Labour Cost</div>
-          <div className="k-val">{budgetUsage}%</div>
+          <div className="k-val">{budgetUsageLabel}</div>
           <div className="k-sub">of {formatCurrency(totalContractValue)} contract value</div>
         </div>
       </div>
